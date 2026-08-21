@@ -106,16 +106,12 @@ async function writeMediaToDirectory(media: BackupMediaFile[], directory: string
   }
 }
 
-async function restoreDataWithRollback(payload: FullBackupPayload): Promise<void> {
+export async function restoreDataWithRollback(payload: FullBackupPayload): Promise<void> {
   const current = await AsyncStorage.multiGet(BACKUP_DATA_KEYS);
   const currentMap = new Map(current);
   const incomingKeys = Object.keys(payload.data).filter((key) => !LOCAL_SETTINGS_KEYS.has(key));
   try {
     if (incomingKeys.length) await AsyncStorage.multiSet(incomingKeys.map((key) => [key, payload.data[key]]));
-    if (payload.backupKind !== "partial") {
-      const absentKeys = BACKUP_DATA_KEYS.filter((key) => !LOCAL_SETTINGS_KEYS.has(key) && !Object.prototype.hasOwnProperty.call(payload.data, key));
-      if (absentKeys.length) await AsyncStorage.multiRemove(absentKeys);
-    }
   } catch (error) {
     const originalPairs = current.filter((entry): entry is [string, string] => entry[1] !== null) as [string, string][];
     const originallyEmpty = BACKUP_DATA_KEYS.filter((key) => !currentMap.get(key));

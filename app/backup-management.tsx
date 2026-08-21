@@ -14,7 +14,7 @@ import { BACKUP_SECTION_OPTIONS, createFullBackup, createPartialBackup, type Bac
 import { useApp } from "@/lib/app-context";
 import { deleteLocalBackup, listLocalBackups, previewLocalBackup, type LocalBackupFile } from "@/lib/storage-detail-manager";
 import { saveSelectedBackupsToPhone, shareSelectedBackups } from "@/lib/selected-backup-export";
-import { verifyLocalUserPassword } from "@/lib/storage";
+import { STORAGE_KEYS, verifyLocalUserPassword } from "@/lib/storage";
 import { formatStorageBytes } from "@/lib/storage-space-model";
 
 type CreateMode = "full" | "partial" | null;
@@ -34,7 +34,7 @@ export default function BackupManagementScreen() {
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [pendingRestore, setPendingRestore] = useState<PendingRestore | null>(null);
-  const [restoreMode, setRestoreMode] = useState<RestoreMode>("replace");
+  const [restoreMode, setRestoreMode] = useState<RestoreMode>("merge");
   const [lastRestore, setLastRestore] = useState<LastRestoreHistory | null>(null);
   const [restoreHistoryVisible, setRestoreHistoryVisible] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -80,7 +80,7 @@ export default function BackupManagementScreen() {
     try {
       const parsed = await previewLocalBackup(file);
       const mergePreview = await createMergePreview(parsed.payload);
-      setRestoreMode("replace");
+      setRestoreMode("merge");
       setPendingRestore({ label: file.filename, ...parsed, mergePreview });
     }
     catch { setSuccess("تعذر قراءة النسخة الاحتياطية. تأكد من أنها لم تتلف."); }
@@ -94,7 +94,7 @@ export default function BackupManagementScreen() {
       const asset = result.assets[0];
       const payload = await readBackupFromUri(asset.uri);
       const mergePreview = await createMergePreview(payload);
-      setRestoreMode("replace");
+      setRestoreMode("merge");
       setPendingRestore({ label: asset.name || "نسخة من الهاتف", payload, preview: createBackupPreview(payload), mergePreview });
     } catch (error) { setSuccess(error instanceof Error ? error.message : "تعذر قراءة النسخة المختارة من الهاتف."); }
   };
@@ -170,11 +170,17 @@ export default function BackupManagementScreen() {
     </TouchableOpacity>;
   };
 
+  const categoryGroup = pendingRestore?.mergePreview.groups.find((group) => group.key === STORAGE_KEYS.PRODUCT_CATEGORIES);
+  const categoryRestoreNotice = pendingRestore
+    ? Object.prototype.hasOwnProperty.call(pendingRestore.payload.data, STORAGE_KEYS.PRODUCT_CATEGORIES)
+      ? restoreMode === "merge"
+        ? ` الأصناف: سيُضاف ${categoryGroup?.added || 0}، ويُحدّث ${categoryGroup?.updated || 0}، ويبقى ${categoryGroup?.retained || 0} محلياً.`
+        : " الأصناف: ستتبدل فقط بأصناف النسخة، وتبقى الأصناف المحلية الغائبة عن النسخة محفوظة."
+      : " الأصناف: لا تحتوي النسخة المختارة على قسم الأصناف؛ ستبقى أصنافك المحلية كما هي."
+    : "";
   const restoreDescription = pendingRestore ? restoreMode === "merge"
-    ? "لا يحذف هذا النمط أي بيانات محلية. يضيف ما هو مفقود ويكتب بيانات النسخة فوق العناصر المطابقة بالاسم المنظّف."
-    : pendingRestore.preview.isPartial
-      ? "سيستبدل هذا النمط البيانات ضمن الأقسام الموجودة في النسخة فقط، ولن يحذف الأقسام الأخرى."
-      : "سيستبدل هذا النمط بيانات الأعمال الحالية بالنسخة، مع إبقاء إعدادات التطبيق المحلية محفوظة." : "";
+    ? `الخيار الموصى به: لا يحذف هذا النمط أي بيانات محلية. يضيف ما هو مفقود ويحدّث العناصر المطابقة بالاسم المنظّف.${categoryRestoreNotice}`
+    : `يستبدل هذا النمط بيانات الأقسام الموجودة في النسخة فقط، ولا يحذف الأقسام الغائبة.${categoryRestoreNotice}` : "";
 
   return <ScreenContainer containerClassName="bg-background">
     <View style={[styles.header, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface }]}><MaterialIcons name="arrow-forward" size={22} color={colors.foreground} /></TouchableOpacity><View style={styles.headerCopy}><Text style={[styles.headerTitle, { color: colors.foreground }]}>{selectionMode ? `${selectedUris.length} نسخة محددة` : "إدارة النسخ الاحتياطية"}</Text><Text style={[styles.headerSubtitle, { color: colors.muted }]}>{selectionMode ? "اضغط النسخ لتحديدها أو إلغاء تحديدها" : "إنشاء واستعادة وإدارة نسخ بيانات التطبيق"}</Text></View>{selectionMode ? <View style={styles.selectionHeaderActions}><TouchableOpacity accessibilityLabel="حفظ النسخ المحددة على الهاتف" disabled={!selectedUris.length || exporting !== null} onPress={() => void saveSelectedToPhone()} style={[styles.selectionHeaderAction, { backgroundColor: colors.surface, borderColor: colors.border, opacity: selectedUris.length ? 1 : 0.5 }]}>{exporting === "save" ? <ActivityIndicator size="small" color={colors.primary} /> : <><MaterialIcons name="save-alt" size={17} color={colors.primary} /><Text style={[styles.selectionHeaderActionText, { color: colors.primary }]}>حفظ</Text></>}</TouchableOpacity><TouchableOpacity accessibilityLabel="مشاركة النسخ المحددة" disabled={!selectedUris.length || exporting !== null} onPress={() => void shareSelected()} style={[styles.selectionHeaderAction, { backgroundColor: colors.surface, borderColor: colors.border, opacity: selectedUris.length ? 1 : 0.5 }]}>{exporting === "share" ? <ActivityIndicator size="small" color={colors.primary} /> : <><MaterialIcons name="share" size={17} color={colors.primary} /><Text style={[styles.selectionHeaderActionText, { color: colors.primary }]}>مشاركة</Text></>}</TouchableOpacity><TouchableOpacity onPress={exitSelection} style={styles.headerAction}><Text style={[styles.headerActionText, { color: colors.primary }]}>إلغاء</Text></TouchableOpacity></View> : null}</View>
