@@ -1,0 +1,50 @@
+name: بناء APK لأندرويد
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: ملف البناء
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+
+jobs:
+  build:
+    name: إنشاء حزمة Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: جلب المصدر
+        uses: actions/checkout@v4
+
+      - name: إعداد Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: إعداد pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: تثبيت الاعتمادات والتحقق
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check
+          pnpm test -- --run
+
+      - name: إعداد Expo وEAS
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: ربط المشروع وبناء Android
+        run: |
+          eas init --non-interactive || true
+          eas build --platform android --profile ${{ inputs.profile }} --non-interactive --no-wait

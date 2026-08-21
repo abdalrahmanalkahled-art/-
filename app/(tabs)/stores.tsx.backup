@@ -1,0 +1,513 @@
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  ScrollView,
+  Alert,
+  Image,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialIcons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
+import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
+import { useIsManager } from "@/lib/app-context";
+
+interface StoreItem {
+  id: string;
+  name: string;
+  ownerName: string;
+  phone: string;
+  region: string;
+  address: string;
+  category: string;
+  notes: string;
+  imageUri?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+const CATEGORIES = ["نخبة", "عادي", "ضعيف"];
+
+export default function StoresScreen() {
+  const colors = useColors();
+  const isManager = useIsManager();
+  const [stores, setStores] = useState<StoreItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [showModal, setShowModal] = useState(false);
+  const [editingStore, setEditingStore] = useState<StoreItem | null>(null);
+  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ visible: boolean; storeId: string }>({ visible: false, storeId: "" });
+  const [form, setForm] = useState({
+    name: "",
+    ownerName: "",
+    phone: "",
+    region: "",
+    address: "",
+    category: "عادي",
+    notes: "",
+    imageUri: "",
+  });
+
+  const loadStores = useCallback(async () => {
+    const data = await getItems<StoreItem>(STORAGE_KEYS.STORES);
+    setStores(data.filter((s) => s.isActive));
+  }, []);
+
+  useEffect(() => { loadStores(); }, [loadStores]);
+
+  const filtered = stores.filter((s) => {
+    const matchSearch = s.name.includes(search) || s.region.includes(search) || s.ownerName.includes(search);
+    const matchCat = filterCategory === "all" || s.category === filterCategory;
+    return matchSearch && matchCat;
+  });
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('خطأ', 'نحتاج إلى إذن الوصول إلى المعرض');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setForm({ ...form, imageUri: result.assets[0].uri });
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('خطأ', 'نحتاج إلى إذن الوصول إلى الكاميرا');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setForm({ ...form, imageUri: result.assets[0].uri });
+    }
+  };
+
+  const showImagePickerOptions = () => {
+    setShowImagePickerModal(true);
+  };
+
+  const handleCameraPress = async () => {
+    setShowImagePickerModal(false);
+    await takePhoto();
+  };
+
+  const handleGalleryPress = async () => {
+    setShowImagePickerModal(false);
+    await pickImage();
+  };
+
+  const openAddModal = () => {
+    setEditingStore(null);
+    setForm({ name: "", ownerName: "", phone: "", region: "", address: "", category: "عادي", notes: "", imageUri: "" });
+    setShowModal(true);
+  };
+
+  const openEditModal = (store: StoreItem) => {
+    setEditingStore(store);
+    setForm({ name: store.name, ownerName: store.ownerName || "", phone: store.phone || "", region: store.region || "", address: store.address || "", category: store.category, notes: store.notes || "", imageUri: store.imageUri || "" });
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      Alert.alert("خطأ", "يرجى إدخال اسم المحل");
+      return;
+    }
+    const allStores = await getItems<StoreItem>(STORAGE_KEYS.STORES);
+    if (editingStore) {
+      const updated = allStores.map((s) => s.id === editingStore.id ? { ...s, ...form } : s);
+      await saveItems(STORAGE_KEYS.STORES, updated);
+    } else {
+      const newStore: StoreItem = {
+        id: Date.now().toString(),
+        ...form,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      };
+      await saveItems(STORAGE_KEYS.STORES, [...allStores, newStore]);
+    }
+    setShowModal(false);
+    await loadStores();
+    Alert.alert("نجح", "تم حفظ المحل بنجاح");
+  };
+
+  const handleDelete = (id: string) => {
+    if (!isManager) return;
+    setDeleteConfirmation({ visible: true, storeId: id });
+  };
+
+  const confirmDelete = async () => {
+    const { storeId } = deleteConfirmation;
+    const allStores = await getItems<StoreItem>(STORAGE_KEYS.STORES);
+    const updated = allStores.map((s) => s.id === storeId ? { ...s, isActive: false } : s);
+    await saveItems(STORAGE_KEYS.STORES, updated);
+    setDeleteConfirmation({ visible: false, storeId: "" });
+    loadStores();
+  };
+
+  const getCategoryColor = (cat: string) => {
+    switch (cat) {
+      case "نخبة": return colors.success;
+      case "ضعيف": return colors.error;
+      default: return colors.warning;
+    }
+  };
+
+  const renderStore = ({ item }: { item: StoreItem }) => (
+    <TouchableOpacity
+      style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      onPress={() => openEditModal(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardTop}>
+        <View style={styles.cardTopLeft}>
+          <View style={[styles.catBadge, { backgroundColor: getCategoryColor(item.category) + "20" }]}>
+            <Text style={[styles.catText, { color: getCategoryColor(item.category) }]}>{item.category}</Text>
+          </View>
+        </View>
+        <View style={styles.cardTitleSection}>
+          <Text style={[styles.storeName, { color: colors.foreground }]}>{item.name}</Text>
+        </View>
+        <View style={[styles.storeIcon, { backgroundColor: colors.primary + "20" }]}>
+          <MaterialIcons name="store" size={16} color={colors.primary} />
+        </View>
+      </View>
+      <View style={[styles.cardBody, { borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 12, marginBottom: 12 }]}>
+        {item.ownerName ? (
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoText, { color: colors.muted }]}>{item.ownerName}</Text>
+            <MaterialIcons name="person" size={14} color={colors.muted} />
+          </View>
+        ) : null}
+        {item.region ? (
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoText, { color: colors.muted }]}>{item.region}</Text>
+            <MaterialIcons name="location-on" size={14} color={colors.muted} />
+          </View>
+        ) : null}
+        {item.address ? (
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoText, { color: colors.muted }]}>{item.address}</Text>
+            <MaterialIcons name="location-city" size={14} color={colors.muted} />
+          </View>
+        ) : null}
+        {item.phone ? (
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoText, { color: colors.muted }]}>{item.phone}</Text>
+            <MaterialIcons name="phone" size={14} color={colors.muted} />
+          </View>
+        ) : null}
+      </View>
+      {isManager && (
+        <View style={[styles.cardFooter, { justifyContent: "center" }]}>
+          <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item.id)}>
+            <MaterialIcons name="delete-outline" size={18} color={colors.error} />
+            <Text style={[styles.deleteBtnText, { color: colors.error }]}>حذف</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+
+  return (
+    <ScreenContainer containerClassName="bg-background">
+      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={openAddModal} style={[styles.addBtn, { backgroundColor: colors.primary }]}>
+          <MaterialIcons name="add" size={22} color="#fff" />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>إدارة المحلات ({stores.length})</Text>
+      </View>
+
+      <View style={[styles.searchBar, { backgroundColor: colors.surface }]}>
+        <TextInput
+          style={[styles.searchInput, { color: colors.foreground }]}
+          placeholder="بحث بالاسم أو المنطقة..."
+          placeholderTextColor={colors.muted}
+          value={search}
+          onChangeText={setSearch}
+          textAlign="right"
+        />
+        <MaterialIcons name="search" size={20} color={colors.muted} />
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
+        {[{ value: "all", label: "الكل" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))].map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.filterChip, filterCategory === opt.value && { backgroundColor: colors.primary }]}
+            onPress={() => setFilterCategory(opt.value)}
+          >
+            <Text style={[styles.filterChipText, { color: filterCategory === opt.value ? "#fff" : colors.muted }]}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        renderItem={renderStore}
+        contentContainerStyle={styles.list}
+        numColumns={1}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <MaterialIcons name="store" size={48} color={colors.muted} />
+            <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد محلات</Text>
+            <TouchableOpacity onPress={openAddModal} style={[styles.emptyBtn, { backgroundColor: colors.primary }]}>
+              <Text style={styles.emptyBtnText}>إضافة محل</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
+
+      <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1, backgroundColor: colors.background }}
+        >
+        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity onPress={() => setShowModal(false)}>
+              <MaterialIcons name="close" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.foreground }]}>
+              {editingStore ? "تعديل المحل" : "محل جديد"}
+            </Text>
+            <TouchableOpacity onPress={handleSave} style={[styles.saveBtn, { backgroundColor: colors.primary }]}>
+              <Text style={styles.saveBtnText}>حفظ</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
+            {[
+              { key: "name", label: "اسم المحل *", placeholder: "أدخل اسم المحل" },
+              { key: "ownerName", label: "اسم المالك", placeholder: "أدخل اسم المالك" },
+              { key: "phone", label: "رقم الهاتف", placeholder: "أدخل رقم الهاتف", keyboardType: "phone-pad" as const },
+              { key: "region", label: "المنطقة", placeholder: "أدخل المنطقة" },
+              { key: "address", label: "العنوان التفصيلي", placeholder: "أدخل العنوان" },
+            ].map((field) => (
+              <View key={field.key} style={styles.formGroup}>
+                <Text style={[styles.formLabel, { color: colors.foreground }]}>{field.label}</Text>
+                <TextInput
+                  style={[styles.formInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                  value={(form as any)[field.key]}
+                  onChangeText={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+                  placeholder={field.placeholder}
+                  placeholderTextColor={colors.muted}
+                  keyboardType={field.keyboardType || "default"}
+                  textAlign="right"
+                />
+              </View>
+            ))}
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: colors.foreground }]}>التصنيف</Text>
+              <View style={styles.catOptions}>
+                {CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat}
+                    style={[styles.catOption, form.category === cat && { backgroundColor: getCategoryColor(cat) }]}
+                    onPress={() => setForm((f) => ({ ...f, category: cat }))}
+                  >
+                    <Text style={[styles.catOptionText, { color: form.category === cat ? "#fff" : colors.muted }]}>{cat}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: colors.foreground }]}>الصورة (اختيارية)</Text>
+              {form.imageUri ? (
+                <View style={styles.imagePreview}>
+                  <Image source={{ uri: form.imageUri }} style={styles.previewImage} />
+                  <TouchableOpacity
+                    onPress={() => setForm((f) => ({ ...f, imageUri: "" }))}
+                    style={[styles.removeImageBtn, { backgroundColor: colors.error }]}
+                  >
+                    <MaterialIcons name="close" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => showImagePickerOptions()}
+                  style={[styles.imagePickerBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <MaterialIcons name="add-a-photo" size={24} color={colors.primary} />
+                  <Text style={[styles.imagePickerText, { color: colors.primary }]}>اختر صورة</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: colors.foreground }]}>ملاحظات</Text>
+              <TextInput
+                style={[styles.formInput, styles.textArea, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
+                value={form.notes}
+                onChangeText={(v) => setForm((f) => ({ ...f, notes: v }))}
+                placeholder="ملاحظات..."
+                placeholderTextColor={colors.muted}
+                multiline
+                numberOfLines={3}
+                textAlign="right"
+                textAlignVertical="top"
+              />
+            </View>
+          </ScrollView>
+        </View>
+        </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Image Picker Modal */}
+      <Modal
+        visible={showImagePickerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImagePickerModal(false)}
+      >
+        <View style={[styles.imagePickerOverlay, { backgroundColor: colors.background + "CC" }]}>
+          <View style={[styles.imagePickerContent, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.imagePickerTitle, { color: colors.foreground }]}>اختر صورة</Text>
+            <TouchableOpacity
+              onPress={handleCameraPress}
+              style={[styles.imagePickerOption, { borderBottomColor: colors.border }]}
+            >
+              <MaterialIcons name="camera-alt" size={24} color={colors.primary} />
+              <Text style={[styles.imagePickerOptionText, { color: colors.foreground }]}>الكاميرا</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleGalleryPress}
+              style={styles.imagePickerOption}
+            >
+              <MaterialIcons name="image" size={24} color={colors.primary} />
+              <Text style={[styles.imagePickerOptionText, { color: colors.foreground }]}>المعرض</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowImagePickerModal(false)}
+              style={[styles.imagePickerCancel, { backgroundColor: colors.muted + "20" }]}
+            >
+              <Text style={[styles.imagePickerCancelText, { color: colors.foreground }]}>إلغاء</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={deleteConfirmation.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDeleteConfirmation({ visible: false, storeId: "" })}
+      >
+        <View style={styles.deleteConfirmOverlay}>
+          <View style={[styles.deleteConfirmBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <MaterialIcons name="warning" size={48} color={colors.error} style={{ marginBottom: 12 }} />
+            <Text style={[styles.deleteConfirmTitle, { color: colors.foreground }]}>حذف المحل</Text>
+            <Text style={[styles.deleteConfirmMessage, { color: colors.muted }]}>هل أنت متأكد من حذف هذا المحل؟ لا يمكن التراجع عن هذه العملية.</Text>
+            <View style={styles.deleteConfirmButtons}>
+              <TouchableOpacity
+                style={[styles.deleteConfirmCancel, { backgroundColor: colors.muted + "20" }]}
+                onPress={() => setDeleteConfirmation({ visible: false, storeId: "" })}
+              >
+                <Text style={[styles.deleteConfirmCancelText, { color: colors.foreground }]}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteConfirmDelete, { backgroundColor: colors.error }]}
+                onPress={confirmDelete}
+              >
+                <Text style={styles.deleteConfirmDeleteText}>حذف</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 0.5 },
+  headerTitle: { fontSize: 18, fontWeight: "700" },
+  addBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  searchBar: { flexDirection: "row", alignItems: "center", margin: 12, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  searchInput: { flex: 1, fontSize: 15 },
+  filterRow: { maxHeight: 44 },
+  filterContent: { paddingHorizontal: 12, gap: 8, alignItems: "center" },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "#E5E7EB" },
+  filterChipText: { fontSize: 13, fontWeight: "500" },
+  list: { padding: 12, gap: 10 },
+  card: { borderRadius: 14, padding: 14, borderWidth: 1, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  cardTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 10 },
+  cardTopLeft: { flex: 0 },
+  cardTitleSection: { flex: 1 },
+  storeName: { fontSize: 15, fontWeight: "700", flex: 1, textAlign: "right" },
+  storeIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  catBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, alignItems: "center", justifyContent: "center" },
+  catText: { fontSize: 12, fontWeight: "600", textAlign: "center" },
+  cardBody: { gap: 4 },
+  infoRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 },
+  infoText: { fontSize: 13 },
+  cardFooter: { flexDirection: "row", justifyContent: "flex-end" },
+  deleteBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  deleteBtnText: { fontSize: 14, fontWeight: "600" },
+  empty: { alignItems: "center", paddingVertical: 60, gap: 12 },
+  emptyText: { fontSize: 16 },
+  emptyBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  emptyBtnText: { color: "#fff", fontWeight: "600" },
+  modal: { flex: 1 },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 0.5 },
+  modalTitle: { fontSize: 17, fontWeight: "700" },
+  saveBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
+  saveBtnText: { color: "#fff", fontWeight: "600" },
+  modalContent: { flex: 1, padding: 16 },
+  formGroup: { marginBottom: 16 },
+  formLabel: { fontSize: 14, fontWeight: "600", marginBottom: 8, textAlign: "right" },
+  formInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15 },
+  textArea: { height: 80 },
+  catOptions: { flexDirection: "row", gap: 10 },
+  catOption: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: "#E5E7EB", alignItems: "center" },
+  catOptionText: { fontSize: 14, fontWeight: "600" },
+  imagePreview: { position: "relative" as const, borderRadius: 10, overflow: "hidden", marginBottom: 12, width: "100%" },
+  previewImage: { width: "100%", height: 200, borderRadius: 10 },
+  removeImageBtn: { position: "absolute" as const, top: 8, right: 8, width: 32, height: 32, borderRadius: 16, alignItems: "center" as const, justifyContent: "center" as const, zIndex: 10 },
+  imagePickerBtn: { borderWidth: 2, borderRadius: 10, borderStyle: "dashed" as const, paddingVertical: 32, paddingHorizontal: 16, alignItems: "center" as const, justifyContent: "center" as const, gap: 12, width: "100%" },
+  imagePickerText: { fontSize: 14, fontWeight: "600" },
+  imagePickerOverlay: { flex: 1, alignItems: "center" as const, justifyContent: "flex-end" as const },
+  imagePickerContent: { width: "100%", borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, paddingVertical: 16, paddingHorizontal: 16 },
+  imagePickerTitle: { fontSize: 18, fontWeight: "700", marginBottom: 16, textAlign: "center" },
+  imagePickerOption: { flexDirection: "row" as const, alignItems: "center" as const, paddingVertical: 16, paddingHorizontal: 12, gap: 16, borderBottomWidth: 1 },
+  imagePickerOptionText: { fontSize: 16, fontWeight: "500" },
+  imagePickerCancel: { marginTop: 12, paddingVertical: 12, borderRadius: 10, alignItems: "center" as const },
+  imagePickerCancelText: { fontSize: 16, fontWeight: "600" },
+  deleteConfirmOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center" as const, justifyContent: "center" as const },
+  deleteConfirmBox: { borderRadius: 16, padding: 24, alignItems: "center" as const, width: "80%", borderWidth: 1 },
+  deleteConfirmTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
+  deleteConfirmMessage: { fontSize: 14, marginBottom: 24, textAlign: "center" as const },
+  deleteConfirmButtons: { flexDirection: "row" as const, gap: 12, width: "100%" },
+  deleteConfirmCancel: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" as const },
+  deleteConfirmCancelText: { fontSize: 16, fontWeight: "600" },
+  deleteConfirmDelete: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" as const },
+  deleteConfirmDeleteText: { fontSize: 16, fontWeight: "600", color: "#fff" },
+});

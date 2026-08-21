@@ -1,48 +1,89 @@
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { router, useFocusEffect } from "expo-router";
 
+import { AlertCard } from "@/components/ui/alert-card";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { AnimatedPressable } from "@/components/animated-pressable";
 import { ScreenContainer } from "@/components/screen-container";
+import { useColors } from "@/hooks/use-colors";
+import { useApp, useHasPermission } from "@/lib/app-context";
+import { loadAppSettings } from "@/lib/app-settings";
+import { DEFAULT_DASHBOARD_SETTINGS, type DashboardChartId, type DashboardSectionId, type DashboardSettings } from "@/lib/dashboard-settings-model";
+import { buildDashboardNotifications, syncNotificationCenter, unreadNotificationCount } from "@/lib/notification-center";
+import type { AppNotification } from "@/lib/notifications-model";
+import { getItems, STORAGE_KEYS } from "@/lib/storage";
 
-/**
- * Home Screen - NativeWind Example
- *
- * This template uses NativeWind (Tailwind CSS for React Native).
- * You can use familiar Tailwind classes directly in className props.
- *
- * Key patterns:
- * - Use `className` instead of `style` for most styling
- * - Theme colors: use tokens directly (bg-background, text-foreground, bg-primary, etc.); no dark: prefix needed
- * - Responsive: standard Tailwind breakpoints work on web
- * - Custom colors defined in tailwind.config.js
- */
-export default function HomeScreen() {
-  return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="flex-1 gap-8">
-          {/* Hero Section */}
-          <View className="items-center gap-2">
-            <Text className="text-4xl font-bold text-foreground">Welcome</Text>
-            <Text className="text-base text-muted text-center">
-              Edit app/(tabs)/index.tsx to get started
-            </Text>
-          </View>
-
-          {/* Example Card */}
-          <View className="w-full max-w-sm self-center bg-surface rounded-2xl p-6 shadow-sm border border-border">
-            <Text className="text-lg font-semibold text-foreground mb-2">NativeWind Ready</Text>
-            <Text className="text-sm text-muted leading-relaxed">
-              Use Tailwind CSS classes directly in your React Native components.
-            </Text>
-          </View>
-
-          {/* Example Button */}
-          <View className="items-center">
-            <TouchableOpacity className="bg-primary px-6 py-3 rounded-full active:opacity-80">
-              <Text className="text-background font-semibold">Get Started</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </ScreenContainer>
-  );
+type Point = { label: string; value: number; color?: string };
+interface DashboardData {
+  eventsCount: number; completedEventsCount: number; totalExpenses: number; totalBudget: number; storesCount: number; surveysCount: number; avgPresence: number;
+  lowStockItems: { id: string; name: string; currentQuantity: number; minimumQuantity: number }[];
+  delayedTasks: { id: string; title: string; dueDate: string }[]; upcomingEvents: { id: string; title: string; eventDate: string }[]; maintenanceTools: { id: string; name: string; condition: string }[];
+  recentActivities: { id: string; title: string; subtitle: string; date: string; icon: keyof typeof MaterialIcons.glyphMap; color: string; route: string }[];
+  goalsProgress: { id: string; title: string; completionPercentage: number; status: string }[];
+  expenseTrend: Point[]; presenceTrend: Point[]; activityTrend: Point[];
 }
+
+const EMPTY_DASHBOARD: DashboardData = { eventsCount: 0, completedEventsCount: 0, totalExpenses: 0, totalBudget: 0, storesCount: 0, surveysCount: 0, avgPresence: 0, lowStockItems: [], delayedTasks: [], upcomingEvents: [], maintenanceTools: [], recentActivities: [], goalsProgress: [], expenseTrend: [], presenceTrend: [], activityTrend: [] };
+const MONTHS = Array.from({ length: 4 }, (_, index) => { const date = new Date(); date.setMonth(date.getMonth() - (3 - index)); return date; });
+
+function isUpcoming(eventDate: string, now = new Date()) { const difference = new Date(eventDate).getTime() - now.getTime(); return difference >= 0 && difference <= 2 * 24 * 60 * 60 * 1000; }
+function monthKey(value: Date) { return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`; }
+function shortMonth(value: Date) { return new Intl.DateTimeFormat("ar-SY", { month: "short" }).format(value); }
+function presence(result: any) { const answers = Array.isArray(result.data) ? result.data : []; return answers.length ? answers.filter((answer: any) => answer.present).length * 100 / answers.length : 0; }
+
+function SectionHeader({ title, icon, action, onAction }: { title: string; icon: keyof typeof MaterialIcons.glyphMap; action?: string; onAction?: () => void }) {
+  const colors = useColors();
+  return <View style={styles.sectionHeader}>{action ? <AnimatedPressable onPress={onAction} hapticFeedback><Text style={[styles.sectionAction, { color: colors.primary }]}>{action}</Text></AnimatedPressable> : <View />}<View style={styles.sectionTitleRow}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>{title}</Text><MaterialIcons name={icon} size={18} color={colors.primary} /></View></View>;
+}
+
+function CompactChart({ title, subtitle, points, format = (value: number) => String(Math.round(value)) }: { title: string; subtitle: string; points: Point[]; format?: (value: number) => string }) {
+  const colors = useColors(); const maximum = Math.max(...points.map((point) => point.value), 1);
+  return <View style={[styles.chartCard, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={styles.chartHeader}><View style={styles.chartText}><Text style={[styles.chartTitle, { color: colors.foreground }]}>{title}</Text><Text style={[styles.chartSubtitle, { color: colors.muted }]}>{subtitle}</Text></View><MaterialIcons name="insights" size={19} color={colors.primary} /></View>{points.length ? <View style={styles.bars}>{points.map((point) => <View key={point.label} style={styles.barColumn}><Text style={[styles.barValue, { color: colors.foreground }]}>{format(point.value)}</Text><View style={[styles.barTrack, { backgroundColor: colors.background }]}><View style={[styles.barFill, { height: `${Math.max(point.value / maximum * 100, 5)}%`, backgroundColor: point.color || colors.primary }]} /></View><Text numberOfLines={1} style={[styles.barLabel, { color: colors.muted }]}>{point.label}</Text></View>)}</View> : <View style={styles.emptyChart}><MaterialIcons name="query-stats" size={24} color={colors.muted} /><Text style={[styles.emptyChartText, { color: colors.muted }]}>ستظهر البيانات مع أول نشاط مسجل</Text></View>}</View>;
+}
+
+export default function DashboardScreen() {
+  const colors = useColors(); const { user } = useApp();
+  const canCreateSurvey = useHasPermission("surveys", "create");
+  const canCreateEvent = useHasPermission("events", "create");
+  const canCreateStore = useHasPermission("stores", "create");
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD); const [notifications, setNotifications] = useState<AppNotification[]>([]); const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings>(DEFAULT_DASHBOARD_SETTINGS); const [refreshing, setRefreshing] = useState(false);
+  const loadData = useCallback(async () => {
+    try {
+      const [events, expenses, budgets, stores, surveyResults, warehouseItems, tools, tasks, goals, products, roadContracts, appSettings] = await Promise.all([
+        getItems<any>(STORAGE_KEYS.EVENTS), getItems<any>(STORAGE_KEYS.EXPENSES), getItems<any>(STORAGE_KEYS.BUDGETS), getItems<any>(STORAGE_KEYS.STORES), getItems<any>(STORAGE_KEYS.SURVEY_RESULTS), getItems<any>(STORAGE_KEYS.WAREHOUSE_ITEMS), getItems<any>(STORAGE_KEYS.WAREHOUSE_TOOLS), getItems<any>(STORAGE_KEYS.MARKETING_TASKS), getItems<any>(STORAGE_KEYS.MARKETING_GOALS), getItems<any>(STORAGE_KEYS.PRODUCTS), getItems<any>(STORAGE_KEYS.ROAD_SIGNAGE_CONTRACTS), loadAppSettings(),
+      ]);
+      const today = new Date().toISOString().slice(0, 10); const totalExpenses = expenses.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0); const totalBudget = budgets.reduce((sum: number, item: any) => sum + Number(item.totalBudget || 0), 0); const avgPresence = surveyResults.length ? surveyResults.reduce((sum: number, result: any) => sum + presence(result), 0) / surveyResults.length : 0;
+      const lowStockItems = warehouseItems.filter((item: any) => Number(item.currentQuantity) <= Number(item.minimumQuantity)); const delayedTasks = tasks.filter((task: any) => task.status !== "completed" && task.dueDate && task.dueDate < today); const upcomingEvents = events.filter((event: any) => event.status !== "cancelled" && event.eventDate && isUpcoming(event.eventDate)); const maintenanceTools = tools.filter((tool: any) => ["needs_repair", "damaged"].includes(tool.condition));
+      const expenseTrend = MONTHS.map((month) => ({ label: shortMonth(month), value: expenses.filter((item: any) => String(item.expenseDate || item.createdAt || "").startsWith(monthKey(month))).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0), color: colors.primary }));
+      const selectedProduct = products.find((product: any) => product.id === appSettings.dashboard.presenceProductId);
+      const presenceTrend = selectedProduct ? surveyResults.filter((result: any) => Array.isArray(result.data) && result.data.some((answer: any) => answer.productId === selectedProduct.id)).slice(-4).map((result: any, index: number) => ({ label: result.surveyDate || `زيارة ${index + 1}`, value: result.data.find((answer: any) => answer.productId === selectedProduct.id)?.present ? 100 : 0, color: colors.success })) : [];
+      const recentActivities = [...events.map((event: any) => ({ id: `event:${event.id}`, title: event.title || "فعالية", subtitle: event.location || "فعالية ميدانية", date: event.eventDate || event.createdAt, icon: "event" as const, color: colors.primary, route: "/(tabs)/events" })), ...surveyResults.map((result: any) => ({ id: `survey:${result.id}`, title: result.storeName || "استبيان ميداني", subtitle: `${result.templateName || "استبيان"} • ${result.storeRegion || "بدون منطقة"}`, date: result.surveyDate || result.createdAt, icon: "assignment" as const, color: colors.accent, route: "/(tabs)/surveys" }))].filter((activity) => activity.date).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 4);
+      const dashboard = { eventsCount: events.length, completedEventsCount: events.filter((event: any) => event.status === "completed").length, totalExpenses, totalBudget, storesCount: stores.filter((store: any) => store.isActive !== false).length, surveysCount: surveyResults.length, avgPresence, lowStockItems, delayedTasks, upcomingEvents, maintenanceTools, recentActivities, goalsProgress: goals.slice(0, 3), expenseTrend, presenceTrend, activityTrend: [{ label: "فعاليات", value: events.length, color: colors.primary }, { label: "محلات", value: stores.filter((item: any) => item.isActive !== false).length, color: colors.secondary }, { label: "استبيانات", value: surveyResults.length, color: colors.accent }] };
+      setDashboardSettings(appSettings.dashboard); setData(dashboard); setNotifications(await syncNotificationCenter(buildDashboardNotifications({ lowStockItems, delayedTasks, upcomingEvents, maintenanceTools, roadsideContracts: roadContracts.filter((contract: any) => contract.status === "active"), roadsideReminderDays: appSettings.roadsideContractReminderDays })));
+    } catch (error) { console.error("Error loading dashboard data:", error); }
+  }, [colors.accent, colors.primary, colors.secondary, colors.success]);
+  useEffect(() => { void loadData(); }, [loadData]); useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
+  const budgetPercentage = data.totalBudget > 0 ? Math.min(data.totalExpenses / data.totalBudget * 100, 100) : 0; const unread = unreadNotificationCount(notifications); const alerts = notifications.filter((notification) => !notification.isRead).slice(0, 3).map((notification) => ({ id: notification.id, type: notification.type === "task" ? "error" as const : notification.type === "stock" || notification.type === "tool" ? "warning" as const : "info" as const, title: notification.title, message: notification.message })); const greeting = new Date().getHours() < 12 ? "صباح الخير" : new Date().getHours() < 17 ? "مساء الخير" : "مساء النور";
+  const enabled = useCallback((id: DashboardSectionId) => dashboardSettings.enabledSections.includes(id), [dashboardSettings.enabledSections]);
+  const charts = useMemo(() => dashboardSettings.enabledCharts, [dashboardSettings.enabledCharts]);
+  const renderSection = (id: DashboardSectionId) => {
+    if (id === "dailyFocus") return <View key={id} style={[styles.hero, { backgroundColor: colors.primary }]}><View style={styles.heroTop}><AnimatedPressable style={styles.avatar} onPress={() => router.push("/settings" as any)} hapticFeedback><Text style={styles.avatarText}>{user?.name?.[0] || "م"}</Text></AnimatedPressable><View style={styles.heroText}><Text style={styles.greeting}>{greeting}، {user?.name?.split(" ")[0] || "مدير"}</Text><Text style={styles.date}>{new Date().toLocaleDateString("ar-SY", { weekday: "long", day: "numeric", month: "long" })}</Text></View><AnimatedPressable style={styles.notificationButton} onPress={() => router.push("/notifications" as any)} hapticFeedback><MaterialIcons name="notifications-none" size={23} color="#fff" />{unread > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}</AnimatedPressable></View><AnimatedPressable style={styles.dailyReportCard} onPress={() => router.push("/daily-report" as any)} hapticFeedback><View style={styles.dailyReportIcon}><MaterialIcons name="summarize" size={24} color={colors.primary} /></View><View style={styles.dailyReportText}><Text style={styles.dailyReportTitle}>التقرير اليومي</Text><Text style={styles.dailyReportSubtitle}>لخّص زيارات اليوم والاستبيانات والصور</Text></View><MaterialIcons name="arrow-back" size={20} color="#fff" /></AnimatedPressable></View>;
+    if (id === "metrics") return <View key={id} style={styles.section}><SectionHeader title="بيانات العمل" icon="monitor-heart" /><View style={[styles.metricPanel, { backgroundColor: colors.surface, borderColor: colors.border }]}>{[["event", data.eventsCount, "فعاليات", colors.primary, "/(tabs)/events"], ["store", data.storesCount, "محلات", colors.secondary, "/(tabs)/stores"], ["assignment", data.surveysCount, "استبيانات", colors.accent, "/(tabs)/surveys"], ["equalizer", `${Math.round(data.avgPresence)}%`, "تواجد", data.avgPresence >= 70 ? colors.success : colors.warning, ""]].map(([icon, value, label, color, route]) => <AnimatedPressable key={String(label)} style={[styles.metric, { borderColor: `${color}22` }] as any} onPress={() => { if (route) router.push(route as any); }} hapticFeedback><View style={styles.metricVisual}><View style={[styles.metricIcon, { backgroundColor: `${color}16` }]}><MaterialIcons name={icon as any} size={19} color={color as string} /></View><Text numberOfLines={1} style={[styles.metricValue, { color: colors.foreground }]}>{typeof value === "number" ? value.toLocaleString("en-US") : value}</Text></View><Text numberOfLines={1} style={[styles.metricLabel, { color: colors.muted }]}>{label}</Text></AnimatedPressable>)}</View></View>;
+    if (id === "charts" && charts.length) return <View key={id} style={styles.section}><SectionHeader title="لوحة المتابعة" icon="query-stats" action="تخصيص" onAction={() => router.push("/settings" as any)} />{charts.map((chart: DashboardChartId) => chart === "presence" ? <CompactChart key={chart} title="اتجاه تواجد المنتج" subtitle={dashboardSettings.presenceProductId ? "تواجد المنتج في أحدث الزيارات" : "حدّد منتجاً من إعدادات الرئيسية"} points={data.presenceTrend} format={(value) => `${Math.round(value)}%`} /> : <CompactChart key={chart} title="النشاط الميداني" subtitle="ملخص السجلات الحالية" points={data.activityTrend} />)}</View>;
+    if (id === "alerts") return <View key={id} style={styles.section}><SectionHeader title="يتطلب انتباهك" icon="notifications-active" action="عرض الكل" onAction={() => router.push("/notifications" as any)} />{alerts.length ? <AlertCard alerts={alerts} onPress={() => router.push("/notifications" as any)} /> : <View style={[styles.calmCard, { backgroundColor: colors.surface, borderColor: colors.border }]}><MaterialIcons name="task-alt" size={21} color={colors.success} /><Text style={[styles.calmText, { color: colors.muted }]}>كل شيء تحت السيطرة اليوم</Text></View>}</View>;
+    if (id === "quickActions") { const actions = [{ id: "survey", icon: "assignment-add", label: "استبيان", color: colors.accent, route: "/(tabs)/surveys", allowed: canCreateSurvey }, { id: "event", icon: "add-circle", label: "فعالية", color: colors.primary, route: "/(tabs)/events", allowed: canCreateEvent }, { id: "store", icon: "storefront", label: "محل", color: colors.secondary, route: "/(tabs)/stores", allowed: canCreateStore }, { id: "dailyReport", icon: "summarize", label: "تقرير يومي", color: colors.warning, route: "/daily-report", allowed: true }]; return <View key={id} style={styles.section}><SectionHeader title="ابدأ مهمة" icon="bolt" /><View style={styles.actionGrid}>{actions.filter((action) => action.allowed && dashboardSettings.enabledQuickActions.includes(action.id as any)).map((action) => <AnimatedPressable key={action.id} style={[styles.quickAction, { backgroundColor: `${action.color}12`, borderColor: `${action.color}2B` }] as any} onPress={() => router.push(action.route as any)} hapticFeedback><MaterialIcons name={action.icon as any} size={20} color={action.color} /><Text style={[styles.quickLabel, { color: action.color }]}>{action.label}</Text></AnimatedPressable>)}</View></View>; }
+    if (id === "goals" && data.goalsProgress.length) return <View key={id} style={styles.section}><SectionHeader title="أولويات الخطة" icon="flag" action="الخطة" onAction={() => router.push("/(tabs)/more" as any)} /><View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>{data.goalsProgress.map((goal) => <View key={goal.id} style={styles.goalItem}><ProgressBar value={goal.completionPercentage} label={goal.title} color={goal.status === "delayed" ? colors.error : undefined} /></View>)}</View></View>;
+    if (id === "activity" && data.recentActivities.length) return <View key={id} style={styles.section}><SectionHeader title="آخر النشاطات" icon="history" /><View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>{data.recentActivities.map((activity, index) => <AnimatedPressable key={activity.id} style={[styles.activity, index < data.recentActivities.length - 1 ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border } : {}] as any} onPress={() => router.push(activity.route as any)} hapticFeedback><MaterialIcons name="chevron-left" size={19} color={colors.muted} /><View style={styles.activityText}><Text style={[styles.activityTitle, { color: colors.foreground }]}>{activity.title}</Text><Text style={[styles.activitySubtitle, { color: colors.muted }]}>{activity.subtitle}</Text></View><View style={[styles.activityIcon, { backgroundColor: activity.color + "17" }]}><MaterialIcons name={activity.icon as any} size={18} color={activity.color} /></View></AnimatedPressable>)}</View></View>;
+    return null;
+  };
+  return <ScreenContainer containerClassName="bg-background"><ScrollView style={styles.scroll} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadData(); setRefreshing(false); }} tintColor={colors.primary} />} showsVerticalScrollIndicator={false}><View style={styles.phoneFrame}>{dashboardSettings.enabledSections.filter(enabled).map(renderSection)}<View style={styles.bottomPadding} /></View></ScrollView></ScreenContainer>;
+}
+
+const styles = StyleSheet.create({
+  scroll: { flex: 1 }, content: { paddingBottom: 18, alignItems: "center" }, phoneFrame: { width: "100%", maxWidth: 480 }, hero: { marginHorizontal: 14, marginTop: 12, borderRadius: 24, padding: 16, shadowColor: "#0F3B8F", shadowOpacity: 0.18, shadowRadius: 15, shadowOffset: { width: 0, height: 7 }, elevation: 5 }, heroTop: { flexDirection: "row", alignItems: "center", gap: 10 }, heroText: { flex: 1, alignItems: "flex-end" }, greeting: { color: "#fff", fontSize: 18, fontWeight: "800" as any }, date: { color: "rgba(255,255,255,0.78)", fontSize: 11, marginTop: 3 }, avatar: { width: 40, height: 40, borderRadius: 14, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(255,255,255,0.17)" }, avatarText: { color: "#fff", fontSize: 17, fontWeight: "800" as any }, notificationButton: { width: 40, height: 40, borderRadius: 14, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(255,255,255,0.14)" }, badge: { position: "absolute", top: -4, right: -4, minWidth: 17, height: 17, borderRadius: 9, justifyContent: "center", alignItems: "center", paddingHorizontal: 3, backgroundColor: "#F97316" }, badgeText: { color: "#fff", fontSize: 9, fontWeight: "800" as any }, budgetCard: { marginTop: 16, padding: 13, borderRadius: 17, backgroundColor: "rgba(255,255,255,0.14)" }, budgetRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, budgetValue: { color: "#fff", fontSize: 15, fontWeight: "800" as any }, budgetLabel: { color: "rgba(255,255,255,0.86)", fontSize: 12, fontWeight: "700" as any }, budgetTrack: { height: 7, borderRadius: 8, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.28)", marginVertical: 10 }, budgetFill: { height: "100%", borderRadius: 8 }, budgetHint: { color: "rgba(255,255,255,0.75)", fontSize: 10 },
+  section: { paddingHorizontal: 14, marginTop: 22 }, sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 9 }, sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 }, sectionTitle: { fontSize: 15, fontWeight: "800" as any }, sectionAction: { fontSize: 11, fontWeight: "800" as any }, metricPanel: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 8, borderRadius: 18, borderWidth: 1, padding: 8 }, metric: { flexBasis: "47%", flexGrow: 0, minHeight: 72, borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }, metricVisual: { alignItems: "center", gap: 2 }, metricIcon: { width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center" }, metricValue: { fontSize: 19, lineHeight: 22, fontWeight: "800" as any }, metricLabel: { fontSize: 10, lineHeight: 14, fontWeight: "700" as any, textAlign: "right" },
+  chartCard: { borderWidth: 1, borderRadius: 20, padding: 14, marginBottom: 10 }, chartHeader: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, marginBottom: 13 }, chartText: { alignItems: "flex-end" }, chartTitle: { fontSize: 13, fontWeight: "800" as any }, chartSubtitle: { fontSize: 10, marginTop: 2 }, bars: { height: 142, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-around", gap: 8 }, barColumn: { flex: 1, height: "100%", alignItems: "center", justifyContent: "flex-end" }, barValue: { fontSize: 9, fontWeight: "700" as any, marginBottom: 5 }, barTrack: { height: 86, width: "72%", borderRadius: 9, overflow: "hidden", justifyContent: "flex-end" }, barFill: { width: "100%", borderRadius: 9 }, barLabel: { fontSize: 9, marginTop: 7, textAlign: "center", width: "100%" }, emptyChart: { minHeight: 90, alignItems: "center", justifyContent: "center", gap: 7 }, emptyChartText: { fontSize: 11 },
+  dailyReportCard: { marginTop: 16, minHeight: 70, borderRadius: 18, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.16)", borderWidth: 1, borderColor: "rgba(255,255,255,0.24)" }, dailyReportIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" }, dailyReportText: { flex: 1, alignItems: "flex-end" }, dailyReportTitle: { color: "#fff", fontSize: 14, fontWeight: "800" as any }, dailyReportSubtitle: { color: "rgba(255,255,255,0.78)", fontSize: 10, marginTop: 3, textAlign: "right" }, calmCard: { minHeight: 52, borderRadius: 16, borderWidth: 1, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 }, calmText: { fontSize: 12, fontWeight: "700" as any }, actionGrid: { gap: 10 }, quickAction: { width: "100%", minHeight: 60, borderRadius: 17, borderWidth: 1, alignItems: "center", justifyContent: "center", flexDirection: "row-reverse", gap: 9 }, quickLabel: { fontSize: 13, fontWeight: "800" as any }, listCard: { borderWidth: 1, borderRadius: 19, overflow: "hidden" }, goalItem: { paddingHorizontal: 14, paddingTop: 12 }, activity: { minHeight: 66, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 10 }, activityIcon: { width: 37, height: 37, borderRadius: 12, justifyContent: "center", alignItems: "center" }, activityText: { flex: 1, alignItems: "flex-end" }, activityTitle: { fontSize: 12, fontWeight: "800" as any }, activitySubtitle: { fontSize: 10, marginTop: 3, textAlign: "right" }, bottomPadding: { height: 22 },
+});

@@ -1,0 +1,156 @@
+{
+  "project_info": {
+    "title": "مدير تسويق مدار",
+    "created": 1786994990.89,
+    "last_updated": 1786995328.771,
+    "total_slides": 12
+  },
+  "slides": [
+    {
+      "id": "cover",
+      "state": "edited",
+      "pageNum": 1
+    },
+    {
+      "id": "challenge",
+      "state": "edited",
+      "pageNum": 2
+    },
+    {
+      "id": "operating_cycle",
+      "state": "edited",
+      "pageNum": 3
+    },
+    {
+      "id": "dashboard",
+      "state": "edited",
+      "pageNum": 4
+    },
+    {
+      "id": "stores",
+      "state": "edited",
+      "pageNum": 5
+    },
+    {
+      "id": "surveys",
+      "state": "edited",
+      "pageNum": 6
+    },
+    {
+      "id": "events",
+      "state": "edited",
+      "pageNum": 7
+    },
+    {
+      "id": "modules",
+      "state": "edited",
+      "pageNum": 8
+    },
+    {
+      "id": "inventory_expenses",
+      "state": "edited",
+      "pageNum": 9
+    },
+    {
+      "id": "analytics_reports",
+      "state": "edited",
+      "pageNum": 10
+    },
+    {
+      "id": "governance",
+      "state": "edited",
+      "pageNum": 11
+    },
+    {
+      "id": "activation",
+      "state": "edited",
+      "pageNum": 12
+    }
+  ],
+  "outline": [
+    {
+      "id": "cover",
+      "title": "مدير تسويق مدار",
+      "summary": "غلاف عرض تنفيذي للإدارة يقدّم منصة محمولة لإدارة وقياس التسويق الميداني.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "cover"
+    },
+    {
+      "id": "challenge",
+      "title": "مصدر واحد للحقيقة",
+      "summary": "التحدي التشغيلي الناتج عن تشتت بيانات الزيارات والاستبيانات والفعاليات والإنفاق.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "executive_summary_4"
+    },
+    {
+      "id": "operating_cycle",
+      "title": "دورة تشغيل موحّدة",
+      "summary": "ربط التخطيط والتنفيذ والقياس والتحليل والتقرير ضمن مسار عملي واحد.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "technology_foundation_4"
+    },
+    {
+      "id": "dashboard",
+      "title": "مركز القيادة اليومي",
+      "summary": "شرح الشاشة الرئيسية والتقرير اليومي وبيانات العمل والتخصيص.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "technology_foundation_1"
+    },
+    {
+      "id": "stores",
+      "title": "إدارة المحلات",
+      "summary": "شرح قاعدة المحلات والبحث والتصنيف والمنطقة كمرجع ميداني.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "market_landscape_6"
+    },
+    {
+      "id": "surveys",
+      "title": "استبيانات قابلة للقياس",
+      "summary": "شرح القوالب والدورات والنتائج والتوثيق الميداني.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "technology_foundation_9"
+    },
+    {
+      "id": "events",
+      "title": "فعاليات مرتبطة بالأهداف",
+      "summary": "شرح تخطيط وتنفيذ وتوثيق الفعاليات وربطها بالأهداف.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "implementation_challenges_3"
+    },
+    {
+      "id": "modules",
+      "title": "وحدات الإدارة الداعمة",
+      "summary": "عرض المستودع والصرفيات والخطة واللوحات والمنتجات والماركات والتحليلات.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "industry_applications_3"
+    },
+    {
+      "id": "inventory_expenses",
+      "title": "رقابة الأصول والإنفاق",
+      "summary": "شرح المستودع والصرفيات والتقارير القابلة للتصدير والمشاركة.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "executive_summary_4"
+    },
+    {
+      "id": "analytics_reports",
+      "title": "تحليل يقود القرار",
+      "summary": "شرح التحليلات المتقدمة والتقارير اليومية وPDF وExcel.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "market_landscape_6"
+    },
+    {
+      "id": "governance",
+      "title": "حوكمة واستمرارية",
+      "summary": "شرح التخزين المحلي والنسخ الاحتياطي والاستعادة والصلاحيات والتنبيهات.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "technology_foundation_4"
+    },
+    {
+      "id": "activation",
+      "title": "مسار تفعيل مقترح",
+      "summary": "خارطة طريق مختصرة لتفعيل التطبيق تدريجياً وطلب قرار الإدارة.",
+      "image_plan": "Use a suitable image if needed",
+      "slide_template_key": "thank_you"
+    }
+  ]
+}

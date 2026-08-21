@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
   },
   schemeToggleTitle: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "600" as any,
   },
   schemeToggleSubtitle: {
     fontSize: 12,
