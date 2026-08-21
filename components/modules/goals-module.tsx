@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { CardActionModal } from "@/components/card-action-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
@@ -76,6 +77,7 @@ export default function GoalsModule() {
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [goalActionTarget, setGoalActionTarget] = useState<MarketingGoal | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [brandNames, setBrandNames] = useState<string[]>([]);
   const [showBrandOptions, setShowBrandOptions] = useState(false);
@@ -249,26 +251,16 @@ export default function GoalsModule() {
           const periodInfo = getPeriodInfo(item.period);
           const statusInfo = getStatusInfo(item.status);
           return (
-            <View style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <TouchableOpacity
+              style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onLongPress={() => setGoalActionTarget(item)}
+              delayLongPress={350}
+              activeOpacity={1}
+              accessibilityLabel={`إجراءات الهدف ${item.title}`}
+              accessibilityHint="اضغط مطولاً لفتح إجراءات التعديل والحذف"
+            >
               <View style={styles.goalHeader}>
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: colors.primary + "20" }]}
-                    onPress={() => openEditGoal(item)}
-                  >
-                    <MaterialIcons name="edit" size={16} color={colors.primary} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: colors.error + "20" }]}
-                    onPress={() => {
-                      setSelectedGoal(item);
-                      setShowDeleteConfirm(true);
-                    }}
-                  >
-                    <MaterialIcons name="delete" size={16} color={colors.error} />
-                  </TouchableOpacity>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "20" }]}>
+                <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "20" }]}> 
                   <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
                 </View>
                 <View style={[styles.periodBadge, { backgroundColor: periodInfo.color + "20" }]}>
@@ -326,7 +318,7 @@ export default function GoalsModule() {
                   <Text style={[styles.addTaskBtnText, { color: colors.primary }]}>إضافة مهمة</Text>
                 </TouchableOpacity>
               )}
-            </View>
+            </TouchableOpacity>
           );
         }}
         ListEmptyComponent={
@@ -578,6 +570,35 @@ export default function GoalsModule() {
           setSelectedGoal(null);
         }}
       />
+      <CardActionModal
+        visible={Boolean(goalActionTarget)}
+        title={goalActionTarget?.title || "إجراءات الهدف"}
+        description="اضغط الإجراء المطلوب لهذا الهدف"
+        onClose={() => setGoalActionTarget(null)}
+        actions={goalActionTarget ? [
+          {
+            id: "edit",
+            label: "تعديل الهدف",
+            icon: "edit",
+            onPress: () => {
+              const target = goalActionTarget;
+              setGoalActionTarget(null);
+              openEditGoal(target);
+            },
+          },
+          {
+            id: "delete",
+            label: "حذف الهدف",
+            icon: "delete-outline",
+            tone: "danger",
+            onPress: () => {
+              setSelectedGoal(goalActionTarget);
+              setGoalActionTarget(null);
+              setShowDeleteConfirm(true);
+            },
+          },
+        ] : []}
+      />
     </View>
   );
 }
@@ -593,8 +614,6 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 12, gap: 10, paddingBottom: 20 },
   goalCard: { borderRadius: 14, padding: 14, borderWidth: 1, gap: 10 },
   goalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" },
-  actionButtons: { flexDirection: "row", gap: 6 },
-  actionBtn: { width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   goalTitle: { fontSize: 15, fontWeight: "700" as any, textAlign: "right" },
   statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   statusText: { fontSize: 11, fontWeight: "600" as any },
