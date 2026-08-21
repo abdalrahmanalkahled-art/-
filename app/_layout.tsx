@@ -145,6 +145,7 @@ export default function RootLayout() {
                     }}>
                       <Stack.Screen name="(tabs)" />
                       <Stack.Screen name="external-analytics" />
+                      <Stack.Screen name="goal-details" />
                       <Stack.Screen name="login" />
                       <Stack.Screen name="oauth/callback" />
                     </Stack>

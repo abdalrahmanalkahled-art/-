@@ -8,9 +8,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { CardActionModal } from "@/components/card-action-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { SuccessModal } from "@/components/success-modal";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { useColors } from "@/hooks/use-colors";
@@ -77,7 +79,9 @@ export default function GoalsModule() {
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [goalActionTarget, setGoalActionTarget] = useState<MarketingGoal | null>(null);
+  const [goalSuccess, setGoalSuccess] = useState({ visible: false, message: "" });
   const [isEditing, setIsEditing] = useState(false);
   const [brandNames, setBrandNames] = useState<string[]>([]);
   const [showBrandOptions, setShowBrandOptions] = useState(false);
@@ -149,7 +153,8 @@ export default function GoalsModule() {
     setShowGoalModal(false);
     setIsEditing(false);
     setSelectedGoal(null);
-    loadData();
+    await loadData();
+    setGoalSuccess({ visible: true, message: isEditing ? "تم تحديث الهدف بنجاح" : "تمت إضافة الهدف بنجاح" });
   };
 
   const handleDeleteGoal = async () => {
@@ -159,6 +164,7 @@ export default function GoalsModule() {
     await saveItems(STORAGE_KEYS.MARKETING_GOALS, updated);
     setShowDeleteConfirm(false);
     setSelectedGoal(null);
+    setGoalSuccess({ visible: true, message: "تم حذف الهدف بنجاح" });
   };
 
   const handleSaveTask = async () => {
@@ -174,7 +180,8 @@ export default function GoalsModule() {
     await saveItems(STORAGE_KEYS.MARKETING_GOALS, updated);
     setShowTaskModal(false);
     setTaskForm({ title: "", description: "", dueDate: "", assignedTo: "", status: "pending" });
-    loadData();
+    await loadData();
+    setGoalSuccess({ visible: true, message: "تمت إضافة المهمة بنجاح" });
   };
 
   const updateTaskStatus = async (goalId: string, taskId: string, status: MarketingTask["status"]) => {
@@ -253,11 +260,12 @@ export default function GoalsModule() {
           return (
             <TouchableOpacity
               style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => router.push({ pathname: "/goal-details", params: { id: item.id } })}
               onLongPress={() => setGoalActionTarget(item)}
               delayLongPress={350}
-              activeOpacity={1}
-              accessibilityLabel={`إجراءات الهدف ${item.title}`}
-              accessibilityHint="اضغط مطولاً لفتح إجراءات التعديل والحذف"
+              activeOpacity={0.72}
+              accessibilityLabel={`تفاصيل الهدف ${item.title}`}
+              accessibilityHint="اضغط لعرض التفاصيل، أو اضغط مطولاً لفتح إجراءات التعديل والحذف"
             >
               <View style={styles.goalHeader}>
                 <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "20" }]}> 
@@ -462,7 +470,7 @@ export default function GoalsModule() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.footerBtn, styles.saveFooterBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleSaveGoal}
+                  onPress={() => setShowSaveConfirm(true)}
                 >
                   <Text style={styles.saveBtnText}>حفظ</Text>
                 </TouchableOpacity>
@@ -557,6 +565,19 @@ export default function GoalsModule() {
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
+        visible={showSaveConfirm}
+        title={isEditing ? "حفظ تعديلات الهدف" : "تأكيد إنشاء الهدف"}
+        message={isEditing ? "هل تريد حفظ التعديلات التي أجريتها على هذا الهدف؟" : "هل تريد إنشاء هذا الهدف ضمن الخطة التسويقية؟"}
+        confirmText="حفظ"
+        cancelText="إلغاء"
+        icon="check-circle"
+        onConfirm={() => {
+          setShowSaveConfirm(false);
+          void handleSaveGoal();
+        }}
+        onCancel={() => setShowSaveConfirm(false)}
+      />
+      <ConfirmDialog
         visible={showDeleteConfirm}
         title="حذف الهدف"
         message={`هل أنت متأكد من حذف الهدف "${selectedGoal?.title}"؟ سيتم حذف جميع المهام المرتبطة به أيضاً.`}
@@ -599,6 +620,7 @@ export default function GoalsModule() {
           },
         ] : []}
       />
+      <SuccessModal visible={goalSuccess.visible} message={goalSuccess.message} onClose={() => setGoalSuccess({ visible: false, message: "" })} />
     </View>
   );
 }
