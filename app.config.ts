@@ -20,7 +20,7 @@ const bundleId =
 const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
 const schemeFromBundleId = `manus${timestamp}`;
 
-const LOGO_URL = "/manus-storage/madar-marketing-manager-icon_af3bc2ed.png";
+const LOGO_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663483299685/iRCziKSNAVZvFjNG.png";
 
 const env = {
   appName: "مدير تسويق مدار",
@@ -52,7 +52,7 @@ const config: ExpoConfig = {
   },
   android: {
     adaptiveIcon: {
-      backgroundColor: "#1A56DB",
+      backgroundColor: "#FFFFFF",
       foregroundImage: "./assets/images/android-icon-foreground.png",
     },
     edgeToEdgeEnabled: true,
@@ -111,7 +111,7 @@ const config: ExpoConfig = {
         imageWidth: 200,
         resizeMode: "contain",
         backgroundColor: "#ffffff",
-        dark: { backgroundColor: "#111827" },
+        dark: { backgroundColor: "#FFFFFF" },
       },
     ],
     [
