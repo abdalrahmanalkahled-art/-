@@ -3,6 +3,7 @@ import {
   Animated,
   Easing,
   KeyboardAvoidingView,
+  I18nManager,
   Modal,
   Platform,
   ScrollView,
@@ -14,7 +15,7 @@ import {
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -29,7 +30,6 @@ type CardFrame = { x: number; y: number; width: number; height: number };
 export default function MoreScreen() {
   const colors = useColors();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const { user, dispatch } = useApp();
   const canViewWarehouse = useHasPermission("warehouse");
   const canViewExpenses = useHasPermission("expenses");
@@ -71,7 +71,8 @@ export default function MoreScreen() {
     if (!card) return;
 
     card.measureInWindow((x, y, width, height) => {
-      setActiveFrame({ x, y: Math.max(y - insets.top, 0), width, height });
+      // تحفظ الحركة إحداثيات النافذة الفعلية، فتظل نقطة التمدد صحيحة في RTL على الهاتف.
+      setActiveFrame({ x: Math.max(x, 0), y: Math.max(y, 0), width, height });
       setActiveModule(moduleId);
       setModuleOpened(false);
       expansion.setValue(0);
@@ -121,9 +122,11 @@ export default function MoreScreen() {
     borderRadius: moduleOpened ? 0 : 16,
     transform: [
       {
+        // إحداثيات القياس في النافذة فعلية، لكن تحويلات RTL على الهاتف تعكس المحور الأفقي.
+        // نعكس مسافة التحويل وحدها لتبدأ البطاقة وتنتهي عند موقعها البصري الصحيح.
         translateX: expansion.interpolate({
           inputRange: [0, 1],
-          outputRange: [0, (canvasSize.width - activeFrame.width) / 2 - activeFrame.x],
+          outputRange: [0, (I18nManager.isRTL ? -1 : 1) * ((canvasSize.width - activeFrame.width) / 2 - activeFrame.x)],
         }),
       },
       {
@@ -191,7 +194,7 @@ export default function MoreScreen() {
 
       <ConfirmDialog visible={showLogoutConfirmation} title="تسجيل الخروج" message="هل تريد تسجيل الخروج من الحساب الحالي؟" confirmText="تسجيل الخروج" isDangerous icon="logout" onCancel={() => setShowLogoutConfirmation(false)} onConfirm={() => { setShowLogoutConfirmation(false); void handleLogout(); }} />
 
-      <Modal visible={activeModule !== null} transparent animationType="none" onRequestClose={closeModule}>
+      <Modal visible={activeModule !== null} transparent animationType="none" statusBarTranslucent onRequestClose={closeModule}>
         <View style={styles.transitionCanvas} onLayout={(event) => setCanvasSize(event.nativeEvent.layout)}>
           {activeModuleInfo ? <>
             <Animated.View pointerEvents="none" style={[styles.expandingCard, expandedCardStyle, { backgroundColor: colors.surface, borderColor: colors.border }]} />
@@ -201,7 +204,7 @@ export default function MoreScreen() {
               <Text style={[styles.moduleSubtitle, { color: colors.muted }]}>{activeModuleInfo.subtitle}</Text>
             </View> : null}
 
-            {moduleOpened && activeModule ? <View style={[styles.expandedPage, { backgroundColor: colors.background }]}> 
+            {moduleOpened && activeModule ? <SafeAreaView edges={["top", "bottom", "left", "right"]} style={[styles.expandedPage, { backgroundColor: colors.background }]}> 
               {activeModule === "products" ? (
                 <View style={[styles.moduleModalHeader, { borderBottomColor: colors.border }]}>
                   <TouchableOpacity accessibilityLabel="العودة إلى المزيد" onPress={closeModule}><MaterialIcons name="close" size={24} color={colors.foreground} /></TouchableOpacity>
@@ -220,7 +223,7 @@ export default function MoreScreen() {
                   <MoreModuleContent moduleId={activeModule} />
                 </KeyboardAvoidingView>
               </Animated.View>
-            </View> : null}
+            </SafeAreaView> : null}
           </> : null}
         </View>
       </Modal>

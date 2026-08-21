@@ -1,8 +1,8 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, router } from "expo-router";
+import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform , BackHandler } from "react-native";
@@ -35,6 +35,8 @@ export const unstable_settings = {
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useApp();
   const [authCheckTimedOut, setAuthCheckTimedOut] = useState(false);
+  const segments = useSegments();
+  const redirectInFlight = useRef(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setAuthCheckTimedOut(true), AUTH_CHECK_TIMEOUT_MS + 500);
@@ -42,10 +44,17 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if ((!isLoading || authCheckTimedOut) && !isAuthenticated) {
+    if (isAuthenticated) {
+      redirectInFlight.current = false;
+      return;
+    }
+
+    const isLoginRoute = segments[0] === "login";
+    if ((!isLoading || authCheckTimedOut) && !isLoginRoute && !redirectInFlight.current) {
+      redirectInFlight.current = true;
       router.replace("/login");
     }
-  }, [authCheckTimedOut, isAuthenticated, isLoading]);
+  }, [authCheckTimedOut, isAuthenticated, isLoading, segments]);
 
   const showLoading = shouldShowLoading(Platform.OS, isLoading, authCheckTimedOut);
 
