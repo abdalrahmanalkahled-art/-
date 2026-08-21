@@ -21,6 +21,7 @@ import { FABMenu, type FABMenuItem } from "@/components/fab-menu";
 import { SuccessModal } from "@/components/success-modal";
 import { useState, useCallback, useEffect } from "react";
 import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
+import { createDefaultProductCategories, getProductCategoryId, getVisibleProductCategories } from "@/lib/product-category-recovery";
 
 interface ProductCategory {
   id: string;
@@ -44,14 +45,6 @@ interface CategoryWithProducts {
   products: Product[];
   isExpanded: boolean;
 }
-
-const DEFAULT_CATEGORIES = [
-  { id: "powder", name: "مسحوق" },
-  { id: "liquid", name: "سائل جلي" },
-  { id: "perfume", name: "معطر" },
-  { id: "disinfectant", name: "معقم" },
-  { id: "other", name: "أخرى" },
-];
 
 export function ProductsModule() {
   const colors = useColors();
@@ -93,8 +86,12 @@ export function ProductsModule() {
       getItems<string>(STORAGE_KEYS.COMPETITORS),
       loadBrandRegionCatalog(),
     ]);
+    const resolvedCategories = categoriesData.length > 0 ? categoriesData : createDefaultProductCategories();
+    if (categoriesData.length === 0) {
+      await saveItems(STORAGE_KEYS.PRODUCT_CATEGORIES, resolvedCategories);
+    }
     setProducts(productsData);
-    setCategories(categoriesData.length > 0 ? categoriesData : DEFAULT_CATEGORIES.map((c) => ({ ...c, createdAt: new Date().toISOString() })));
+    setCategories(resolvedCategories);
     setCompetitors(competitorsData);
     setBrands(catalog.brands.filter((brand) => brand.isActive).map((brand) => brand.name));
   }, []);
@@ -259,11 +256,11 @@ export function ProductsModule() {
   };
 
   const getCategoriesWithProducts = (): CategoryWithProducts[] => {
-    return categories.map((cat) => ({
+    return getVisibleProductCategories(categories, products).map((cat) => ({
       category: cat,
       products: products.filter(
         (p) =>
-          p.categoryId === cat.id &&
+          getProductCategoryId(p) === cat.id &&
           p.type === activeTab &&
           (activeTab === "competitor" ? p.competitorName === selectedCompetitor || selectedCompetitor === "" : true) &&
           p.name.includes(search)
