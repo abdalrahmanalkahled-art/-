@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   formGroup: { marginBottom: 16 },
   formLabel: { fontSize: 14, fontWeight: "600" as any, marginBottom: 8, textAlign: "right" },
   formInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15 },
-  datePickerButton: { minHeight: 48, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
+  datePickerButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   datePickerText: { fontSize: 15, fontWeight: "600" as any },
   categoryLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   manageCategoriesText: { fontSize: 13, fontWeight: "700" as any },

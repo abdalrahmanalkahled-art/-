@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
   formGroup: { marginBottom: 16 },
   formLabel: { fontSize: 14, fontWeight: "600" as any, marginBottom: 8, textAlign: "right" },
   formInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15 },
-  eventDatePicker: { minHeight: 48, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
+  eventDatePicker: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   eventDatePickerText: { fontSize: 15, fontWeight: "600" as any },
   textArea: { height: 100 },
   statusOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   storePhotoList: {
-    flexDirection: "row-reverse",
+    flexDirection: "row",
     gap: 9,
   },
   storePhoto: {

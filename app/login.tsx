@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   passwordField: { minHeight: 52, borderWidth: 1, borderRadius: 12, flexDirection: "row", alignItems: "center" },
   passwordInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16, textAlign: "right" },
   passwordToggle: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
-  rememberRow: { flexDirection: "row-reverse", alignSelf: "flex-end", alignItems: "center", gap: 8, marginBottom: 16 },
+  rememberRow: { flexDirection: "row", alignSelf: "flex-end", alignItems: "center", gap: 8, marginBottom: 16 },
   rememberBox: { width: 21, height: 21, borderRadius: 6, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   rememberText: { fontSize: 13, fontWeight: "600" as const },
   loginButton: { borderRadius: 12, padding: 16, alignItems: "center", marginTop: 8 },

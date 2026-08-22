@@ -3,7 +3,6 @@ import {
   Animated,
   Easing,
   KeyboardAvoidingView,
-  I18nManager,
   Modal,
   Platform,
   ScrollView,
@@ -71,7 +70,8 @@ export default function MoreScreen() {
     if (!card) return;
 
     card.measureInWindow((x, y, width, height) => {
-      // تحفظ الحركة إحداثيات النافذة الفعلية، فتظل نقطة التمدد صحيحة في RTL على الهاتف.
+                // تحفظ الحركة إحداثيات النافذة الفعلية، فتظل نقطة التمدد صحيحة في LTR على الهاتف والمعاينة.
+
       setActiveFrame({ x: Math.max(x, 0), y: Math.max(y, 0), width, height });
       setActiveModule(moduleId);
       setModuleOpened(false);
@@ -122,11 +122,10 @@ export default function MoreScreen() {
     borderRadius: moduleOpened ? 0 : 16,
     transform: [
       {
-        // إحداثيات القياس في النافذة فعلية، لكن تحويلات RTL على الهاتف تعكس المحور الأفقي.
-        // نعكس مسافة التحويل وحدها لتبدأ البطاقة وتنتهي عند موقعها البصري الصحيح.
+        // إحداثيات القياس فعلية، والحركة الآن تتبع المحور البصري LTR.
         translateX: expansion.interpolate({
           inputRange: [0, 1],
-          outputRange: [0, (I18nManager.isRTL ? -1 : 1) * ((canvasSize.width - activeFrame.width) / 2 - activeFrame.x)],
+          outputRange: [0, (canvasSize.width - activeFrame.width) / 2 - activeFrame.x],
         }),
       },
       {
@@ -236,5 +235,5 @@ const styles = StyleSheet.create({
   userCard: { margin: 16, borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, userInfo: { flex: 1 }, userName: { fontSize: 20, fontWeight: "800" as any, color: "#fff" }, userRole: { fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 4 }, userAvatar: { width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" }, userAvatarText: { fontSize: 22, fontWeight: "800" as any, color: "#fff" },
   modulesSection: { paddingHorizontal: 16, marginBottom: 16 }, sectionTitle: { fontSize: 16, fontWeight: "700" as any, textAlign: "right", marginBottom: 12 }, modulesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, moduleCard: { width: "47%", borderRadius: 16, padding: 16, borderWidth: 1, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, moduleIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 10 }, moduleTitle: { fontSize: 14, fontWeight: "700" as any, textAlign: "center", marginBottom: 4 }, moduleSubtitle: { fontSize: 11, textAlign: "center" },
   settingsSection: { marginHorizontal: 16, borderRadius: 16, borderWidth: 1, overflow: "hidden", marginBottom: 16 }, settingsItem: { flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 }, settingsText: { flex: 1, fontSize: 15, fontWeight: "500" as any, textAlign: "right" }, bottomPadding: { height: 30 },
-  transitionCanvas: { flex: 1 }, expandingCard: { position: "absolute", borderWidth: 1, elevation: 14 }, expandingHero: { position: "absolute", alignItems: "center", justifyContent: "center", zIndex: 1 }, expandedPage: { ...StyleSheet.absoluteFillObject }, moduleModalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: StyleSheet.hairlineWidth }, moduleModalTitle: { fontSize: 17, fontWeight: "700" as any }, headerSpacer: { width: 24 }, moduleHero: { minHeight: 76, flexDirection: "row-reverse", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth }, moduleHeroIcon: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center" }, moduleHeroText: { flex: 1, alignItems: "flex-end" }, moduleHeroTitle: { fontSize: 16, fontWeight: "800" as any, textAlign: "right" }, moduleHeroSubtitle: { fontSize: 11, marginTop: 3, textAlign: "right" }, moduleCloseButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" }, moduleContent: { flex: 1 },
+  transitionCanvas: { flex: 1 }, expandingCard: { position: "absolute", borderWidth: 1, elevation: 14 }, expandingHero: { position: "absolute", alignItems: "center", justifyContent: "center", zIndex: 1 }, expandedPage: { ...StyleSheet.absoluteFillObject }, moduleModalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: StyleSheet.hairlineWidth }, moduleModalTitle: { fontSize: 17, fontWeight: "700" as any }, headerSpacer: { width: 24 }, moduleHero: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth }, moduleHeroIcon: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center" }, moduleHeroText: { flex: 1, alignItems: "flex-end" }, moduleHeroTitle: { fontSize: 16, fontWeight: "800" as any, textAlign: "right" }, moduleHeroSubtitle: { fontSize: 11, marginTop: 3, textAlign: "right" }, moduleCloseButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" }, moduleContent: { flex: 1 },
 });

@@ -21,9 +21,9 @@ describe("نظام التصميم للشاشات الداخلية", () => {
     expect(read("components/success-modal.tsx")).toContain("DESIGN.radius.lg");
   });
 
-  it("تستخدم صفحة التفاصيل الرأس المشترك والحاوية تعلن RTL", () => {
+  it("تستخدم صفحة التفاصيل الرأس المشترك والحاوية تعلن LTR", () => {
     expect(read("app/goal-details.tsx")).toContain("<AppPageHeader");
-    expect(read("components/app-page-header.tsx")).toContain('flexDirection: "row-reverse"');
-    expect(read("components/screen-container.tsx")).toContain('direction: "rtl"');
+    expect(read("components/app-page-header.tsx")).toContain('flexDirection: "row"');
+    expect(read("components/screen-container.tsx")).toContain('direction: "ltr"');
   });
 });

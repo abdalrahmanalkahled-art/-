@@ -28,7 +28,7 @@ export function AppPageHeader({ title, subtitle, onBack, rightContent }: AppPage
 }
 
 const styles = StyleSheet.create({
-  header: { minHeight: 64, paddingHorizontal: DESIGN.spacing.md, flexDirection: "row-reverse", alignItems: "center", gap: DESIGN.spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
+  header: { minHeight: 64, paddingHorizontal: DESIGN.spacing.md, flexDirection: "row", alignItems: "center", gap: DESIGN.spacing.sm, borderBottomWidth: StyleSheet.hairlineWidth },
   iconButton: { width: DESIGN.control.compact, height: DESIGN.control.compact, alignItems: "center", justifyContent: "center" },
   copy: { flex: 1, alignItems: "flex-end", gap: 2 },
   title: { fontSize: 17, fontWeight: "800", textAlign: "right" },
