@@ -134,6 +134,14 @@ describe("واجهة عقود اللوحات الطرقية", () => {
     expect(roadsidePickerFixSource).toContain('brandPicker: { ...(definitions.brandPicker as object), display: "none" }');
   });
 
+  it("يوحّد مسافات بطاقة اللوحة الطرقية ومحدد الماركة المجاور للصورة مع بطاقات اللوحات والستاندات", () => {
+    expect(roadsidePickerFixSource).toContain('boardCard: { ...(definitions.boardCard as object), borderRadius: 16, padding: 14, marginBottom: 12 }');
+    expect(roadsidePickerFixSource).toContain('compactPicker: { ...(definitions.compactPicker as object), minHeight: 37, borderRadius: 8');
+    expect(roadsidePickerFixSource).toContain('imageActions: { ...(definitions.imageActions as object), minHeight: 42, padding: 6 }');
+    expect(storeWizardSource).toContain("faceBrand");
+    expect(standWizardSource).toContain("imageSlot");
+  });
+
   it("ينشئ لوحة محل باختيار قابل للبحث ويجدد الماركة مع أرشفتها", () => {
     expect(moduleSource).toContain("StoreBoardWizard");
     expect(moduleSource).toContain("لوحة محل جديدة");
