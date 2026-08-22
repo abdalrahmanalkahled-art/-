@@ -25,8 +25,8 @@ export function FloatingFormModal({ visible, onClose, backgroundColor, compactHe
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "#00000066", justifyContent: "center", paddingHorizontal: DESIGN.spacing.md, paddingVertical: DESIGN.spacing.xxl },
-  keyboard: { flex: 1, justifyContent: "center" },
-  dialog: { flex: 1, maxHeight: "100%", borderRadius: DESIGN.radius.xl, overflow: "hidden", elevation: 12 },
+  backdrop: { flex: 1, backgroundColor: "#00000066", justifyContent: "center", paddingHorizontal: DESIGN.spacing.md, paddingVertical: DESIGN.spacing.xl },
+  keyboard: { flex: 1, width: "100%", justifyContent: "center", alignItems: "center" },
+  dialog: { width: "100%", height: "88%", maxHeight: "88%", borderRadius: DESIGN.radius.xl, overflow: "hidden", elevation: 12 },
   compactDialog: { flex: 0, height: "72%", maxHeight: "72%" },
 });

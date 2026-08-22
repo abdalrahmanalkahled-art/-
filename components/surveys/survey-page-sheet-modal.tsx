@@ -13,6 +13,6 @@ interface SurveyPageSheetModalProps {
 /** غلاف موحّد لنوافذ الاستبيان التي تملأ الصفحة مع دعم الرجوع ولوحة المفاتيح. */
 export function SurveyPageSheetModal({ visible, onClose, backgroundColor, children }: SurveyPageSheetModalProps) {
   return <FloatingFormModal visible={visible} onClose={onClose} backgroundColor={backgroundColor}>
-    <SafeAreaView edges={["top", "left", "right"]} style={{ flex: 1, backgroundColor }}>{children}</SafeAreaView>
+    <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor }}>{children}</SafeAreaView>
   </FloatingFormModal>;
 }
