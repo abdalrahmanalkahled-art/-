@@ -11,6 +11,10 @@ export interface WarehouseReportSettings {
   includeTools: boolean;
   includeMovements: boolean;
   includeImages: boolean;
+  /** الحد الأقصى لعرض صورة الأداة داخل PDF بالبكسل */
+  imageMaxWidth?: number;
+  /** جودة JPEG من 0.1 إلى 1 */
+  imageQuality?: number;
   materialColumns: WarehouseMaterialColumn[];
   toolColumns: WarehouseToolColumn[];
   movementColumns: WarehouseMovementColumn[];
@@ -21,6 +25,8 @@ export const DEFAULT_WAREHOUSE_REPORT_SETTINGS: WarehouseReportSettings = {
   includeTools: true,
   includeMovements: true,
   includeImages: true,
+  imageMaxWidth: 900,
+  imageQuality: 0.72,
   materialColumns: [...WAREHOUSE_MATERIAL_COLUMNS],
   toolColumns: [...WAREHOUSE_TOOL_COLUMNS],
   movementColumns: [...WAREHOUSE_MOVEMENT_COLUMNS],
@@ -38,6 +44,8 @@ export function normalizeWarehouseReportSettings(value: unknown): WarehouseRepor
     includeTools: candidate.includeTools !== false,
     includeMovements: candidate.includeMovements !== false,
     includeImages: candidate.includeImages !== false,
+    imageMaxWidth: typeof candidate.imageMaxWidth === "number" ? Math.min(1600, Math.max(320, Math.round(candidate.imageMaxWidth))) : 900,
+    imageQuality: typeof candidate.imageQuality === "number" ? Math.min(1, Math.max(0.35, candidate.imageQuality)) : 0.72,
     materialColumns: allowedColumns(candidate.materialColumns, WAREHOUSE_MATERIAL_COLUMNS),
     toolColumns: allowedColumns(candidate.toolColumns, WAREHOUSE_TOOL_COLUMNS),
     movementColumns: allowedColumns(candidate.movementColumns, WAREHOUSE_MOVEMENT_COLUMNS),

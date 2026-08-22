@@ -24,6 +24,7 @@ import { logout } from "@/lib/storage";
 import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MORE_MODULES, MoreModuleContent, type MoreModuleId } from "@/components/modules/more-module-screen";
+import { MoreModuleShell } from "@/components/modules/more-module-shell";
 
 type CardFrame = { x: number; y: number; width: number; height: number };
 
@@ -204,19 +205,7 @@ export default function MoreScreen() {
             </View> : null}
 
             {moduleOpened && activeModule ? <SafeAreaView edges={["top", "bottom", "left", "right"]} style={[styles.expandedPage, { backgroundColor: colors.background }]}> 
-              {activeModule === "products" ? (
-                <View style={[styles.moduleModalHeader, { borderBottomColor: colors.border }]}>
-                  <TouchableOpacity accessibilityLabel="العودة إلى المزيد" onPress={closeModule}><MaterialIcons name="close" size={24} color={colors.foreground} /></TouchableOpacity>
-                  <Text style={[styles.moduleModalTitle, { color: colors.foreground }]}>{activeModuleInfo.title}</Text>
-                  <View style={styles.headerSpacer} />
-                </View>
-              ) : (
-                <View style={[styles.moduleHero, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}> 
-                  <TouchableOpacity accessibilityLabel="العودة إلى المزيد" onPress={closeModule} style={[styles.moduleCloseButton, { backgroundColor: colors.background }]}><MaterialIcons name="close" size={21} color={colors.foreground} /></TouchableOpacity>
-                  <View style={styles.moduleHeroText}><Text style={[styles.moduleHeroTitle, { color: colors.foreground }]}>{activeModuleInfo.title}</Text><Text style={[styles.moduleHeroSubtitle, { color: colors.muted }]}>{activeModuleInfo.subtitle}</Text></View>
-                  <View style={[styles.moduleHeroIcon, { backgroundColor: activeModuleInfo.color + "1A" }]}><MaterialIcons name={activeModuleInfo.icon} size={23} color={activeModuleInfo.color} /></View>
-                </View>
-              )}
+              <MoreModuleShell title={activeModuleInfo.title} subtitle={activeModuleInfo.subtitle} icon={activeModuleInfo.icon} accent={activeModuleInfo.color} compact={activeModule === "products"} onClose={closeModule} />
               <Animated.View style={[styles.moduleContent, { transform: [{ translateY: contentReveal }] }]}> 
                 <KeyboardAvoidingView behavior={getKeyboardAvoidingBehavior(Platform.OS)} style={styles.moduleContent}> 
                   <MoreModuleContent moduleId={activeModule} />
