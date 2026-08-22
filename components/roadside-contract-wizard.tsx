@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import "@/components/roadside-contract-wizard-style-fix";
 import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImageManipulator from "expo-image-manipulator";

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const moduleSource = readFileSync(resolve(process.cwd(), "components/modules/signage-module.tsx"), "utf8");
 const wizardSource = readFileSync(resolve(process.cwd(), "components/roadside-contract-wizard.tsx"), "utf8");
+const roadsidePickerFixSource = readFileSync(resolve(process.cwd(), "components/roadside-contract-wizard-style-fix.ts"), "utf8");
 const wallWizardSource = readFileSync(resolve(process.cwd(), "components/wall-board-wizard.tsx"), "utf8");
 const islandWizardSource = readFileSync(resolve(process.cwd(), "components/island-contract-wizard.tsx"), "utf8");
 const storeWizardSource = readFileSync(resolve(process.cwd(), "components/store-board-wizard.tsx"), "utf8");
@@ -124,6 +125,13 @@ describe("واجهة عقود اللوحات الطرقية", () => {
     expect(wallWizardSource).toContain("backBrand");
     expect(islandWizardSource).toContain("backBrand");
     expect(detailsSource).toContain("getRoadsideBoardBackBrand");
+  });
+
+  it("يبقي اختيار الماركة داخل صورة اللوحة الطرقية ويخفي الاختيار العلوي المكرر", () => {
+    expect(wizardSource).toContain('import "@/components/roadside-contract-wizard-style-fix"');
+    expect(wizardSource).toContain("const ImageSlot");
+    expect(wizardSource).toContain("اختر ماركة ${face === \"front\"");
+    expect(roadsidePickerFixSource).toContain('brandPicker: { ...(definitions.brandPicker as object), display: "none" }');
   });
 
   it("ينشئ لوحة محل باختيار قابل للبحث ويجدد الماركة مع أرشفتها", () => {
