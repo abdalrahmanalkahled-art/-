@@ -32,6 +32,7 @@ import { loadWarehouseReportSettings, saveWarehouseReportSettings } from "@/lib/
 import { DEFAULT_WAREHOUSE_REPORT_SETTINGS, type WarehouseReportSettings } from "@/lib/warehouse-report-settings-model";
 import type { WarehouseTool } from "@/lib/warehouse-tools";
 import { DESIGN } from "@/lib/design-system";
+import { WarehouseMaterialDetailsSheet } from "@/components/warehouse-detail-sheets";
 
 
 interface WarehouseItem {
@@ -83,6 +84,7 @@ export default function WarehouseModule() {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [itemPendingDelete, setItemPendingDelete] = useState<WarehouseItem | null>(null);
   const [itemActionTarget, setItemActionTarget] = useState<WarehouseItem | null>(null);
+  const [itemDetails, setItemDetails] = useState<WarehouseItem | null>(null);
   const [movementSavePending, setMovementSavePending] = useState(false);
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
   const [reportSettings, setReportSettings] = useState<WarehouseReportSettings>(DEFAULT_WAREHOUSE_REPORT_SETTINGS);
@@ -279,7 +281,7 @@ export default function WarehouseModule() {
             const catInfo = getCategoryInfo(item.category);
             const isLow = item.currentQuantity <= item.minimumQuantity;
             return (
-              <TouchableOpacity onLongPress={() => setItemActionTarget(item)} delayLongPress={380} activeOpacity={0.82} style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: isLow ? colors.warning : colors.border }]}> 
+              <TouchableOpacity onPress={() => setItemDetails(item)} onLongPress={() => setItemActionTarget(item)} delayLongPress={380} activeOpacity={0.82} style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: isLow ? colors.warning : colors.border }]}> 
                 <View style={styles.itemTopRow}>
                   <View style={styles.itemRight}>
                     <View style={[styles.catIcon, { backgroundColor: catInfo.color + "20" }]}>
@@ -336,6 +338,8 @@ export default function WarehouseModule() {
           }
         />
       )}
+
+      <WarehouseMaterialDetailsSheet visible={Boolean(itemDetails)} item={itemDetails} category={itemDetails ? getCategoryInfo(itemDetails.category) : undefined} movements={itemDetails ? movements.filter((movement) => movement.itemId === itemDetails.id) : []} onClose={() => setItemDetails(null)} />
 
       {/* Item Modal */}
       <FloatingFormModal visible={showItemModal} onClose={() => setShowItemModal(false)} backgroundColor={colors.background}>

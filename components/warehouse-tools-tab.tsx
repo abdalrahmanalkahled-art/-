@@ -13,6 +13,7 @@ import { launchCamera, launchImageLibrary } from "@/lib/media-picker";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { conditionMeta, validateWarehouseTool, type WarehouseTool, type WarehouseToolBrandMode, type WarehouseToolCondition } from "@/lib/warehouse-tools";
 import { DESIGN } from "@/lib/design-system";
+import { WarehouseToolDetailsSheet } from "@/components/warehouse-detail-sheets";
 
 type ToolForm = { name: string; quantity: string; brandMode: WarehouseToolBrandMode; brandNames: string[]; imageUri?: string; condition: WarehouseToolCondition };
 const EMPTY_FORM: ToolForm = { name: "", quantity: "1", brandMode: "single", brandNames: [], condition: "new" };
@@ -28,6 +29,7 @@ export function WarehouseToolsTab({ openSignal }: { openSignal: number }) {
   const [successMessage, setSuccessMessage] = useState("");
   const [toolPendingDelete, setToolPendingDelete] = useState<WarehouseTool | null>(null);
   const [toolActionTarget, setToolActionTarget] = useState<WarehouseTool | null>(null);
+  const [toolDetails, setToolDetails] = useState<WarehouseTool | null>(null);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
 
   const reload = useCallback(async () => {
@@ -72,7 +74,7 @@ export function WarehouseToolsTab({ openSignal }: { openSignal: number }) {
   return <View style={styles.root}>
     <FlatList data={tools} keyExtractor={(item) => item.id} contentContainerStyle={tools.length ? styles.list : styles.emptyList} ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="handyman" size={44} color={colors.muted} /><Text style={[styles.emptyTitle, { color: colors.foreground }]}>لا توجد أدوات</Text><Text style={[styles.emptyText, { color: colors.muted }]}>أضف أداة وربطها بماركة واحدة أو عدة ماركات.</Text></View>} renderItem={({ item }) => {
       const meta = conditionMeta(item.condition);
-      return <TouchableOpacity onLongPress={() => setToolActionTarget(item)} delayLongPress={350} activeOpacity={0.82} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      return <TouchableOpacity onPress={() => setToolDetails(item)} onLongPress={() => setToolActionTarget(item)} delayLongPress={350} activeOpacity={0.82} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.topRow}>
           {item.imageUri ? <Image source={{ uri: item.imageUri }} style={styles.image} /> : <View style={[styles.icon, { backgroundColor: colors.primary + "14" }]}><MaterialIcons name="handyman" size={25} color={colors.primary} /></View>}
           <View style={styles.copy}><Text style={[styles.name, { color: colors.foreground }]}>{item.name}</Text><Text style={[styles.quantity, { color: colors.muted }]}>{item.quantity} قطعة{item.quantity > 1 ? "" : ""}</Text></View>
@@ -80,6 +82,7 @@ export function WarehouseToolsTab({ openSignal }: { openSignal: number }) {
         <View style={styles.metaRow}><View style={[styles.condition, { backgroundColor: meta.color + "14" }]}><MaterialIcons name={meta.icon} size={14} color={meta.color} /><Text style={[styles.conditionText, { color: meta.color }]}>{meta.label}</Text></View><Text numberOfLines={1} style={[styles.brands, { color: colors.muted }]}>الماركات: {item.brandNames.join("، ")}</Text></View>
       </TouchableOpacity>;
     }} />
+    <WarehouseToolDetailsSheet visible={Boolean(toolDetails)} tool={toolDetails} onClose={() => setToolDetails(null)} />
     <ToolModal visible={visible} editing={Boolean(editing)} form={form} brands={brands} onClose={() => setVisible(false)} onChange={setForm} onToggleBrand={toggleBrand} onPickImage={() => setShowMediaPicker(true)} onSave={() => void saveTool()} />
     <MediaSourcePickerModal visible={showMediaPicker} title="إضافة صورة الأداة" description="اختر تصوير الأداة أو اختيار صورة من المعرض" onClose={() => setShowMediaPicker(false)} onCamera={() => pickImage("camera")} onLibrary={() => pickImage("library")} />
     <SuccessModal visible={success} message={successMessage} onClose={() => setSuccess(false)} duration={2200} />
