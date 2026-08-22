@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
 import { launchImageLibrary, launchCamera, type ImagePickerResponse } from "@/lib/media-picker";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScreenContainer } from "@/components/screen-container";
@@ -79,6 +80,7 @@ const fromIsoDate = (value: string) => value ? new Date(`${value}T12:00:00`) : n
 
 export default function EventsScreen() {
   const colors = useColors();
+  const params = useLocalSearchParams<{ eventId?: string }>();
   const canCreate = useHasPermission("events", "create");
   const canEdit = useHasPermission("events", "edit");
   const canDelete = useHasPermission("events", "delete");
@@ -132,6 +134,15 @@ export default function EventsScreen() {
   }, []);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
+
+  useEffect(() => {
+    if (!params.eventId || events.length === 0) return;
+    const targetEvent = events.find((event) => event.id === params.eventId);
+    if (targetEvent) {
+      setSelectedEvent(targetEvent);
+      setShowEventDetails(true);
+    }
+  }, [events, params.eventId]);
 
   useEffect(() => {
     const loadGoalsAndRegions = async () => {
@@ -836,7 +847,6 @@ export default function EventsScreen() {
         visible={showEventDetails}
         event={selectedEvent}
         onClose={() => setShowEventDetails(false)}
-        onStatusChange={handleStatusChange}
         onAddMedia={handleAddMedia}
         onDeleteMedia={handleDeleteMedia}
         onEdit={handleEditEvent}

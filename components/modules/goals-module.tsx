@@ -15,6 +15,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SuccessModal } from "@/components/success-modal";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
+import { AnimatedCard } from "@/components/animated-card";
 import { useColors } from "@/hooks/use-colors";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
@@ -258,14 +259,10 @@ export default function GoalsModule() {
           const periodInfo = getPeriodInfo(item.period);
           const statusInfo = getStatusInfo(item.status);
           return (
-            <TouchableOpacity
-              style={[styles.goalCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            <AnimatedCard
+              style={[styles.goalCard, { marginHorizontal: 0, marginVertical: 0 }]}
               onPress={() => router.push({ pathname: "/goal-details", params: { id: item.id } })}
               onLongPress={() => setGoalActionTarget(item)}
-              delayLongPress={350}
-              activeOpacity={0.72}
-              accessibilityLabel={`تفاصيل الهدف ${item.title}`}
-              accessibilityHint="اضغط لعرض التفاصيل، أو اضغط مطولاً لفتح إجراءات التعديل والحذف"
             >
               <View style={styles.goalHeader}>
                 <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "20" }]}> 
@@ -326,7 +323,7 @@ export default function GoalsModule() {
                   <Text style={[styles.addTaskBtnText, { color: colors.primary }]}>إضافة مهمة</Text>
                 </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </AnimatedCard>
           );
         }}
         ListEmptyComponent={

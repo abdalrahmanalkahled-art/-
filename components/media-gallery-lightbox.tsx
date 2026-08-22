@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { MaterialIcons } from "@expo/vector-icons";
 
@@ -80,7 +80,8 @@ export function MediaGalleryLightbox({ mediaItems, onDeleteMedia, onAddMedia }: 
 
       <Modal visible={showMediaPicker} transparent animationType="fade" onRequestClose={() => setShowMediaPicker(false)}>
         <View style={styles.mediaPickerBackdrop}>
-          <View style={[styles.mediaPickerSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowMediaPicker(false)} accessibilityLabel="إغلاق خيارات التوثيق" />
+          <View style={[styles.mediaPickerSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <View style={styles.mediaPickerHead}>
               <TouchableOpacity onPress={() => setShowMediaPicker(false)} style={[styles.closePickerButton, { backgroundColor: colors.background }]} accessibilityLabel="إغلاق خيارات التوثيق"><MaterialIcons name="close" size={20} color={colors.muted} /></TouchableOpacity>
               <View style={styles.mediaPickerCopy}><Text style={[styles.mediaPickerTitle, { color: colors.foreground }]}>إضافة توثيق</Text><Text style={[styles.mediaPickerSubtitle, { color: colors.muted }]}>اختر نوع الوسيط الذي تريد إضافته للفعالية</Text></View>

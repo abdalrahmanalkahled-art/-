@@ -8,12 +8,12 @@ import { getEventGoalTitle, loadEventGoals, type EventGoal } from "@/lib/event-g
 import { launchImageLibrary, type ImagePickerResponse } from "@/lib/media-picker";
 import { MediaGalleryLightbox } from "./media-gallery-lightbox";
 import { ConfirmDialog } from "./confirm-dialog";
+import { CardActionModal } from "./card-action-modal";
 
 interface EventDetailsModalProps {
   visible: boolean;
   event: any;
   onClose: () => void;
-  onStatusChange: (newStatus: string) => void;
   onAddMedia: (uri: string, type: "image" | "video", metadata?: { fileName?: string | null; mimeType?: string | null }) => void;
   onDeleteMedia: (uri: string) => void;
   onEdit: () => void;
@@ -40,7 +40,6 @@ export function EventDetailsModal({
   visible,
   event,
   onClose,
-  onStatusChange,
   onAddMedia,
   onDeleteMedia,
   onEdit,
@@ -49,6 +48,7 @@ export function EventDetailsModal({
   const colors = useColors();
   const [goals, setGoals] = useState<EventGoal[]>([]);
   const [deleteConfirmationVisible, setDeleteConfirmationVisible] = useState(false);
+  const [showEventActions, setShowEventActions] = useState(false);
   const statusInfo = useMemo(
     () => STATUS_OPTIONS.find((status) => status.value === event?.status) || STATUS_OPTIONS[0],
     [event?.status],
@@ -112,13 +112,11 @@ export function EventDetailsModal({
             <MaterialIcons name="close" size={22} color={colors.foreground} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>تفاصيل الفعالية</Text>
-          <TouchableOpacity accessibilityLabel="تعديل الفعالية" onPress={onEdit} style={[styles.iconButton, { backgroundColor: colors.surface }]}>
-            <MaterialIcons name="edit" size={20} color={colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.iconButton} />
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={[styles.hero, { backgroundColor: statusInfo.color }]}>
+          <TouchableOpacity onLongPress={() => setShowEventActions(true)} delayLongPress={350} activeOpacity={0.88} style={[styles.hero, { backgroundColor: statusInfo.color }]} accessibilityLabel={`تفاصيل ${event?.title || "الفعالية"}`} accessibilityHint="اضغط مطولاً لفتح إجراءات التعديل والحذف">
             <View style={styles.heroTopRow}>
               <View style={styles.heroIcon}>
                 <MaterialIcons name={statusInfo.icon} size={23} color="#fff" />
@@ -136,7 +134,7 @@ export function EventDetailsModal({
               <MaterialIcons name="location-on" size={16} color="rgba(255,255,255,0.9)" />
               <Text style={styles.heroMetaText}>{event?.region || event?.location || "غير محدد"}</Text>
             </View>
-          </View>
+          </TouchableOpacity>
 
           <View style={styles.metricsRow}>
             {metrics.map((metric) => (
@@ -168,24 +166,10 @@ export function EventDetailsModal({
             </View>
           </View>
 
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>تحديث الحالة</Text>
-            <Text style={[styles.sectionHint, { color: colors.muted }]}>اختر الحالة الحالية</Text>
-          </View>
-          <View style={styles.statusGrid}>
-            {STATUS_OPTIONS.map((status) => {
-              const isSelected = event?.status === status.value;
-              return (
-                <TouchableOpacity
-                  key={status.value}
-                  onPress={() => onStatusChange(status.value)}
-                  style={[styles.statusOption, { borderColor: isSelected ? status.color : colors.border, backgroundColor: isSelected ? `${status.color}18` : colors.surface }]}
-                >
-                  <MaterialIcons name={status.icon} size={18} color={isSelected ? status.color : colors.muted} />
-                  <Text style={[styles.statusOptionText, { color: isSelected ? status.color : colors.foreground }]}>{status.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
+          <View style={[styles.statusSummary, { backgroundColor: `${statusInfo.color}12`, borderColor: `${statusInfo.color}3D` }]}>
+            <View style={[styles.statusSummaryIcon, { backgroundColor: `${statusInfo.color}20` }]}><MaterialIcons name={statusInfo.icon} size={21} color={statusInfo.color} /></View>
+            <View style={styles.statusSummaryCopy}><Text style={[styles.statusSummaryLabel, { color: colors.muted }]}>حالة الفعالية</Text><Text style={[styles.statusSummaryValue, { color: colors.foreground }]}>{statusInfo.label}</Text></View>
+            <Text style={[styles.statusSummaryHint, { color: colors.muted }]}>تُحدّث من تعديل الفعالية</Text>
           </View>
 
           {event?.status === "completed" ? (
@@ -211,16 +195,7 @@ export function EventDetailsModal({
           ) : null}
         </ScrollView>
 
-        <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-          <TouchableOpacity onPress={handleDeleteEvent} style={[styles.deleteButton, { borderColor: `${colors.error}70`, backgroundColor: `${colors.error}12` }]}>
-            <MaterialIcons name="delete-outline" size={20} color={colors.error} />
-            <Text style={[styles.deleteButtonText, { color: colors.error }]}>حذف</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onEdit} style={[styles.editButton, { backgroundColor: colors.primary }]}>
-            <MaterialIcons name="edit" size={19} color="#fff" />
-            <Text style={styles.editButtonText}>تعديل الفعالية</Text>
-          </TouchableOpacity>
-        </View>
+        <CardActionModal visible={showEventActions} title={event?.title || "إجراءات الفعالية"} description="تُفتح الإجراءات بالضغط المطوّل على بطاقة الفعالية" onClose={() => setShowEventActions(false)} actions={[{ id: "edit", label: "تعديل الفعالية", icon: "edit", onPress: () => { setShowEventActions(false); onEdit(); } }, { id: "delete", label: "حذف الفعالية", icon: "delete-outline", tone: "danger", onPress: () => { setShowEventActions(false); handleDeleteEvent(); } }]} />
         <ConfirmDialog
           visible={deleteConfirmationVisible}
           title="حذف الفعالية"
@@ -283,20 +258,16 @@ const styles = StyleSheet.create({
   goalTextGroup: { flex: 1, alignItems: "flex-end" },
   goalLabel: { fontSize: 11, fontWeight: "600", marginBottom: 3 },
   goalTitle: { textAlign: "right", fontSize: 14, fontWeight: "800" },
-  sectionHeader: { flexDirection: "row-reverse", alignItems: "baseline", justifyContent: "space-between", marginTop: 2 },
   sectionTitle: { fontSize: 16, fontWeight: "800" },
-  sectionHint: { fontSize: 11 },
-  statusGrid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 8 },
-  statusOption: { width: "48.5%", flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, borderWidth: 1, borderRadius: 14 },
-  statusOptionText: { fontSize: 13, fontWeight: "800" },
+  statusSummary: { minHeight: 72, borderRadius: 18, borderWidth: 1, paddingHorizontal: 13, flexDirection: "row-reverse", alignItems: "center", gap: 10 },
+  statusSummaryIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  statusSummaryCopy: { flex: 1, alignItems: "flex-end" },
+  statusSummaryLabel: { fontSize: 11, fontWeight: "600" },
+  statusSummaryValue: { fontSize: 15, fontWeight: "800", marginTop: 2 },
+  statusSummaryHint: { maxWidth: 92, fontSize: 10, textAlign: "left", lineHeight: 14 },
   documentationHeader: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" },
   documentationSubtitle: { fontSize: 11, textAlign: "right", marginTop: -7, marginBottom: 14 },
   mediaCount: { minWidth: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   mediaCountText: { fontSize: 12, fontWeight: "800" },
   notesText: { textAlign: "right", fontSize: 14, lineHeight: 22 },
-  footer: { flexDirection: "row-reverse", gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, borderTopWidth: 1 },
-  editButton: { flex: 1, minHeight: 50, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 15 },
-  editButtonText: { color: "#fff", fontSize: 14, fontWeight: "800" },
-  deleteButton: { minWidth: 94, minHeight: 50, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1, borderRadius: 15 },
-  deleteButtonText: { fontSize: 13, fontWeight: "800" },
 });

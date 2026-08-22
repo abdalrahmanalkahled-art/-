@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Pressable,
   StyleSheet,
+  StyleProp,
   ViewStyle,
   View,
   Animated,
@@ -11,8 +12,9 @@ import { useColors } from "@/hooks/use-colors";
 
 interface AnimatedCardProps {
   onPress?: () => void;
+  onLongPress?: () => void;
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   hapticFeedback?: boolean;
   disabled?: boolean;
 }
@@ -20,6 +22,7 @@ interface AnimatedCardProps {
 export const AnimatedCard = React.memo(
   ({
     onPress,
+    onLongPress,
     children,
     style,
     hapticFeedback = true,
@@ -80,6 +83,8 @@ export const AnimatedCard = React.memo(
       <Animated.View style={cardStyle}>
         <Pressable
           onPress={handlePress}
+          onLongPress={onLongPress}
+          delayLongPress={350}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           disabled={disabled}

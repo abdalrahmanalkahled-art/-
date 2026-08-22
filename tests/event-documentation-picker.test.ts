@@ -11,4 +11,9 @@ describe("نافذة إضافة توثيق الفعالية", () => {
     expect(source).toContain('label="إضافة صورة"');
     expect(source).toContain('label="إضافة فيديو"');
   });
+
+  it("تغلق النافذة عند لمس الخلفية خارج ورقة الخيارات", () => {
+    expect(source).toContain('onPress={() => setShowMediaPicker(false)}');
+    expect(source).toContain('accessibilityLabel="إغلاق خيارات التوثيق"');
+  });
 });
