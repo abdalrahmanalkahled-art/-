@@ -11,7 +11,7 @@ describe("مصنف Excel للتحليلات المتقدمة", () => {
     const report = buildAnalyticsReportData(analytics, { analysisName: "استبيان", templateName: "دراسة", cycleName: "كل الدورات", brandName: "مدار", regionName: "دمشق", storeName: "كل المحلات" }, { events: [], signages: [], stands: [], totalBudget: 0, totalCost: 0, activeSignages: 0, activeStands: 0, goals: [] });
     const workbook = buildAdvancedAnalyticsWorkbook(report);
 
-    expect(workbook.SheetNames).toEqual(["ملخص التحليل", "الدورات والمنتجات", "متوسطات الأصناف", "التحليل التسويقي"]);
+    expect(workbook.SheetNames).toEqual(["ملخص التحليل", "الدورات والمنتجات", "متوسطات الأصناف", "ملخص تسويقي"]);
     expect(workbook.Workbook?.Views?.[0]?.RTL).toBe(true);
     expect(XLSX.utils.sheet_to_json(workbook.Sheets["الدورات والمنتجات"])[0]).toMatchObject({ المنتج: "منتج مدار" });
     expect(XLSX.utils.sheet_to_json(workbook.Sheets["متوسطات الأصناف"])[0]).toMatchObject({ الصنف: "بدون تصنيف", "متوسط منتجاتنا": "100%" });
@@ -42,6 +42,6 @@ describe("مصنف Excel للتحليلات المتقدمة", () => {
     const report = buildAnalyticsReportData(analytics, { analysisName: "استبيان", templateName: "دراسة", cycleName: "كل الدورات", brandName: "مدار", regionName: "دمشق", storeName: "كل المحلات" }, { events: [], signages: [], stands: [], totalBudget: 0, totalCost: 0, activeSignages: 0, activeStands: 0, goals: [] });
     const workbook = buildAdvancedAnalyticsWorkbook(report, { ...DEFAULT_ANALYTICS_SETTINGS, reportSectionOrder: ["marketing", "productDetails", "studiedStores", "decisionIndicators", "dataWarnings", "regionMatrix"] });
 
-    expect(workbook.SheetNames.slice(0, 3)).toEqual(["ملخص التحليل", "التحليل التسويقي", "الدورات والمنتجات"]);
+    expect(workbook.SheetNames.slice(0, 3)).toEqual(["ملخص التحليل", "ملخص تسويقي", "الدورات والمنتجات"]);
   });
 });

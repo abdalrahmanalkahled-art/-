@@ -57,6 +57,10 @@ export interface AnalyticsReportData {
   summary: { label: string; value: string }[];
   cycleRows: AnalyticsReportRow[];
   marketingRows: { البند: string; الإجمالي: string }[];
+  marketingEvents: Array<{ الفعالية: string; الحالة: string; التاريخ: string; الموقع: string; المنطقة: string; الماركة: string; المستفيدون: string; الهدايا: string; الهدف: string }>;
+  marketingGoals: Array<{ الهدف: string; الماركة: string; الحالة: string; الفترة: string; المؤشر: string; الإنجاز: string; "عدد الفعاليات المرتبطة": string }>;
+  marketingSignages: Array<{ اللوحة: string; النوع: string; الماركة: string; المنطقة: string; الموقع: string; الحالة: string; "نهاية العقد": string }>;
+  marketingStands: Array<{ الستاند: string; الماركة: string; المحل: string; الحالة: string; "تاريخ التركيب": string; "سجل الصيانة": string }>;
   studiedStores: AnalyticsStudiedStoreRow[];
   decisionIndicators: { label: string; value: string; detail?: string }[];
   dataWarnings: string[];
@@ -166,15 +170,61 @@ export function buildAnalyticsReportData(
     ...(product.averageShelfPercentage !== undefined ? { "متوسط نسبة الظهور": `${product.averageShelfPercentage}%` } : {}),
     ...(product.averagePrice !== undefined ? { "متوسط السعر": `${formatAnalyticsNumber(product.averagePrice)} ل.س` } : {}),
   })));
+  const eventStatusLabels = { planned: "مخططة", ongoing: "قيد التنفيذ", completed: "مكتملة", cancelled: "ملغاة" } as const;
+  const goalStatusLabels = { on_track: "في المسار", delayed: "متأخر", completed: "مكتمل", cancelled: "ملغي" } as const;
+  const boardTypeLabels = { store: "لوحة محل", road: "لوحة طرقية", wall: "لوحة جدارية", island: "منصف إعلاني" } as const;
+  const standConditionLabels = { good: "بحالة جيدة", damaged: "متضرر", needs_repair: "يحتاج صيانة" } as const;
+  const periodLabels = { monthly: "شهري", quarterly: "ربع سنوي", annual: "سنوي" } as const;
+  const goalsById = new Map((marketing?.goals || []).map((goal) => [goal.id, goal]));
   const marketingRows = marketing ? [
     { البند: "الفعاليات ضمن النطاق", الإجمالي: formatAnalyticsNumber(marketing.events.length) },
-    { البند: "إجمالي ميزانية الفعاليات", الإجمالي: `${formatAnalyticsNumber(marketing.totalBudget)} ل.س` },
-    { البند: "التكلفة الفعلية للفعاليات", الإجمالي: `${formatAnalyticsNumber(marketing.totalCost)} ل.س` },
-    { البند: "الأهداف المرتبطة بالماركات", الإجمالي: formatAnalyticsNumber(marketing.goals.length) },
+    { البند: "فعاليات مكتملة", الإجمالي: formatAnalyticsNumber(marketing.eventStatusCounts?.completed || 0) },
+    { البند: "إجمالي المستفيدين", الإجمالي: formatAnalyticsNumber(marketing.totalAttendees || 0) },
+    { البند: "إجمالي الهدايا", الإجمالي: formatAnalyticsNumber(marketing.totalGifts || 0) },
+    { البند: "الأهداف المرتبطة", الإجمالي: formatAnalyticsNumber(marketing.goals.length) },
     { البند: "تقدم الأهداف المرتبطة", الإجمالي: marketing.goalProgress === undefined ? "غير متاح" : `${marketing.goalProgress}%` },
+    { البند: "المناطق المغطاة", الإجمالي: formatAnalyticsNumber(marketing.coveredRegions?.length || 0) },
     { البند: "اللوحات النشطة", الإجمالي: formatAnalyticsNumber(marketing.activeSignages) },
     { البند: "الستاندات بحالة جيدة", الإجمالي: formatAnalyticsNumber(marketing.activeStands) },
+    { البند: "ستاندات تحتاج متابعة", الإجمالي: formatAnalyticsNumber(marketing.standsNeedingAttention || 0) },
   ] : [];
+  const marketingEvents = (marketing?.events || []).map((event) => ({
+    الفعالية: toWesternDigits(event.title || event.name || "فعالية ميدانية"),
+    الحالة: eventStatusLabels[event.status || "planned"],
+    التاريخ: dateLabel(event.eventDate || ""),
+    الموقع: toWesternDigits(event.location || event.detailedAddress || "غير محدد"),
+    المنطقة: toWesternDigits(event.region || "غير محددة"),
+    الماركة: toWesternDigits(event.brandName || "غير محددة"),
+    المستفيدون: formatAnalyticsNumber(Number(event.attendeesCount) || 0),
+    الهدايا: formatAnalyticsNumber(Number(event.giftsDistributed) || 0),
+    الهدف: toWesternDigits(event.goalId ? goalsById.get(event.goalId)?.title || "هدف مرتبط" : "—"),
+  })).sort((first, second) => first.التاريخ.localeCompare(second.التاريخ));
+  const marketingGoals = (marketing?.goals || []).map((goal) => ({
+    الهدف: toWesternDigits(goal.title || "هدف تسويقي"),
+    الماركة: toWesternDigits(goal.brandName || "غير محددة"),
+    الحالة: goalStatusLabels[goal.status || "on_track"],
+    الفترة: periodLabels[goal.period || "monthly"],
+    المؤشر: toWesternDigits(goal.kpi || "—"),
+    الإنجاز: `${Math.round(Number(goal.completionPercentage) || (Number(goal.targetValue) ? (Number(goal.currentValue) / Number(goal.targetValue)) * 100 : 0))}%`,
+    "عدد الفعاليات المرتبطة": formatAnalyticsNumber((marketing?.events || []).filter((event) => event.goalId === goal.id).length),
+  }));
+  const marketingSignages = (marketing?.signages || []).map((signage) => ({
+    اللوحة: toWesternDigits(signage.storeName || signage.address || signage.brand || "لوحة إعلانية"),
+    النوع: boardTypeLabels[signage.type || "store"],
+    الماركة: toWesternDigits(signage.brand || signage.frontBrand || signage.backBrand || "غير محددة"),
+    المنطقة: toWesternDigits(signage.region || "غير محددة"),
+    الموقع: toWesternDigits(signage.address || signage.storeName || "غير محدد"),
+    الحالة: signage.isActive === false ? "غير نشطة" : "نشطة",
+    "نهاية العقد": dateLabel(signage.contractEndDate || ""),
+  }));
+  const marketingStands = (marketing?.stands || []).map((stand) => ({
+    الستاند: toWesternDigits(stand.storeName || stand.brand || "ستاند ترويجي"),
+    الماركة: toWesternDigits(stand.brand || "غير محددة"),
+    المحل: toWesternDigits(stand.storeName || "غير محدد"),
+    الحالة: stand.isActive === false ? "غير نشط" : standConditionLabels[stand.condition || "good"],
+    "تاريخ التركيب": dateLabel(stand.installDate || ""),
+    "سجل الصيانة": formatAnalyticsNumber(stand.maintenanceHistory?.length || 0),
+  }));
   return {
     title: toWesternDigits(scope.reportTitle || "تقرير التحليلات المتقدمة"),
     generatedAt: formatAnalyticsDateTime(new Date()),
@@ -194,10 +244,14 @@ export function buildAnalyticsReportData(
       { label: "المحلات ضمن النطاق", value: formatAnalyticsNumber(analytics.totalStores) },
       { label: "متوسط منتجاتنا", value: sourcePresence.company === undefined ? "غير متاح" : `${sourcePresence.company}%` },
       { label: "متوسط المنافسين", value: sourcePresence.competitor === undefined ? "غير متاح" : `${sourcePresence.competitor}%` },
-      ...(marketing ? [{ label: "تكلفة الفعاليات", value: `${formatAnalyticsNumber(marketing.totalCost)} ل.س` }] : []),
+      ...(marketing ? [{ label: "الفعاليات المكتملة", value: formatAnalyticsNumber(marketing.eventStatusCounts?.completed || 0) }, { label: "المستفيدون", value: formatAnalyticsNumber(marketing.totalAttendees || 0) }] : []),
     ],
     cycleRows,
     marketingRows,
+    marketingEvents,
+    marketingGoals,
+    marketingSignages,
+    marketingStands,
     studiedStores: buildStudiedStoreRows(sources, options?.settings?.storeDetailDepth),
     decisionIndicators: buildDecisionIndicators(options?.decisionMetrics, options?.settings),
     dataWarnings: options?.settings?.reportTables.dataWarnings === false ? [] : options?.decisionMetrics?.dataWarnings || [],

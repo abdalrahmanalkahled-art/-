@@ -77,11 +77,31 @@ describe("بيانات تقرير التحليلات المتقدمة", () => {
     expect(flattenAnalyticsReportForExcel(report).map((row) => row.المنتج)).toEqual(["منظف ثانٍ", "مسحوق أول"]);
   });
 
-  it("يضيف التكلفة وتقدم الأهداف إلى القسم التسويقي عند وجوده", () => {
-    const report = buildAnalyticsReportData(analytics, scope, { events: [], signages: [], stands: [], totalBudget: 300, totalCost: 240, activeSignages: 1, activeStands: 2, goals: [{ id: "g1", brandName: "مدار" }], goalProgress: 60 });
+  it("يبني قسماً تسويقياً تشغيلياً بلا أسعار للفعاليات والأهداف والأصول", () => {
+    const report = buildAnalyticsReportData(analytics, scope, {
+      events: [{ id: "e1", title: "فعالية رمضان", brandName: "مدار", region: "دمشق", eventDate: "2026-04-10", status: "completed", attendeesCount: 120, giftsDistributed: 80, goalId: "g1" }],
+      signages: [{ id: "b1", type: "road", brand: "مدار", region: "دمشق", isActive: true }],
+      stands: [{ id: "s1", brand: "مدار", condition: "needs_repair", isActive: true }],
+      totalBudget: 300,
+      totalCost: 240,
+      activeSignages: 1,
+      activeStands: 0,
+      goals: [{ id: "g1", title: "انتشار رمضان", brandName: "مدار", completionPercentage: 60, status: "on_track" }],
+      goalProgress: 60,
+      eventStatusCounts: { planned: 0, ongoing: 0, completed: 1, cancelled: 0 },
+      totalAttendees: 120,
+      totalGifts: 80,
+      coveredRegions: ["دمشق"],
+      signageTypeCounts: { store: 0, road: 1, wall: 0, island: 0 },
+      standsNeedingAttention: 1,
+    });
 
-    expect(report.marketingRows).toContainEqual({ البند: "التكلفة الفعلية للفعاليات", الإجمالي: "240 ل.س" });
-    expect(report.marketingRows).toContainEqual({ البند: "تقدم الأهداف المرتبطة", الإجمالي: "60%" });
+    expect(report.marketingRows).toContainEqual({ البند: "إجمالي المستفيدين", الإجمالي: "120" });
+    expect(report.marketingRows.some((row) => row.البند.includes("تكلفة") || row.البند.includes("ميزانية"))).toBe(false);
+    expect(report.marketingEvents[0]).toMatchObject({ الفعالية: "فعالية رمضان", الحالة: "مكتملة", المستفيدون: "120", الهدف: "انتشار رمضان" });
+    expect(report.marketingGoals[0]).toMatchObject({ الهدف: "انتشار رمضان", الإنجاز: "60%", "عدد الفعاليات المرتبطة": "1" });
+    expect(report.marketingSignages[0]).toMatchObject({ النوع: "لوحة طرقية", الحالة: "نشطة" });
+    expect(report.marketingStands[0]).toMatchObject({ الحالة: "يحتاج صيانة" });
   });
 
   it("يبني صف المحل المدروس مع حالات المواد والملاحظات", () => {

@@ -114,12 +114,23 @@ function buildSourcePresenceSummary(report: AnalyticsReportData): string {
   return `<section><h2>متوسط التواجد حسب المصدر</h2><div class="metrics">${sourceMetrics.map((item) => `<div class="metric"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`).join("")}</div></section>`;
 }
 
+function buildMarketingTable(title: string, headers: string[], rows: Array<Record<string, string>>): string {
+  if (!rows.length) return `<div style="border:1px dashed #cbd5e1;border-radius:11px;padding:12px;color:#64748b;text-align:center;margin-top:8px">لا توجد بيانات ${escapeHtml(title)} ضمن النطاق المحدد.</div>`;
+  return `<div style="break-inside:avoid"><h3 style="font-size:13px;color:#173b74;margin:18px 0 7px">${escapeHtml(title)}</h3><table><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${headers.map((header) => `<td>${escapeHtml(row[header] || "—")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
+function buildMarketingSection(report: AnalyticsReportData): string {
+  if (!report.marketingRows.length) return "";
+  const highlights = report.marketingRows.slice(0, 6).map((row) => `<div style="border:1px solid #d9e6f7;border-radius:11px;padding:10px;background:#f8fbff;text-align:center"><span style="display:block;color:#64748b;font-size:10px">${escapeHtml(row.البند)}</span><strong style="display:block;color:#1455b8;font-size:17px;margin-top:3px">${escapeHtml(row.الإجمالي)}</strong></div>`).join("");
+  return `<section><h2>الفعاليات والأهداف واللوحات والستاندات</h2><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0">${highlights}</div>${buildMarketingTable("الفعاليات", ["الفعالية", "الحالة", "التاريخ", "المنطقة", "المستفيدون", "الهدايا", "الهدف"], report.marketingEvents)}${buildMarketingTable("الأهداف المرتبطة", ["الهدف", "الماركة", "الحالة", "الفترة", "المؤشر", "الإنجاز", "عدد الفعاليات المرتبطة"], report.marketingGoals)}${buildMarketingTable("اللوحات", ["اللوحة", "النوع", "الماركة", "المنطقة", "الحالة", "نهاية العقد"], report.marketingSignages)}${buildMarketingTable("الستاندات", ["الستاند", "الماركة", "المحل", "الحالة", "تاريخ التركيب", "سجل الصيانة"], report.marketingStands)}</section>`;
+}
+
 export function buildAdvancedAnalyticsPdfHtml(report: AnalyticsReportData, analytics: AdvancedSurveyAnalytics, options: AdvancedAnalyticsPdfOptions = {}): string {
   const scopeRows = [["نوع التحليل", report.scope.analysisName], ["غرض التقرير", report.scope.reportPurpose || "تنفيذي"], ["طريقة القياس", report.scope.presenceBasis || "زيارات ميدانية"], ["مرجع المقارنة", report.scope.comparisonReference || "الدورة السابقة"], ["الاستبيان", report.scope.templateName], ["الدورة", report.scope.cycleName], ["الماركة", report.scope.brandName], ["المنطقة", report.scope.regionName], ["المحل", report.scope.storeName]].map(([label, value]) => `<div class="scope-row"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join("");
   const summary = report.summary.filter((item) => item.label !== "تكلفة الفعاليات" && item.label !== "متوسط منتجاتنا" && item.label !== "متوسط المنافسين").map((item) => `<div class="metric"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`).join("");
   const categorySections = options.reportTables?.productDetails === false ? "" : buildCategorySections(report, analytics, options.chartType || "line", options);
   const studiedStores = options.reportTables?.studiedStores !== false ? `<section><h2>المحلات المدروسة</h2><table><thead><tr><th>المحل</th><th>التصنيف</th><th>المنطقة</th><th>التاريخ</th><th>موضع الزيارة</th><th>رقم التواصل</th><th>الملاحظات</th></tr></thead><tbody>${buildStudiedStoresRows(report)}</tbody></table></section>` : "";
-  const marketingTable = options.reportTables?.marketing !== false && report.marketingRows.length ? `<section><h2>الفعاليات واللوحات والستاندات</h2><table><thead><tr><th>البند</th><th>الإجمالي</th></tr></thead><tbody>${report.marketingRows.filter((row) => !row.البند.includes("التكلفة")).map((row) => `<tr><td>${escapeHtml(row.البند)}</td><td class="number">${escapeHtml(row.الإجمالي)}</td></tr>`).join("")}</tbody></table></section>` : "";
+  const marketingTable = options.reportTables?.marketing !== false ? buildMarketingSection(report) : "";
   const decisionIndicators = options.reportTables?.decisionIndicators === false ? "" : buildDecisionIndicators(report);
   const dataWarnings = options.reportTables?.dataWarnings === false ? "" : buildDataWarnings(report);
   const regionMatrix = options.reportTables?.regionMatrix === false ? "" : [report.regionMatrix ? buildRegionMatrix(report.regionMatrix, options.regionMatrix) : "", ...(report.categoryMatrices || []).map((item) => buildRegionMatrix(item.matrix, options.regionMatrix, `مصفوفة الصنف: ${toWesternDigits(item.category)}`))].join("");
