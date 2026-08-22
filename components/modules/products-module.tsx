@@ -19,6 +19,7 @@ import { useHasPermission } from "@/lib/app-context";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { FABMenu, type FABMenuItem } from "@/components/fab-menu";
 import { SuccessModal } from "@/components/success-modal";
+import { CardActionModal } from "@/components/card-action-modal";
 import { useState, useCallback, useEffect } from "react";
 import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
 import { createDefaultProductCategories, getProductCategoryId, getVisibleProductCategories } from "@/lib/product-category-recovery";
@@ -54,6 +55,9 @@ export function ProductsModule() {
   const [competitors, setCompetitors] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | null>(null);
+  const [productActionTarget, setProductActionTarget] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showCompetitorModal, setShowCompetitorModal] = useState(false);
@@ -100,7 +104,7 @@ export function ProductsModule() {
     loadData();
   }, [loadData]);
 
-  const handleAddProduct = async () => {
+  const handleSaveProduct = async () => {
     if (!form.name.trim() || !form.categoryId) {
       Alert.alert("خطأ", "يرجى ملء جميع الحقول");
       return;
@@ -116,22 +120,34 @@ export function ProductsModule() {
     }
 
     const category = categories.find((c) => c.id === form.categoryId);
-    const newProduct: Product = {
-      id: Date.now().toString(),
+    const product: Product = {
+      id: editingProduct?.id ?? Date.now().toString(),
       name: form.name.trim(),
       categoryId: form.categoryId,
       categoryName: category?.name || "",
       type: form.type,
       brandName: form.type === "company" ? form.brandName : undefined,
       competitorName: form.type === "competitor" ? form.competitorName : undefined,
-      createdAt: new Date().toISOString(),
+      createdAt: editingProduct?.createdAt ?? new Date().toISOString(),
     };
+    const updatedProducts = editingProduct
+      ? products.map((item) => item.id === editingProduct.id ? product : item)
+      : [...products, product];
 
-    await saveItems(STORAGE_KEYS.PRODUCTS, [...products, newProduct]);
+    await saveItems(STORAGE_KEYS.PRODUCTS, updatedProducts);
+    setProducts(updatedProducts);
     setForm({ name: "", categoryId: "", type: "company", brandName: "", competitorName: "" });
+    setEditingProduct(null);
     setShowModal(false);
     setShowSuccessAdd(true);
     await loadData();
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setForm({ name: product.name, categoryId: product.categoryId, type: product.type, brandName: product.brandName ?? "", competitorName: product.competitorName ?? "" });
+    setProductActionTarget(null);
+    setShowModal(true);
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -301,56 +317,19 @@ export function ProductsModule() {
   ] : [];
 
   const renderCategorySection = ({ item }: { item: CategoryWithProducts }) => (
-    <View style={[styles.categorySection, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <TouchableOpacity
-        style={styles.categoryHeader}
-        onPress={() => toggleCategory(item.category.id)}
-      >
-        <MaterialIcons
-          name={item.isExpanded ? "expand-less" : "expand-more"}
-          size={24}
-          color={colors.primary}
-        />
-        <Text style={[styles.categoryTitle, { color: colors.foreground }]}>
-          {item.category.name}
-        </Text>
+    <TouchableOpacity
+      style={[styles.categorySection, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      onPress={() => setSelectedCategory(item.category)}
+      activeOpacity={0.82}
+    >
+      <View style={styles.categoryHeader}>
+        <MaterialIcons name="chevron-left" size={22} color={colors.muted} />
+        <Text style={[styles.categoryTitle, { color: colors.foreground }]}>{item.category.name}</Text>
         <View style={[styles.categoryBadge, { backgroundColor: colors.primary }]}>
           <Text style={styles.categoryBadgeText}>{item.products.length}</Text>
         </View>
-      </TouchableOpacity>
-
-      {item.isExpanded && item.products.length > 0 && (
-        <View style={[styles.productsContainer, { borderTopColor: colors.border }]}>
-          {item.products.map((product) => (
-            <View key={product.id} style={[styles.productItem, { borderBottomColor: colors.border }]}>
-              <TouchableOpacity 
-                onPress={() => handleDeleteProduct(product.id)}
-                style={{ padding: 8, borderRadius: 4 }}
-              >
-                <MaterialIcons name="delete-outline" size={20} color={colors.error} />
-              </TouchableOpacity>
-              <View style={styles.productInfo}>
-                <Text style={[styles.productName, { color: colors.foreground }]}>{product.name}</Text>
-                {product.competitorName && (
-                  <Text style={[styles.competitorName, { color: colors.primary }]}> 
-                    {product.competitorName}
-                  </Text>
-                )}
-                {product.brandName && (
-                  <Text style={[styles.competitorName, { color: colors.primary }]}>{product.brandName}</Text>
-                )}
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {item.isExpanded && item.products.length === 0 && (
-        <View style={styles.emptyCategory}>
-          <Text style={[styles.emptyCategoryText, { color: colors.muted }]}>لا توجد منتجات</Text>
-        </View>
-      )}
-    </View>
+      </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -437,6 +416,55 @@ export function ProductsModule() {
 
       {/* FAB Menu */}
       <FABMenu items={fabItems} />
+
+      {/* Products in selected category */}
+      <FloatingFormModal visible={Boolean(selectedCategory)} onClose={() => setSelectedCategory(null)} backgroundColor={colors.background}>
+        <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={[styles.modal, { backgroundColor: colors.background }]}> 
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}> 
+              <TouchableOpacity onPress={() => setSelectedCategory(null)} style={styles.closeButton}>
+                <MaterialIcons name="close" size={24} color={colors.foreground} />
+              </TouchableOpacity>
+              <View style={styles.modalHeaderCopy}>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>{selectedCategory?.name}</Text>
+                <Text style={[styles.modalSubtitle, { color: colors.muted }]}>المنتجات المرتبطة بالتصنيف</Text>
+              </View>
+              <View style={{ width: 40 }} />
+            </View>
+            <FlatList
+              data={selectedCategory ? getCategoriesWithProducts().find((item) => item.category.id === selectedCategory.id)?.products ?? [] : []}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.productsModalList}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onLongPress={() => setProductActionTarget(item)}
+                  delayLongPress={350}
+                  activeOpacity={0.82}
+                  style={[styles.productModalItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <View style={styles.productInfo}>
+                    <Text style={[styles.productName, { color: colors.foreground }]}>{item.name}</Text>
+                    <Text style={[styles.competitorName, { color: colors.primary }]}>{item.competitorName ?? item.brandName ?? ""}</Text>
+                  </View>
+                  <MaterialIcons name="more-horiz" size={22} color={colors.muted} />
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={<View style={styles.emptyCategory}><MaterialIcons name="inventory-2" size={34} color={colors.muted} /><Text style={[styles.emptyCategoryText, { color: colors.muted }]}>لا توجد منتجات في هذا التصنيف</Text></View>}
+            />
+          </View>
+        </SafeAreaView>
+      </FloatingFormModal>
+
+      <CardActionModal
+        visible={Boolean(productActionTarget)}
+        title={productActionTarget?.name ?? "المنتج"}
+        description="اختر الإجراء المطلوب لهذا المنتج"
+        onClose={() => setProductActionTarget(null)}
+        actions={[
+          { id: "edit", label: "تعديل المنتج", icon: "edit", onPress: () => productActionTarget && handleEditProduct(productActionTarget) },
+          { id: "delete", label: "حذف المنتج", icon: "delete-outline", tone: "danger", onPress: () => { if (productActionTarget) handleDeleteProduct(productActionTarget.id); setProductActionTarget(null); } },
+        ]}
+      />
 
       {/* Add Product Modal */}
       <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
@@ -551,7 +579,7 @@ export function ProductsModule() {
                 <TouchableOpacity onPress={() => setShowModal(false)} style={[styles.cancelBtn, { borderColor: colors.border }]}>
                   <Text style={[styles.cancelBtnText, { color: colors.foreground }]}>إلغاء</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleAddProduct} style={[styles.saveBtnBottom, { backgroundColor: colors.primary }]}>
+                <TouchableOpacity onPress={handleSaveProduct} style={[styles.saveBtnBottom, { backgroundColor: colors.primary }]}>
                   <Text style={styles.saveBtnText}>حفظ</Text>
                 </TouchableOpacity>
               </View>
@@ -770,8 +798,13 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16 },
   modal: { flex: 1 },
   modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 0.5 },
+  modalHeaderCopy: { flex: 1, alignItems: "flex-end", gap: 3 },
+  modalSubtitle: { fontSize: 11, textAlign: "right" },
+  closeButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   modalTitle: { fontSize: 17, fontWeight: "700" as any },
   modalContent: { flex: 1, padding: 16 },
+  productsModalList: { padding: 16, gap: 10, paddingBottom: 32 },
+  productModalItem: { minHeight: 66, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 10 },
   modalFooter: { flexDirection: "row", gap: 12, padding: 16, borderTopWidth: 1, justifyContent: "space-between" },
   cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center", borderWidth: 1 },
   cancelBtnText: { fontWeight: "600" as any, fontSize: 16 },
