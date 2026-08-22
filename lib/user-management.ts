@@ -18,6 +18,7 @@ function normalizeUser(value: Partial<ManagedUser>): ManagedUser | null {
     username: value.username.trim().toLowerCase(),
     password: value.password,
     name: value.name.trim(),
+    avatarUri: value.avatarUri,
     role,
     permissions: value.permissions ? clonePermissions(value.permissions) : clonePermissions(ROLE_PERMISSION_PRESETS[role]),
     isActive: value.isActive !== false,
@@ -76,7 +77,7 @@ export async function createManagedUser(input: { username: string; password: str
   return user;
 }
 
-export async function updateManagedUser(id: string, updates: Partial<Pick<ManagedUser, "username" | "name" | "password" | "role" | "permissions" | "isActive">>): Promise<ManagedUser> {
+export async function updateManagedUser(id: string, updates: Partial<Pick<ManagedUser, "username" | "name" | "password" | "avatarUri" | "role" | "permissions" | "isActive">>): Promise<ManagedUser> {
   const users = await getManagedUsers();
   const index = users.findIndex((user) => user.id === id);
   if (index < 0) throw new Error("المستخدم غير موجود");

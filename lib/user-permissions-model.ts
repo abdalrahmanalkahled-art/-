@@ -9,6 +9,7 @@ export interface ManagedUser {
   username: string;
   password: string;
   name: string;
+  avatarUri?: string;
   role: UserRole;
   permissions: UserPermissions;
   isActive: boolean;

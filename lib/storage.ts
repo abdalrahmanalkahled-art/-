@@ -12,6 +12,7 @@ export interface LocalUser {
   id: string;
   username: string;
   name: string;
+  avatarUri?: string;
   role: UserRole | "marketing_manager" | "marketing_supervisor";
   permissions?: UserPermissions;
   createdAt: string;
@@ -44,6 +45,7 @@ export async function login(username: string, password: string, rememberMe = tru
       id: managedUser.id,
       username: managedUser.username,
       name: managedUser.name,
+      avatarUri: managedUser.avatarUri,
       role: managedUser.role,
       permissions: managedUser.permissions,
       createdAt: managedUser.createdAt,

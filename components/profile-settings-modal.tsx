@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/use-colors";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { updateManagedUser } from "@/lib/user-management";
+import { launchImageLibrary } from "@/lib/media-picker";
 import type { LocalUser } from "@/lib/storage";
 import { DESIGN } from "@/lib/design-system";
 
@@ -18,6 +19,7 @@ interface ProfileSettingsModalProps {
 export function ProfileSettingsModal({ visible, user, onClose, onSaved }: ProfileSettingsModalProps) {
   const colors = useColors();
   const [name, setName] = useState("");
+  const [avatarUri, setAvatarUri] = useState<string | undefined>();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -27,6 +29,7 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
   useEffect(() => {
     if (!visible || !user) return;
     setName(user.name);
+    setAvatarUri(user.avatarUri);
     setUsername(user.username);
     setPassword("");
     setError("");
@@ -38,13 +41,20 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
     setIsSaving(true);
     setError("");
     try {
-      const updated = await updateManagedUser(user.id, { name: name.trim(), username: username.trim(), ...(password.trim() ? { password: password.trim() } : {}) });
-      const next: LocalUser = { ...user, id: updated.id, name: updated.name, username: updated.username, role: updated.role, permissions: updated.permissions, createdAt: updated.createdAt };
+      const updated = await updateManagedUser(user.id, { name: name.trim(), username: username.trim(), avatarUri, ...(password.trim() ? { password: password.trim() } : {}) });
+      const next: LocalUser = { ...user, id: updated.id, name: updated.name, avatarUri: updated.avatarUri, username: updated.username, role: updated.role, permissions: updated.permissions, createdAt: updated.createdAt };
       onSaved(next);
       onClose();
     } catch (value) {
       setError(value instanceof Error ? value.message : "تعذر حفظ بيانات الملف الشخصي");
     } finally { setIsSaving(false); }
+  };
+
+  const chooseAvatar = () => {
+    void launchImageLibrary({ mediaType: "photo", quality: 0.8 }, (result) => {
+      if (result.assets?.[0]?.uri) setAvatarUri(result.assets[0].uri);
+      else if (result.errorMessage) setError(result.errorMessage);
+    });
   };
 
   const requestSave = () => {
@@ -64,6 +74,18 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.header}><TouchableOpacity onPress={onClose} style={[styles.close, { backgroundColor: colors.background }]}><MaterialIcons name="close" size={20} color={colors.foreground} /></TouchableOpacity><View style={styles.copy}><Text style={[styles.title, { color: colors.foreground }]}>إدارة الملف الشخصي</Text><Text style={[styles.subtitle, { color: colors.muted }]}>عدّل الاسم وبيانات الدخول الخاصة بك</Text></View></View>
+        <View style={styles.avatarSection}>
+          <View style={[styles.avatar, { backgroundColor: colors.primary + "16", borderColor: colors.border }]}>
+            {avatarUri ? <Image source={{ uri: avatarUri }} style={styles.avatarImage} /> : <MaterialIcons name="person" size={38} color={colors.primary} />}
+          </View>
+          <View style={styles.avatarActions}>
+            <Text style={[styles.avatarTitle, { color: colors.foreground }]}>الصورة الشخصية</Text>
+            <View style={styles.avatarButtons}>
+              <TouchableOpacity onPress={chooseAvatar} style={[styles.avatarButton, { backgroundColor: colors.primary + "12", borderColor: colors.primary }]}><MaterialIcons name="photo-camera" size={16} color={colors.primary} /><Text style={[styles.avatarButtonText, { color: colors.primary }]}>{avatarUri ? "تغيير الصورة" : "إضافة صورة"}</Text></TouchableOpacity>
+              {avatarUri ? <TouchableOpacity onPress={() => setAvatarUri(undefined)} style={[styles.avatarButton, { backgroundColor: colors.error + "10", borderColor: colors.error }]}><MaterialIcons name="delete-outline" size={16} color={colors.error} /><Text style={[styles.avatarButtonText, { color: colors.error }]}>إزالة</Text></TouchableOpacity> : null}
+            </View>
+          </View>
+        </View>
         <Text style={[styles.label, { color: colors.foreground }]}>الاسم الشخصي</Text>
         <TextInput value={name} onChangeText={setName} placeholder="أدخل الاسم الشخصي" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlign="right" />
         <Text style={[styles.label, { color: colors.foreground }]}>اسم المستخدم</Text>
@@ -83,6 +105,14 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: DESIGN.spacing.md },
   dialog: { width: "100%", maxWidth: 460, alignSelf: "center", borderRadius: DESIGN.radius.xl, borderWidth: 1, padding: DESIGN.spacing.xl, gap: DESIGN.spacing.sm },
   header: { flexDirection: "row", alignItems: "center", gap: DESIGN.spacing.sm, marginBottom: DESIGN.spacing.sm },
+  avatarSection: { flexDirection: "row", alignItems: "center", gap: DESIGN.spacing.md, marginBottom: DESIGN.spacing.sm },
+  avatar: { width: 76, height: 76, borderRadius: 38, borderWidth: 1, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  avatarImage: { width: "100%", height: "100%" },
+  avatarActions: { flex: 1, alignItems: "flex-end", gap: DESIGN.spacing.sm },
+  avatarTitle: { fontSize: 13, fontWeight: "800" },
+  avatarButtons: { flexDirection: "row", gap: DESIGN.spacing.sm },
+  avatarButton: { minHeight: 36, paddingHorizontal: DESIGN.spacing.sm, borderRadius: DESIGN.radius.sm, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 5 },
+  avatarButtonText: { fontSize: 11, fontWeight: "800" },
   close: { width: DESIGN.control.compact, height: DESIGN.control.compact, borderRadius: DESIGN.radius.sm, alignItems: "center", justifyContent: "center" },
   copy: { flex: 1, alignItems: "flex-end", gap: 2 },
   title: { fontSize: 17, fontWeight: "800", textAlign: "right" },
