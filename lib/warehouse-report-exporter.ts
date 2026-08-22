@@ -23,14 +23,46 @@ function imageCell(uri: string | undefined, includeImages: boolean): string {
   return `<img src="${escapeHtml(uri)}" alt="صورة الأداة" />`;
 }
 
+function imageMimeType(uri: string): string {
+  const extension = uri.split("?")[0]?.split(".").pop()?.toLowerCase();
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  return "image/jpeg";
+}
+
+async function readToolImageBase64(uri: string): Promise<string> {
+  const options = { encoding: FileSystem.EncodingType.Base64 };
+  return uri.startsWith("content://")
+    ? FileSystem.StorageAccessFramework.readAsStringAsync(uri, options)
+    : FileSystem.readAsStringAsync(uri, options);
+}
+
+async function localToolImageUri(uri: string): Promise<{ uri: string; temporaryUri?: string }> {
+  if (!uri.startsWith("content://") || !FileSystem.cacheDirectory) return { uri };
+  const temporaryUri = `${FileSystem.cacheDirectory}warehouse-report-image-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  await FileSystem.writeAsStringAsync(temporaryUri, await readToolImageBase64(uri), { encoding: FileSystem.EncodingType.Base64 });
+  return { uri: temporaryUri, temporaryUri };
+}
+
 async function embeddedToolImage(uri: string | undefined, settings: WarehouseReportSettings): Promise<string> {
   if (!settings.includeImages || !uri) return "—";
+  let temporaryUri: string | undefined;
+  let resizedUri: string | undefined;
   try {
-    const resized = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: settings.imageMaxWidth ?? 900 } }], { compress: settings.imageQuality ?? 0.72, format: ImageManipulator.SaveFormat.JPEG });
+    const localImage = await localToolImageUri(uri);
+    temporaryUri = localImage.temporaryUri;
+    const resized = await ImageManipulator.manipulateAsync(localImage.uri, [{ resize: { width: settings.imageMaxWidth ?? 900 } }], { compress: settings.imageQuality ?? 0.72, format: ImageManipulator.SaveFormat.JPEG });
+    resizedUri = resized.uri;
     const base64 = await FileSystem.readAsStringAsync(resized.uri, { encoding: FileSystem.EncodingType.Base64 });
     return imageCell(`data:image/jpeg;base64,${base64}`, true);
   } catch {
-    return imageCell(uri, true);
+    try {
+      return imageCell(`data:${imageMimeType(uri)};base64,${await readToolImageBase64(uri)}`, true);
+    } catch {
+      return "—";
+    }
+  } finally {
+    await Promise.all([temporaryUri, resizedUri].filter((entry): entry is string => Boolean(entry)).map((entry) => FileSystem.deleteAsync(entry, { idempotent: true }).catch(() => undefined)));
   }
 }
 const MATERIAL_FIELDS = { name: "المادة", category: "الفئة", currentQuantity: "المتوفر", minimumQuantity: "الحد الأدنى", unit: "الوحدة", status: "الحالة", description: "الوصف" } as const;

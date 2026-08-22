@@ -9,7 +9,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 }));
 
 import { authenticateManagedUser, createManagedUser, getManagedUsers, updateManagedUser } from "../user-management";
-import { ROLE_PERMISSION_PRESETS } from "../user-permissions-model";
+import { ROLE_PERMISSION_PRESETS, USERS_STORAGE_KEY } from "../user-permissions-model";
 
 describe("إدارة المستخدمين", () => {
   beforeEach(() => values.clear());
@@ -40,5 +40,15 @@ describe("إدارة المستخدمين", () => {
     const updated = await updateManagedUser(user.id, { name: "اسم شخصي", username: "profile.updated", password: "new123" });
     expect(updated).toMatchObject({ name: "اسم شخصي", username: "profile.updated", password: "new123" });
     expect((await authenticateManagedUser("profile.updated", "new123"))?.id).toBe(user.id);
+  });
+
+  it("ينظف الحسابات المتكررة القديمة ويسمح بتحديث الصورة دون تعديل اسم المستخدم", async () => {
+    values.set(USERS_STORAGE_KEY, JSON.stringify([
+      { id: "legacy-admin", username: "admin", password: "123", name: "مستخدم قديم", role: "system_admin", permissions: ROLE_PERMISSION_PRESETS.system_admin, isActive: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+      { id: "user-admin", username: "admin", password: "123", name: "المستخدم الرئيسي", avatarUri: "content://marketing-manager/avatar.jpg", role: "system_admin", permissions: ROLE_PERMISSION_PRESETS.system_admin, isActive: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-02-01T00:00:00.000Z" },
+    ]));
+    const [admin] = await getManagedUsers();
+    expect((await getManagedUsers())).toHaveLength(1);
+    await expect(updateManagedUser(admin.id, { avatarUri: "content://marketing-manager/new-avatar.jpg" })).resolves.toMatchObject({ username: "admin", avatarUri: "content://marketing-manager/new-avatar.jpg" });
   });
 });

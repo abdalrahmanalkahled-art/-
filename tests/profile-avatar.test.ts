@@ -11,6 +11,8 @@ describe("صورة الملف الشخصي", () => {
     expect(modal).toContain('launchImageLibrary({ mediaType: "photo"');
     expect(modal).toContain("setAvatarUri(result.assets[0].uri)");
     expect(modal).toContain("avatarUri,");
+    expect(modal).toContain("avatarUri !== user.avatarUri");
+    expect(modal).toContain("saveStoredUser(next)");
     expect(storage).toContain("avatarUri?: string;");
     expect(storage).toContain("avatarUri: managedUser.avatarUri");
   });

@@ -11,9 +11,9 @@ const moreShell = readFileSync(resolve(process.cwd(), "components/modules/more-m
 describe("إعداد تقرير المستودع", () => {
   it("يعرض كل جدول كبطاقة تفتح نافذة أعمدة مستقلة", () => {
     expect(settingsSheet).toContain("activeColumnGroup");
-    expect(settingsSheet).toContain("styles.tableCard");
-    expect(settingsSheet).toContain("<Modal transparent visible={activeColumnGroup !== null}");
-    expect(settingsSheet).toContain("اضغط للعرض والتعديل");
+    expect(settingsSheet).toContain("<TableCard");
+    expect(settingsSheet).toContain('<PanelModal visible={activeColumnGroup !== null}');
+    expect(settingsSheet).toContain("أعمدة محددة");
   });
 
   it("يحفظ إعدادات حجم وجودة الصور بقيم مضبوطة", () => {
@@ -21,7 +21,14 @@ describe("إعداد تقرير المستودع", () => {
     expect(model).toContain("imageQuality?: number");
     expect(model).toContain("imageMaxWidth: 900");
     expect(model).toContain("imageQuality: 0.72");
-    expect(settingsSheet).toContain("حجم وجودة الصور");
+    expect(settingsSheet).toContain("جودة وحجم ملف PDF");
+  });
+
+  it("يطابق قالب إعدادات المستودع بطاقات ونوافذ إعدادات اللوحات والستاندات", () => {
+    expect(settingsSheet).toContain("<PanelCard");
+    expect(settingsSheet).toContain("function PanelModal");
+    expect(settingsSheet).toContain("إعدادات تقرير المستودع");
+    expect(settingsSheet).toContain("الجداول والأعمدة");
   });
 
   it("يوحد رأس وحدات المزيد مع نمط مختصر للمنتجات", () => {
@@ -33,6 +40,8 @@ describe("إعداد تقرير المستودع", () => {
 
   it("يحوّل صورة الأداة إلى JPEG مضغوط وData URI داخل PDF", () => {
     expect(exporter).toContain("ImageManipulator.manipulateAsync");
+    expect(exporter).toContain("StorageAccessFramework.readAsStringAsync");
+    expect(exporter).toContain("localToolImageUri");
     expect(exporter).toContain("FileSystem.readAsStringAsync");
     expect(exporter).toContain("data:image/jpeg;base64,");
     expect(exporter).toContain("await embeddedToolImage(tool.imageUri, settings)");

@@ -6,7 +6,7 @@ import { useColors } from "@/hooks/use-colors";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { updateManagedUser } from "@/lib/user-management";
 import { launchImageLibrary } from "@/lib/media-picker";
-import type { LocalUser } from "@/lib/storage";
+import { saveStoredUser, type LocalUser } from "@/lib/storage";
 import { DESIGN } from "@/lib/design-system";
 
 interface ProfileSettingsModalProps {
@@ -41,8 +41,10 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
     setIsSaving(true);
     setError("");
     try {
-      const updated = await updateManagedUser(user.id, { name: name.trim(), username: username.trim(), avatarUri, ...(password.trim() ? { password: password.trim() } : {}) });
+      const normalizedUsername = username.trim().toLowerCase();
+      const updated = await updateManagedUser(user.id, { name: name.trim(), ...(normalizedUsername !== user.username ? { username: normalizedUsername } : {}), ...(avatarUri !== user.avatarUri ? { avatarUri } : {}), ...(password.trim() ? { password: password.trim() } : {}) });
       const next: LocalUser = { ...user, id: updated.id, name: updated.name, avatarUri: updated.avatarUri, username: updated.username, role: updated.role, permissions: updated.permissions, createdAt: updated.createdAt };
+      await saveStoredUser(next);
       onSaved(next);
       onClose();
     } catch (value) {

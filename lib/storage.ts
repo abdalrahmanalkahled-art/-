@@ -100,6 +100,13 @@ export async function getStoredUser(): Promise<LocalUser | null> {
   }
 }
 
+/** يحفظ نسخة الجلسة الحالية بعد تعديل الملف الشخصي لتبقى الصورة والاسم متزامنين بعد إعادة التشغيل. */
+export async function saveStoredUser(user: LocalUser): Promise<void> {
+  const authStr = await AsyncStorage.getItem(AUTH_KEY);
+  if (!authStr || !JSON.parse(authStr).isAuthenticated) return;
+  await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
 // ===== GENERIC CRUD STORAGE =====
 export async function getItems<T>(key: string): Promise<T[]> {
   try {

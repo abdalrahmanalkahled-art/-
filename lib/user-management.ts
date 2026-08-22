@@ -27,6 +27,19 @@ function normalizeUser(value: Partial<ManagedUser>): ManagedUser | null {
   };
 }
 
+function deduplicateManagedUsers(users: ManagedUser[]): ManagedUser[] {
+  return users.reduce<ManagedUser[]>((resolved, user) => {
+    const existingIndex = resolved.findIndex((entry) => entry.id === user.id || entry.username === user.username);
+    if (existingIndex < 0) return [...resolved, user];
+    const existing = resolved[existingIndex];
+    const preferIncoming = user.id === "user-admin" || (existing.id !== "user-admin" && user.updatedAt >= existing.updatedAt);
+    const preferred = preferIncoming ? user : existing;
+    const secondary = preferIncoming ? existing : user;
+    resolved[existingIndex] = { ...secondary, ...preferred, avatarUri: preferred.avatarUri ?? secondary.avatarUri };
+    return resolved;
+  }, []);
+}
+
 export async function getManagedUsers(): Promise<ManagedUser[]> {
   try {
     const raw = await AsyncStorage.getItem(USERS_STORAGE_KEY);
@@ -34,11 +47,11 @@ export async function getManagedUsers(): Promise<ManagedUser[]> {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         const users = parsed.map(normalizeUser).filter(Boolean) as ManagedUser[];
-        const migrated = users
+        const migrated = deduplicateManagedUsers(users
           .filter((user) => user.username !== "supervisor")
-          .map((user) => user.username === "manager" ? { ...user, id: "user-admin", username: "admin", password: "123", name: user.name === "مدير التسويق" ? "المستخدم الرئيسي" : user.name, role: "system_admin" as const, permissions: clonePermissions(ROLE_PERMISSION_PRESETS.system_admin), updatedAt: new Date().toISOString() } : user);
+          .map((user) => user.username === "manager" ? { ...user, id: "user-admin", username: "admin", password: "123", name: user.name === "مدير التسويق" ? "المستخدم الرئيسي" : user.name, role: "system_admin" as const, permissions: clonePermissions(ROLE_PERMISSION_PRESETS.system_admin), updatedAt: new Date().toISOString() } : user));
         if (migrated.length) {
-          await saveManagedUsers(migrated);
+          if (JSON.stringify(migrated) !== JSON.stringify(users)) await saveManagedUsers(migrated);
           return migrated;
         }
       }
@@ -84,7 +97,8 @@ export async function updateManagedUser(id: string, updates: Partial<Pick<Manage
   const current = users[index];
   const username = updates.username?.trim().toLowerCase() || current.username;
   if (!username) throw new Error("اسم المستخدم مطلوب");
-  if (users.some((user, userIndex) => userIndex !== index && user.username === username)) throw new Error("اسم المستخدم مستخدم بالفعل");
+  const usernameChanged = username !== current.username;
+  if (usernameChanged && users.some((user) => user.id !== id && user.username === username)) throw new Error("اسم المستخدم مستخدم بالفعل");
   if (updates.password !== undefined && updates.password.trim().length < 3) throw new Error("كلمة المرور يجب أن تتكون من 3 أحرف على الأقل");
   const role = updates.role || current.role;
   const next: ManagedUser = {
