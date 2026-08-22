@@ -4,6 +4,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({ default: { multiGe
 vi.mock("expo-file-system/legacy", () => ({ documentDirectory: "file:///app/documents/", cacheDirectory: "file:///app/cache/", EncodingType: { UTF8: "utf8", Base64: "base64" } }));
 vi.mock("../storage", () => ({ STORAGE_KEYS: { STORES: "madar_stores", EVENTS: "madar_events" } }));
 vi.mock("../full-backup", () => ({ BACKUP_DATA_KEYS: ["madar_stores", "madar_events"] }));
+vi.mock("../marketing-manager-storage", () => ({ restoreMarketingManagerFile: vi.fn() }));
 
 import { createBackupPreview, parseFullBackup } from "../backup-restore";
 

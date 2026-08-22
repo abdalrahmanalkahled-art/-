@@ -30,6 +30,10 @@ vi.mock("../backup-restore-history", () => ({
   saveLastRestoreHistory: vi.fn(),
 }));
 
+vi.mock("../marketing-manager-storage", () => ({
+  restoreMarketingManagerFile: vi.fn(),
+}));
+
 import { restoreDataWithRollback } from "../backup-restore";
 
 describe("حماية الأصناف عند استعادة النسخة", () => {

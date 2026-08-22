@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 import { Platform } from "react-native";
 import { DEFAULT_ANALYTICS_SETTINGS, normalizeAnalyticsSettings, type AnalyticsSettings } from "./analytics-settings-model";
+import { persistMarketingManagerFile } from "./marketing-manager-storage";
 
 export { DEFAULT_ANALYTICS_SETTINGS, normalizeAnalyticsSettings, type AnalyticsSettings, type ChartLabelSize, type ChartOrientation, type ChartType } from "./analytics-settings-model";
 
@@ -28,6 +29,8 @@ function logoExtension(uri: string): string {
  * يحفظ نسخة داخل مساحة التطبيق لضمان بقاء الشعار متاحاً بعد إغلاق منتقي الصور.
  */
 export async function persistAnalyticsLogo(uri: string): Promise<string> {
+  const externalUri = await persistMarketingManagerFile(uri, "branding", "report-logo");
+  if (externalUri !== uri) return externalUri;
   if (Platform.OS === "web" || !FileSystem.documentDirectory) return uri;
   const directory = `${FileSystem.documentDirectory}analytics/`;
   await FileSystem.makeDirectoryAsync(directory, { intermediates: true });

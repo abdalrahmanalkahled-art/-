@@ -5,6 +5,7 @@ import { BACKUP_KEY_LABELS, LOCAL_SETTINGS_KEYS, mergeBackupData, type BackupMer
 import { createLastRestoreHistory, saveLastRestoreHistory } from "./backup-restore-history";
 import { BACKUP_DATA_KEYS } from "./full-backup";
 import type { BackupMediaFile, BackupSectionId, FullBackupPayload } from "./full-backup";
+import { restoreMarketingManagerFile } from "./marketing-manager-storage";
 
 export interface BackupPreviewGroup {
   key: string;
@@ -94,7 +95,8 @@ export async function readBackupFromUri(uri: string): Promise<FullBackupPayload>
   return parseFullBackup(content);
 }
 
-async function writeMediaToDirectory(media: BackupMediaFile[], directory: string): Promise<void> {
+async function writeMediaToDirectory(media: BackupMediaFile[], directory: string): Promise<Map<string, string>> {
+  const restored = new Map<string, string>();
   for (const file of media) {
     const uri = `${directory}${file.relativePath}`;
     const parent = uri.slice(0, uri.lastIndexOf("/") + 1);
@@ -103,7 +105,25 @@ async function writeMediaToDirectory(media: BackupMediaFile[], directory: string
     await FileSystem.writeAsStringAsync(uri, file.base64, { encoding: FileSystem.EncodingType.Base64 });
     const info = await FileSystem.getInfoAsync(uri);
     if (!info.exists || info.isDirectory || !info.size) throw new Error(`تعذر استعادة ملف الوسائط: ${file.relativePath}`);
+    if (file.sourceUri) restored.set(file.sourceUri, uri);
   }
+  return restored;
+}
+
+function rebaseValue(value: unknown, uriMap: Map<string, string>): unknown {
+  if (typeof value === "string") return uriMap.get(value) || value;
+  if (Array.isArray(value)) return value.map((item) => rebaseValue(item, uriMap));
+  if (isRecord(value)) return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, rebaseValue(item, uriMap)]));
+  return value;
+}
+
+export function rebasePayloadMediaReferences(payload: FullBackupPayload, uriMap: Map<string, string>): FullBackupPayload {
+  if (!uriMap.size) return payload;
+  const data = Object.fromEntries(Object.entries(payload.data).map(([key, raw]) => {
+    try { return [key, JSON.stringify(rebaseValue(JSON.parse(raw), uriMap))]; }
+    catch { return [key, raw]; }
+  }));
+  return { ...payload, data };
 }
 
 export async function restoreDataWithRollback(payload: FullBackupPayload): Promise<void> {
@@ -152,17 +172,25 @@ export async function restoreFullBackup(payload: FullBackupPayload, mode: Restor
   const staging = `${FileSystem.cacheDirectory || documentDirectory}madar-restore-${Date.now()}/`;
   try {
     await FileSystem.makeDirectoryAsync(staging, { intermediates: true });
-    await writeMediaToDirectory(payload.media, staging);
-    for (const media of payload.media) {
+    const marketingManagerMedia = payload.media.filter((media) => media.relativePath.startsWith("marketing-manager/"));
+    const localMedia = payload.media.filter((media) => !media.relativePath.startsWith("marketing-manager/"));
+    const uriMap = await writeMediaToDirectory(localMedia, staging);
+    for (const media of localMedia) {
       const source = `${staging}${media.relativePath}`;
       const target = `${documentDirectory}${media.relativePath}`;
       const parent = target.slice(0, target.lastIndexOf("/") + 1);
       const parentInfo = await FileSystem.getInfoAsync(parent);
       if (!parentInfo.exists) await FileSystem.makeDirectoryAsync(parent, { intermediates: true });
       await FileSystem.copyAsync({ from: source, to: target });
+      if (media.sourceUri) uriMap.set(media.sourceUri, target);
     }
-    const mergePreview = mode === "merge" ? await mergeDataWithRollback(payload) : undefined;
-    if (mode === "replace") await restoreDataWithRollback(payload);
+    for (const media of marketingManagerMedia) {
+      const target = await restoreMarketingManagerFile(media.relativePath.replace(/^marketing-manager\//, ""), media.base64);
+      if (media.sourceUri) uriMap.set(media.sourceUri, target);
+    }
+    const restoredPayload = rebasePayloadMediaReferences(payload, uriMap);
+    const mergePreview = mode === "merge" ? await mergeDataWithRollback(restoredPayload) : undefined;
+    if (mode === "replace") await restoreDataWithRollback(restoredPayload);
     const preview = createBackupPreview(payload);
     const history = createLastRestoreHistory(payload, preview, mode, sourceLabel, mergePreview);
     await saveLastRestoreHistory(history);

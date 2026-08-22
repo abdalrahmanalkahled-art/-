@@ -8,6 +8,7 @@ import { sanitizeFilename, ensureDirectoryExists } from "@/lib/export-sanitizer"
 import { recordGeneratedReport } from "@/lib/report-history";
 import type { MarketVisitImageCompression, MarketVisitImageFit, MarketVisitReportTemplate, MarketVisitSlideRepeatMode } from "@/lib/market-visit-report-model";
 import type { MarketVisitProductMetric } from "@/lib/market-visit-product-metrics";
+import { persistMarketingManagerFile } from "@/lib/marketing-manager-storage";
 
 const ROOT = `${FileSystem.documentDirectory}market-visit-reports/`;
 const TEMPLATE_DIR = `${ROOT}templates/`;
@@ -15,6 +16,10 @@ const OUTPUT_DIR = `${ROOT}generated/`;
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 export async function persistMarketVisitTemplate(sourceUri: string, name: string, size?: number): Promise<MarketVisitReportTemplate> {
+  const externalUri = await persistMarketingManagerFile(sourceUri, "templates", name);
+  if (externalUri !== sourceUri) {
+    return { id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name: name.replace(/\.pptx$/i, "") || "قالب زيارة السوق", fileName: name, uri: externalUri, size, createdAt: new Date().toISOString() };
+  }
   await ensureDirectoryExists(TEMPLATE_DIR);
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const fileName = sanitizeFilename(`${name || "قالب_زيارة_السوق"}_${id}`, "pptx");

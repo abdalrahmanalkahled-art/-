@@ -15,6 +15,10 @@ vi.mock("expo-image-picker", () => ({
   ...expoImagePicker,
 }));
 
+vi.mock("../marketing-manager-storage", () => ({
+  persistMarketingManagerFile: vi.fn(async (uri: string) => uri),
+}));
+
 import { launchCamera, launchImageLibrary } from "../media-picker";
 
 describe("media picker compatibility wrapper", () => {

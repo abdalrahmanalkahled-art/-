@@ -23,6 +23,7 @@ import { clearRoadsideContractPhoneReminders, getNotificationPreferences, reques
 import type { NotificationPreferences } from "@/lib/notifications-model";
 import { useThemeContext } from "@/lib/theme-provider";
 import { useAppCustomization } from "@/lib/app-customization-context";
+import { chooseMarketingManagerLocation, loadMarketingManagerLocation, type MarketingManagerLocation } from "@/lib/marketing-manager-storage";
 
 interface SettingRowProps {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -64,14 +65,16 @@ export default function SettingsScreen() {
   const [showAppCustomization, setShowAppCustomization] = useState(false);
   const [roadReminderDays, setRoadReminderDays] = useState<15 | 30 | 60>(30);
   const [showRoadReminderPicker, setShowRoadReminderPicker] = useState(false);
+  const [marketingManagerLocation, setMarketingManagerLocation] = useState<MarketingManagerLocation | null>(null);
 
   const load = useCallback(async () => {
-    const [settings, storedPreferences, products] = await Promise.all([loadAppSettings(), getNotificationPreferences(), getItems<{ id: string; name: string }>(STORAGE_KEYS.PRODUCTS)]);
+    const [settings, storedPreferences, products, storageLocation] = await Promise.all([loadAppSettings(), getNotificationPreferences(), getItems<{ id: string; name: string }>(STORAGE_KEYS.PRODUCTS), loadMarketingManagerLocation()]);
     setPdfCustomization(settings.pdfCustomization);
     setDashboard(settings.dashboard);
     setDashboardProducts(products);
     setPreferences(storedPreferences);
     setRoadReminderDays(settings.roadsideContractReminderDays);
+    setMarketingManagerLocation(storageLocation);
   }, []);
   useEffect(() => { void load(); }, [load]);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
@@ -111,6 +114,16 @@ export default function SettingsScreen() {
     if (!dashboard) return;
     setShowPresenceProductPicker(false);
     void saveDashboardCustomization({ ...dashboard, presenceProductId: product.id });
+  };
+  const chooseMarketingManagerFolder = async () => {
+    try {
+      const location = await chooseMarketingManagerLocation();
+      if (!location) return;
+      setMarketingManagerLocation(location);
+      Alert.alert("تم اختيار الموقع", "أُنشئ مجلد marketing manager ومجلداته الفرعية داخل الموقع الذي اخترته.");
+    } catch (error) {
+      Alert.alert("تعذر اختيار الموقع", error instanceof Error ? error.message : "تعذر منح التطبيق صلاحية الوصول إلى المجلد المختار.");
+    }
   };
   const handleBackup = async () => {
     setIsBackingUp(true);
@@ -184,6 +197,7 @@ export default function SettingsScreen() {
 
       <Text style={[styles.sectionTitle, { color: colors.muted }]}>البيانات</Text>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SettingRow icon="folder-open" title="موقع ملفات marketing manager" subtitle={marketingManagerLocation ? "تم اختيار موقع خارجي للصور والقوالب والشعارات" : "اختر موقع المجلد الذي سيحفظ ملفات التطبيق"} color="#7C3AED" onPress={() => void chooseMarketingManagerFolder()} />
         <SettingRow icon="storage" title="إدارة مساحة التخزين" subtitle="عرض أحجام الملفات وتنظيف المؤقتات والملفات غير المستخدمة" color="#2563EB" onPress={() => router.push("/storage-management" as any)} />
         <SettingRow icon="backup" title="إدارة النسخ الاحتياطية" subtitle="إنشاء واستعادة واستيراد وحذف النسخ المحمية" color="#0891B2" onPress={() => router.push("/backup-management" as any)} />
         <SettingRow icon="delete-sweep" title="تهيئة التطبيق" subtitle="حذف جميع البيانات أو بيانات تبويبة محددة مع إبقاء النسخ الاحتياطية" color={colors.error} onPress={() => router.push("/app-reset" as any)} />
