@@ -184,7 +184,7 @@ export function NotesDetailsScreen({ visible, storeId, onClose, showComplaintsBt
       <View style={styles.noteContent}>
         <View style={styles.noteHeader}>
           <Text style={[styles.noteType, { color: getTypeColor(item.type) }]}>{item.type}</Text>
-          <Text style={[styles.noteDate, { color: colors.muted }]}>{new Date(item.date).toLocaleDateString("ar-SA")}</Text>
+          <Text style={[styles.noteDate, { color: colors.muted }]}>{new Date(item.date).toLocaleDateString("en-US")}</Text>
         </View>
         <Text style={[styles.noteText, { color: colors.foreground }]}>{item.text}</Text>
       </View>
@@ -281,7 +281,7 @@ export function NotesDetailsScreen({ visible, storeId, onClose, showComplaintsBt
                 <View style={styles.complaintContent}>
                   <Text style={[styles.complaintType, { color: colors.foreground }]}>{item.type}</Text>
                   <Text style={[styles.complaintNote, { color: colors.muted }]}>{item.note}</Text>
-                  <Text style={[styles.complaintDate, { color: colors.muted }]}>{new Date(item.date).toLocaleDateString("ar-SA")}</Text>
+                  <Text style={[styles.complaintDate, { color: colors.muted }]}>{new Date(item.date).toLocaleDateString("en-US")}</Text>
                 </View>
                 <View style={styles.complaintActions}>
                   <TouchableOpacity
@@ -292,7 +292,7 @@ export function NotesDetailsScreen({ visible, storeId, onClose, showComplaintsBt
                       const nextStatus = statuses[(currentIndex + 1) % statuses.length];
                       setComplaintStatus({ ...complaintStatus, [item.id]: nextStatus });
                       if (nextStatus === "مغلق") {
-                        setComplaintResolutionDate({ ...complaintResolutionDate, [item.id]: new Date().toLocaleDateString("ar-SA") });
+                        setComplaintResolutionDate({ ...complaintResolutionDate, [item.id]: new Date().toLocaleDateString("en-US") });
                       }
                     }}
                   >

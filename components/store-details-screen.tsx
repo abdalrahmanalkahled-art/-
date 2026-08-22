@@ -103,7 +103,7 @@ export function StoreDetailsScreen({ store, visible, onClose, onEdit }: StoreDet
   const getLastVisitDate = () => {
     if (surveys.length === 0) return "لم يتم زيارة";
     const lastSurvey = surveys[0];
-    return new Date(lastSurvey.surveyDate).toLocaleDateString("ar-SA");
+    return new Date(lastSurvey.surveyDate).toLocaleDateString("en-US");
   };
 
   const getAttendanceStats = () => {
@@ -136,7 +136,7 @@ export function StoreDetailsScreen({ store, visible, onClose, onEdit }: StoreDet
   const renderSurveyItem = ({ item }: { item: SurveyResult }) => (
     <View style={[styles.surveyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={styles.surveyHeader}>
-        <Text style={[styles.surveyDate, { color: colors.foreground }]}>{new Date(item.surveyDate).toLocaleDateString("ar-SA")}</Text>
+        <Text style={[styles.surveyDate, { color: colors.foreground }]}>{new Date(item.surveyDate).toLocaleDateString("en-US")}</Text>
         <View style={[styles.surveyBadge, { backgroundColor: colors.primary + "20" }]}>
           <Text style={[styles.surveyBadgeText, { color: colors.primary }]}>{item.data.filter((d) => d.present).length} منتجات</Text>
         </View>

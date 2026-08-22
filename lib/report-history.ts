@@ -24,7 +24,7 @@ export async function recordGeneratedReport(report: Omit<ReportRecord, "id" | "d
   const record: ReportRecord = {
     ...report,
     id: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-    date: new Date().toLocaleString("ar-SA"),
+    date: new Date().toLocaleString("en-US"),
   };
   await AsyncStorage.setItem(REPORTS_STORAGE_KEY, JSON.stringify([record, ...history].slice(0, 100)));
 }

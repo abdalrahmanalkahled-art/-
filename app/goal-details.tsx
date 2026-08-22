@@ -135,20 +135,20 @@ export default function GoalDetailsScreen() {
           <View style={styles.sectionHeader}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>تقدم الهدف</Text><Text style={[styles.progressPercent, { color: colors.primary }]}>{Math.round(goal.completionPercentage || 0)}%</Text></View>
           <ProgressBar value={goal.completionPercentage || 0} label={`${goal.currentValue || 0} / ${goal.targetValue || 0}`} />
           <View style={[styles.statsRow, { borderTopColor: colors.border }]}>
-            <Metric icon="event" label="فعاليات مرتبطة" value={events.length.toLocaleString("ar-SY")} color={colors.primary} colors={colors} />
-            <Metric icon="map" label="مناطق مغطاة" value={coveredRegionCount.toLocaleString("ar-SY")} color="#10B981" colors={colors} />
+            <Metric icon="event" label="فعاليات مرتبطة" value={events.length.toLocaleString("en-US")} color={colors.primary} colors={colors} />
+            <Metric icon="map" label="مناطق مغطاة" value={coveredRegionCount.toLocaleString("en-US")} color="#10B981" colors={colors} />
             <Metric icon="leaderboard" label="المؤشر" value={goal.kpi || "—"} color="#8B5CF6" colors={colors} compact />
           </View>
         </View>
 
         <View style={styles.impactRow}>
-          <ImpactMetric icon="redeem" label="إجمالي الهدايا" value={totalGifts.toLocaleString("ar-SY")} color="#D97706" colors={colors} />
-          <ImpactMetric icon="groups" label="إجمالي المستفيدين" value={totalBeneficiaries.toLocaleString("ar-SY")} color={colors.primary} colors={colors} />
+          <ImpactMetric icon="redeem" label="إجمالي الهدايا" value={totalGifts.toLocaleString("en-US")} color="#D97706" colors={colors} />
+          <ImpactMetric icon="groups" label="إجمالي المستفيدين" value={totalBeneficiaries.toLocaleString("en-US")} color={colors.primary} colors={colors} />
         </View>
 
         {goal.description ? <View style={[styles.detailCard, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>وصف الهدف</Text><Text style={[styles.description, { color: colors.muted }]}>{goal.description}</Text></View> : null}
 
-        <View style={styles.sectionHeading}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>الفعاليات المرتبطة</Text><Text style={[styles.sectionCount, { color: colors.muted }]}>{events.length.toLocaleString("ar-SY")}</Text></View>
+        <View style={styles.sectionHeading}><Text style={[styles.sectionTitle, { color: colors.foreground }]}>الفعاليات المرتبطة</Text><Text style={[styles.sectionCount, { color: colors.muted }]}>{events.length.toLocaleString("en-US")}</Text></View>
         {events.length ? events.map((event) => {
           const eventStatus = EVENT_STATUS[event.status] ?? EVENT_STATUS.planned;
           return <TouchableOpacity key={event.id} activeOpacity={0.76} onPress={() => router.push({ pathname: "/(tabs)/events", params: { eventId: event.id } })} style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }]} accessibilityLabel={`تفاصيل الفعالية ${event.title}`}><View style={styles.eventTopRow}><View style={[styles.eventBadge, { backgroundColor: eventStatus.color + "18" }]}><Text style={[styles.eventBadgeText, { color: eventStatus.color }]}>{eventStatus.label}</Text></View><View style={styles.eventTitleWrap}><Text style={[styles.eventTitle, { color: colors.foreground }]}>{event.title}</Text><Text style={[styles.eventDate, { color: colors.muted }]}>{event.eventDate}</Text></View><View style={[styles.eventIcon, { backgroundColor: colors.primary + "16" }]}><MaterialIcons name="celebration" size={20} color={colors.primary} /></View></View><View style={[styles.eventDivider, { backgroundColor: colors.border }]} /><View style={styles.eventMetaRow}><EventMeta icon="location-on" value={event.region || event.location || "الموقع غير محدد"} colors={colors} /><EventMeta icon="groups" value={`${event.attendeesCount || 0} حاضر`} colors={colors} /><EventMeta icon="redeem" value={`${event.giftsDistributed || 0} هدية`} colors={colors} /></View></TouchableOpacity>;

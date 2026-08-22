@@ -10,6 +10,7 @@ import { applyPdfReportTemplate } from "./pdf-report-templates";
 import { loadSharedPdfReportLogo, pdfLogoMarkup } from "./pdf-report-logo";
 import { recordGeneratedReport } from "./report-history";
 import { getItems, STORAGE_KEYS } from "./storage";
+import { formatArabicDate } from "./analytics-number-format";
 import type { SurveyResult } from "./types/survey-types";
 
 export interface DailyReportData {
@@ -30,7 +31,7 @@ function escapeHtml(value: unknown): string {
 function formatDate(value?: string): string {
   if (!value) return "—";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("ar-SY", { year: "numeric", month: "long", day: "numeric" });
+  return Number.isNaN(date.getTime()) ? value : formatArabicDate(date, { year: "numeric", month: "long", day: "numeric" });
 }
 
 function dateLabel(range: DailyReportDateRange): string {

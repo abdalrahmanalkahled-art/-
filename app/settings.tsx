@@ -204,7 +204,7 @@ export default function SettingsScreen() {
       </View>
       {backupPreview && <View style={[styles.restorePreview, { backgroundColor: colors.primary + "0C", borderColor: colors.primary + "32" }]}>
         <View style={styles.previewHeader}><View style={[styles.previewIcon, { backgroundColor: colors.primary + "18" }]}><MaterialIcons name="fact-check" size={21} color={colors.primary} /></View><View style={styles.previewText}><Text style={[styles.previewTitle, { color: colors.foreground }]}>معاينة قبل الاستعادة</Text><Text style={[styles.previewFile, { color: colors.muted }]} numberOfLines={1}>{backupFilename}</Text></View></View>
-        <Text style={[styles.previewDate, { color: colors.muted }]}>تاريخ النسخة: {new Date(backupPreview.createdAt).toLocaleString("ar-SY")}</Text>
+        <Text style={[styles.previewDate, { color: colors.muted }]}>تاريخ النسخة: {new Date(backupPreview.createdAt).toLocaleString("en-US")}</Text>
         <View style={styles.previewMetrics}><Text style={[styles.previewMetric, { color: colors.foreground }]}>{backupPreview.recordCount} سجل</Text><Text style={[styles.previewMetric, { color: colors.foreground }]}>{backupPreview.dataGroupCount} مجموعة بيانات</Text><Text style={[styles.previewMetric, { color: colors.foreground }]}>{backupPreview.mediaCount} وسائط</Text></View>
         <Text style={[styles.previewGroups, { color: colors.muted }]} numberOfLines={2}>{backupPreview.groups.slice(0, 6).map((group) => `${group.label} (${group.records})`).join(" • ")}{backupPreview.groups.length > 6 ? " • …" : ""}</Text>
         {backupPreview.skippedMediaCount > 0 && <Text style={[styles.previewWarning, { color: colors.warning }]}>تحتوي النسخة على {backupPreview.skippedMediaCount} مسار وسائط لم يُضمّن عند النسخ.</Text>}

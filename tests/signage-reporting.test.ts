@@ -129,8 +129,8 @@ describe("تقارير اللوحات والأعمال الإعلانية", () =
 
   it("يتيح من الأرشيف تصدير PDF وExcel وفتح نفس إعدادات تقرير اللوحات", () => {
     expect(archiveSource).toContain("exportArchiveReport");
-    expect(archiveSource).toContain('exportArchiveReport("pdf")');
-    expect(archiveSource).toContain('exportArchiveReport("excel")');
+    expect(archiveSource).toContain('<ReportFab module="signage"');
+    expect(archiveSource).toContain('onExport={(format) => void exportArchiveReport(format)}');
     expect(archiveSource).toContain("SignageReportSettingsSheet");
     expect(archiveSource).toContain("تقرير أرشيف عقود اللوحات");
     expect(archiveSource).toContain("roadsideContractsToReportBoards");

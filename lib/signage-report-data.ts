@@ -47,5 +47,5 @@ export function buildSignageReportData(signages: SignageReportBoard[], stands: S
   const contractNames = settings.contractNames?.length ? settings.contractNames : settings.contractName ? [settings.contractName] : [];
   const contractScope = contractNames.length === 1 ? `العقد: ${contractNames[0]}` : contractNames.length > 1 ? `العقود: ${contractNames.length}` : undefined;
   const filterScopeLabel = [contractScope, settings.region ? `المنطقة: ${settings.region}` : undefined, settings.brand ? `الماركة: ${settings.brand}` : undefined].filter(Boolean).join(" · ") || "كل المناطق والماركات";
-  return { signages: filteredSignages, stands: filteredStands, shelves: filteredShelves, vehicles: filteredVehicles, generatedAt: new Date().toLocaleString("ar-SY"), signageByType, standsByCondition, signageByBrand, standsByBrand, shelvesByBrand, vehiclesByBrand, assetsByRegion, dateScopeLabel, filterScopeLabel };
+  return { signages: filteredSignages, stands: filteredStands, shelves: filteredShelves, vehicles: filteredVehicles, generatedAt: new Date().toLocaleString("en-US"), signageByType, standsByCondition, signageByBrand, standsByBrand, shelvesByBrand, vehiclesByBrand, assetsByRegion, dateScopeLabel, filterScopeLabel };
 }

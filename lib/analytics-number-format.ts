@@ -11,9 +11,13 @@ export function formatAnalyticsNumber(value: number): string {
 }
 
 export function formatAnalyticsDate(value: Date | string): string {
-  return toWesternDigits(new Date(value).toLocaleDateString("ar-SA"));
+  return toWesternDigits(new Date(value).toLocaleDateString("en-US"));
+}
+
+export function formatArabicDate(value: Date | string, options?: Intl.DateTimeFormatOptions): string {
+  return toWesternDigits(new Date(value).toLocaleDateString("ar-SA", options));
 }
 
 export function formatAnalyticsDateTime(value: Date | string): string {
-  return toWesternDigits(new Date(value).toLocaleString("ar-SA"));
+  return toWesternDigits(new Date(value).toLocaleString("en-US"));
 }

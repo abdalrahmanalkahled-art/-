@@ -15,7 +15,7 @@ function escapeHtml(value: unknown): string {
 }
 
 function money(value: number): string {
-  return `${value.toLocaleString("ar-SY")} ل.س`;
+  return `${value.toLocaleString("en-US")} ل.س`;
 }
 
 function reportHtml(data: ExpenseReportData, settings: ExpenseReportSettings, logoMarkup = ""): string {
@@ -28,12 +28,12 @@ function reportHtml(data: ExpenseReportData, settings: ExpenseReportSettings, lo
     return `<tr>${row.map((value) => `<td>${escapeHtml(value)}</td>`).join("")}</tr>`;
   }).join("") || `<tr><td colspan="${detailColumns.length}">لا توجد صرفيات وفق التصنيفات المختارة.</td></tr>`;
   const breakdown = settings.includeCategoryBreakdown
-    ? `<section><h2>ملخص حسب التصنيف</h2><table><thead><tr><th>التصنيف</th><th>عدد الصرفيات</th><th>الإجمالي</th></tr></thead><tbody>${data.categoryTotals.map((item) => `<tr><td>${escapeHtml(item.label)}</td><td>${item.count.toLocaleString("ar-SY")}</td><td>${money(item.amount)}</td></tr>`).join("") || "<tr><td colspan=\"3\">لا توجد بيانات</td></tr>"}</tbody></table></section>`
+    ? `<section><h2>ملخص حسب التصنيف</h2><table><thead><tr><th>التصنيف</th><th>عدد الصرفيات</th><th>الإجمالي</th></tr></thead><tbody>${data.categoryTotals.map((item) => `<tr><td>${escapeHtml(item.label)}</td><td>${item.count.toLocaleString("en-US")}</td><td>${money(item.amount)}</td></tr>`).join("") || "<tr><td colspan=\"3\">لا توجد بيانات</td></tr>"}</tbody></table></section>`
     : "";
   const summary = settings.includeSummary
-    ? `<section class="summary"><div><strong>${money(data.totalAmount)}</strong><span>إجمالي الصرفيات</span></div><div><strong>${data.expenses.length.toLocaleString("ar-SY")}</strong><span>عدد الصرفيات</span></div><div><strong>${data.categoryTotals.length.toLocaleString("ar-SY")}</strong><span>تصنيفات مشمولة</span></div></section>`
+    ? `<section class="summary"><div><strong>${money(data.totalAmount)}</strong><span>إجمالي الصرفيات</span></div><div><strong>${data.expenses.length.toLocaleString("en-US")}</strong><span>عدد الصرفيات</span></div><div><strong>${data.categoryTotals.length.toLocaleString("en-US")}</strong><span>تصنيفات مشمولة</span></div></section>`
     : "";
-  return `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{direction:rtl;font-family:Tahoma,Arial,sans-serif;color:#172033;font-size:10px}.report-head{display:flex;gap:12px;align-items:center}.shared-report-logo{width:48px;height:48px;object-fit:contain;border-radius:10px}h1{color:#1A56DB;font-size:24px;margin:0 0 5px}h2{font-size:14px;color:#1A56DB;margin:20px 0 8px}.meta{color:#64748b;margin:0 0 15px}.scope{background:#eef4ff;border-right:4px solid #1A56DB;padding:9px 10px;margin-bottom:14px;border-radius:5px}.summary{display:flex;gap:8px;margin-bottom:14px}.summary div{flex:1;background:#f7faff;border:1px solid #dce7f8;border-radius:8px;padding:10px;text-align:center}.summary strong{display:block;font-size:14px;color:#172033}.summary span{display:block;color:#64748b;margin-top:4px}table{width:100%;border-collapse:collapse}th{background:#1A56DB;color:#fff;font-weight:bold}th,td{padding:8px;border-bottom:1px solid #e1e8f2;text-align:right;vertical-align:top}tr:nth-child(even){background:#f8fbff}@media print{tr{break-inside:avoid}}</style></head><body><header class="report-head">${logoMarkup}<div><h1>تقرير الصرفيات</h1><p class="meta">تاريخ الإنشاء: ${new Date().toLocaleString("ar-SY")}</p></div></header><p class="scope"><strong>التصنيفات المشمولة:</strong> ${escapeHtml(data.categoryScopeLabel)}<br/><strong>الفترة الزمنية:</strong> ${escapeHtml(data.dateScopeLabel)}</p>${summary}${breakdown}<section><h2>تفاصيل الصرفيات</h2><table><thead><tr>${detailColumns.map((column) => `<th>${column}</th>`).join("")}</tr></thead><tbody>${detailRows}</tbody></table></section></body></html>`;
+  return `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{direction:rtl;font-family:Tahoma,Arial,sans-serif;color:#172033;font-size:10px}.report-head{display:flex;gap:12px;align-items:center}.shared-report-logo{width:48px;height:48px;object-fit:contain;border-radius:10px}h1{color:#1A56DB;font-size:24px;margin:0 0 5px}h2{font-size:14px;color:#1A56DB;margin:20px 0 8px}.meta{color:#64748b;margin:0 0 15px}.scope{background:#eef4ff;border-right:4px solid #1A56DB;padding:9px 10px;margin-bottom:14px;border-radius:5px}.summary{display:flex;gap:8px;margin-bottom:14px}.summary div{flex:1;background:#f7faff;border:1px solid #dce7f8;border-radius:8px;padding:10px;text-align:center}.summary strong{display:block;font-size:14px;color:#172033}.summary span{display:block;color:#64748b;margin-top:4px}table{width:100%;border-collapse:collapse}th{background:#1A56DB;color:#fff;font-weight:bold}th,td{padding:8px;border-bottom:1px solid #e1e8f2;text-align:right;vertical-align:top}tr:nth-child(even){background:#f8fbff}@media print{tr{break-inside:avoid}}</style></head><body><header class="report-head">${logoMarkup}<div><h1>تقرير الصرفيات</h1><p class="meta">تاريخ الإنشاء: ${new Date().toLocaleString("en-US")}</p></div></header><p class="scope"><strong>التصنيفات المشمولة:</strong> ${escapeHtml(data.categoryScopeLabel)}<br/><strong>الفترة الزمنية:</strong> ${escapeHtml(data.dateScopeLabel)}</p>${summary}${breakdown}<section><h2>تفاصيل الصرفيات</h2><table><thead><tr>${detailColumns.map((column) => `<th>${column}</th>`).join("")}</tr></thead><tbody>${detailRows}</tbody></table></section></body></html>`;
 }
 
 function worksheet(rows: Record<string, unknown>[], columns: string[]): XLSX.WorkSheet {
@@ -53,7 +53,7 @@ function workbookBase64(data: ExpenseReportData, settings: ExpenseReportSettings
     { "البند": "إجمالي الصرفيات", "القيمة": money(data.totalAmount) },
     { "البند": "عدد الصرفيات", "القيمة": data.expenses.length },
     { "البند": "عدد التصنيفات", "القيمة": data.categoryTotals.length },
-    { "البند": "تاريخ الإنشاء", "القيمة": new Date().toLocaleString("ar-SY") },
+    { "البند": "تاريخ الإنشاء", "القيمة": new Date().toLocaleString("en-US") },
   ];
   XLSX.utils.book_append_sheet(workbook, worksheet(overviewRows, ["البند", "القيمة"]), "ملخص");
   if (settings.includeCategoryBreakdown) {

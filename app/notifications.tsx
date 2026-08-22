@@ -7,6 +7,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { getAppNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/notification-center";
 import type { AppNotification, AppNotificationType } from "@/lib/notifications-model";
+import { formatArabicDate } from "@/lib/analytics-number-format";
 
 const TYPE_CONFIG: Record<AppNotificationType, { icon: keyof typeof MaterialIcons.glyphMap; color: string }> = {
   stock: { icon: "inventory-2", color: "#D97706" },
@@ -21,7 +22,7 @@ const TYPE_CONFIG: Record<AppNotificationType, { icon: keyof typeof MaterialIcon
 function formatRelativeDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("ar-SY", { month: "short", day: "numeric" });
+  return formatArabicDate(date, { month: "short", day: "numeric" });
 }
 
 export default function NotificationsScreen() {

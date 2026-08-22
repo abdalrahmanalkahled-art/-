@@ -5,6 +5,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { useColors } from "@/hooks/use-colors";
+import { formatArabicDate } from "@/lib/analytics-number-format";
 
 interface DateRangePickerModalProps {
   visible: boolean;
@@ -69,8 +70,8 @@ export function DateRangePickerModal({ visible, startDate, endDate, selectionMod
     const date = dayDate(day);
     return Boolean(selectedStartDate && selectedEndDate && date >= selectedStartDate && date <= selectedEndDate);
   };
-  const monthName = currentMonth.toLocaleDateString("ar-SA", { month: "long", year: "numeric" });
-  const dateLabel = (date: Date | null) => date ? date.toLocaleDateString("ar-SA") : "اختر التاريخ";
+  const monthName = formatArabicDate(currentMonth, { month: "long", year: "numeric" });
+  const dateLabel = (date: Date | null) => date ? date.toLocaleDateString("en-US") : "اختر التاريخ";
   const canConfirm = selectionMode === "single" ? Boolean(selectedStartDate) : Boolean(selectedStartDate && selectedEndDate);
 
   return <FloatingFormModal visible={visible} onClose={onCancel} backgroundColor={colors.background}>

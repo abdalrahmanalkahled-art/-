@@ -18,6 +18,6 @@ export function buildWarehouseReportData(source: { materials: WarehouseReportMat
     materials: settings.includeMaterials ? source.materials.map((item) => ({ ...item, categoryLabel: categoryLabel(item.category), status: item.currentQuantity <= item.minimumQuantity ? "مخزون منخفض" : "متاح" })) : [],
     tools: settings.includeTools ? source.tools.filter((tool) => tool.isActive) : [],
     movements: settings.includeMovements ? [...source.movements].sort((a, b) => b.movementDate.localeCompare(a.movementDate)) : [],
-    generatedAt: new Date().toLocaleString("ar-SY"),
+    generatedAt: new Date().toLocaleString("en-US"),
   };
 }

@@ -1,0 +1,10 @@
+import { readFileSync, writeFileSync } from "node:fs";
+const path = "app/_layout.tsx";
+const source = readFileSync(path, "utf8");
+const allowLine = source.indexOf("I18nManager.allowRTL(true);");
+const end = source.indexOf("const DEFAULT_WEB_FRAME");
+if (allowLine < 0 || end < 0) throw new Error("RTL setup not found");
+const lineStart = source.lastIndexOf("//", allowLine);
+const start = lineStart >= 0 ? lineStart : allowLine;
+const fixed = `${source.slice(0, start)}// التطبيق عربي بالكامل: نسمح باتجاه RTL على الأجهزة، بينما يضمن style الاتجاه دون إعادة تشغيل قسري.\nI18nManager.allowRTL(true);\n\nconst DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };\n${source.slice(end)}`;
+writeFileSync(path, fixed);

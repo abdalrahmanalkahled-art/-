@@ -21,7 +21,7 @@ export async function logAudit(action: AuditLogItem["action"], module: string, d
       module,
       description,
       username,
-      timestamp: new Date().toLocaleString("ar-SA"),
+      timestamp: new Date().toLocaleString("en-US"),
     };
     logs.unshift(newItem);
     // الاحتفاظ بأحدث 200 سجل فقط

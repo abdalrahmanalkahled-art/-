@@ -33,7 +33,7 @@ function getMediaType(uri: string): "image" | "video" {
 
 function formatNumber(value: unknown): string {
   const number = Number(value || 0);
-  return Number.isFinite(number) ? number.toLocaleString("ar-SA") : "0";
+  return Number.isFinite(number) ? number.toLocaleString("en-US") : "0";
 }
 
 export function EventDetailsModal({

@@ -146,7 +146,7 @@ export default function ExpensesModule() {
     <View style={styles.container}>
       <View style={[styles.summaryCard, { backgroundColor: colors.primary }]}> 
         <Text style={styles.summaryLabel}>إجمالي الصرفيات</Text>
-        <Text style={styles.summaryValue}>{totalAmount.toLocaleString("ar-SY")} ل.س</Text>
+        <Text style={styles.summaryValue}>{totalAmount.toLocaleString("en-US")} ل.س</Text>
         <Text style={styles.summaryCount}>{filtered.length} صرفية</Text>
       </View>
 
@@ -175,7 +175,7 @@ export default function ExpensesModule() {
                   <Text style={[styles.expenseMeta, { color: colors.muted }]}>{category.label} • {item.expenseDate}</Text>
                 </View>
               </View>
-              <Text style={[styles.expenseAmount, { color: colors.foreground }]}>{item.amount.toLocaleString()} ل.س</Text>
+              <Text style={[styles.expenseAmount, { color: colors.foreground }]}>{item.amount.toLocaleString("en-US")} ل.س</Text>
             </TouchableOpacity>
           );
         }}

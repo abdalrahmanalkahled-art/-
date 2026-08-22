@@ -126,7 +126,7 @@ export function SurveyResultDetailScreen({
                 </View>
                 <Text style={[styles.infoLabel, { color: colors.muted }]}>التاريخ</Text>
                 <Text style={[styles.infoValue, { color: colors.foreground }]} numberOfLines={2}>
-                  {new Date(result.surveyDate).toLocaleDateString("ar-SA")}
+                  {new Date(result.surveyDate).toLocaleDateString("en-US")}
                 </Text>
               </View>
 
