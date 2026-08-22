@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Modal, View, Text, StyleSheet, Animated, Easing, Pressable } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/use-colors";
+import { DESIGN } from "@/lib/design-system";
 
 interface SuccessModalProps {
   visible: boolean;
@@ -112,8 +113,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   successBox: {
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: DESIGN.radius.lg,
+    padding: DESIGN.spacing.xxl,
     alignItems: "center",
     gap: 12,
     borderWidth: 2,
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
   iconBackground: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: DESIGN.radius.pill,
     justifyContent: "center",
     alignItems: "center",
   },

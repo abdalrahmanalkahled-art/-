@@ -1,4 +1,4 @@
-import { View, type ViewProps } from "react-native";
+import { StyleSheet, View, type ViewProps } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
 import { cn } from "@/lib/utils";
@@ -38,6 +38,8 @@ export interface ScreenContainerProps extends ViewProps {
  * </ScreenContainer>
  * ```
  */
+const styles = StyleSheet.create({ root: { direction: "rtl" } });
+
 export function ScreenContainer({
   children,
   edges = ["top", "left", "right"],
@@ -49,6 +51,7 @@ export function ScreenContainer({
 }: ScreenContainerProps) {
   return (
     <View
+      style={styles.root}
       className={cn(
         "flex-1",
         "bg-background",

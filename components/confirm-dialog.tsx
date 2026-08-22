@@ -11,6 +11,7 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/use-colors';
 import { ModalMotion } from '@/components/modal-motion';
+import { DESIGN } from '@/lib/design-system';
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -110,9 +111,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   dialog: {
-    borderRadius: 16,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
+    borderRadius: DESIGN.radius.xl,
+    paddingVertical: DESIGN.spacing.xxl,
+    paddingHorizontal: DESIGN.spacing.xl,
     width: '100%',
     maxWidth: 320,
     shadowColor: '#000',
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: DESIGN.radius.pill,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
@@ -144,13 +145,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   buttonsContainer: {
-    flexDirection: 'row',
-    gap: 12,
+    flexDirection: 'row-reverse',
+    gap: DESIGN.spacing.md,
   },
   button: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    minHeight: DESIGN.control.standard,
+    paddingVertical: DESIGN.spacing.sm,
+    borderRadius: DESIGN.radius.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/use-colors";
+import { DESIGN } from "@/lib/design-system";
 
 interface AnimatedCardProps {
   onPress?: () => void;
@@ -38,7 +39,7 @@ export const AnimatedCard = React.memo(
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
       Animated.spring(scaleAnim, {
-        toValue: 0.98,
+        toValue: DESIGN.press.scale,
         useNativeDriver: true,
         speed: 20,
         bounciness: 5,
@@ -84,7 +85,7 @@ export const AnimatedCard = React.memo(
         <Pressable
           onPress={handlePress}
           onLongPress={onLongPress}
-          delayLongPress={350}
+          delayLongPress={DESIGN.press.longPressDelay}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           disabled={disabled}
@@ -108,10 +109,10 @@ AnimatedCard.displayName = "AnimatedCard";
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 12,
+    borderRadius: DESIGN.radius.md,
     borderWidth: 1,
-    padding: 16,
-    marginVertical: 8,
-    marginHorizontal: 12,
+    padding: DESIGN.spacing.lg,
+    marginVertical: DESIGN.spacing.sm,
+    marginHorizontal: DESIGN.spacing.md,
   },
 });

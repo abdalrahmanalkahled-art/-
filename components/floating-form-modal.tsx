@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
+import { DESIGN } from "@/lib/design-system";
 
 interface FloatingFormModalProps {
   visible: boolean;
@@ -24,8 +25,8 @@ export function FloatingFormModal({ visible, onClose, backgroundColor, compactHe
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "#00000066", justifyContent: "center", paddingHorizontal: 14, paddingVertical: 26 },
+  backdrop: { flex: 1, backgroundColor: "#00000066", justifyContent: "center", paddingHorizontal: DESIGN.spacing.md, paddingVertical: DESIGN.spacing.xxl },
   keyboard: { flex: 1, justifyContent: "center" },
-  dialog: { flex: 1, maxHeight: "100%", borderRadius: 24, overflow: "hidden", elevation: 12 },
+  dialog: { flex: 1, maxHeight: "100%", borderRadius: DESIGN.radius.xl, overflow: "hidden", elevation: 12 },
   compactDialog: { flex: 0, height: "72%", maxHeight: "72%" },
 });

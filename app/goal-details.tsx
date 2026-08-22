@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { AppPageHeader } from "@/components/app-page-header";
 import { useColors } from "@/hooks/use-colors";
 import { getItems, STORAGE_KEYS } from "@/lib/storage";
 import { getGoalImpactMetrics } from "@/lib/goal-impact-metrics";
@@ -114,11 +115,8 @@ export default function GoalDetailsScreen() {
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-background">
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <TouchableOpacity accessibilityLabel="العودة إلى الخطة التسويقية" onPress={() => router.back()} style={styles.headerButton}><MaterialIcons name="arrow-forward" size={24} color={colors.foreground} /></TouchableOpacity>
-        <Text numberOfLines={1} style={[styles.headerTitle, { color: colors.foreground }]}>تفاصيل الهدف</Text>
-        <View style={styles.headerButton} />
-      </View>
+      <AppPageHeader title="تفاصيل الهدف" onBack={() => router.back()} />
+      
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.hero, { backgroundColor: colors.primary }]}>
@@ -175,9 +173,7 @@ function EmptyState({ icon, label, colors }: { icon: keyof typeof MaterialIcons.
 }
 
 const styles = StyleSheet.create({
-  header: { minHeight: 56, flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 10, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: "800" as const, textAlign: "center" },
+  
   content: { padding: 14, gap: 13, paddingBottom: 30 },
   hero: { borderRadius: 22, padding: 18, gap: 9 }, heroTopRow: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }, heroIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.16)", alignItems: "center", justifyContent: "center" }, heroStatus: { flexDirection: "row-reverse", alignItems: "center", gap: 6, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6 }, statusDot: { width: 7, height: 7, borderRadius: 4 }, heroStatusText: { color: "#fff", fontSize: 12, fontWeight: "800" as const }, heroTitle: { color: "#fff", fontSize: 22, fontWeight: "900" as const, textAlign: "right", lineHeight: 30 }, heroBrand: { flexDirection: "row-reverse", alignSelf: "flex-end", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 }, heroBrandText: { color: "#fff", fontSize: 12, fontWeight: "700" as const }, heroPeriod: { color: "rgba(255,255,255,0.83)", fontSize: 12, textAlign: "right" },
   progressCard: { borderRadius: 18, borderWidth: 1, padding: 15, gap: 13 }, sectionHeader: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" }, sectionTitle: { fontSize: 15, fontWeight: "800" as const, textAlign: "right" }, progressPercent: { fontSize: 16, fontWeight: "900" as const }, statsRow: { flexDirection: "row-reverse", borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 13, gap: 6 }, metric: { flex: 1, alignItems: "center", gap: 4, minWidth: 0 }, metricIcon: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" }, metricValue: { fontSize: 13, fontWeight: "800" as const, textAlign: "center" }, metricCompactValue: { fontSize: 11 }, metricLabel: { fontSize: 10, textAlign: "center" },
