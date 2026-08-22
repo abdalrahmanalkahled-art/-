@@ -19,8 +19,8 @@ import { useColors } from "@/hooks/use-colors";
 export default function LoginScreen() {
   const colors = useColors();
   const { dispatch } = useApp();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("123");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -54,7 +54,7 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <View style={[styles.logoContainer, { backgroundColor: colors.primary }]}><Text style={styles.logoText}>م</Text></View>
-          <Text style={[styles.appName, { color: colors.foreground }]}>مدير تسويق مدار</Text>
+          <Text style={[styles.appName, { color: colors.foreground }]}>مساعد التسويق الميداني</Text>
           <Text style={[styles.appSubtitle, { color: colors.muted }]}>نظام إدارة التسويق الميداني</Text>
         </View>
 

@@ -155,7 +155,7 @@ export default function MoreScreen() {
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={[styles.userCard, { backgroundColor: colors.primary }]}> 
           <View style={styles.userInfo}>
-            <Text style={styles.userRole}>{user?.role === "system_admin" ? "مدير النظام" : user?.role === "marketing_manager" ? "مدير التسويق" : user?.role === "viewer" ? "مشاهد" : "مشرف ميداني"}</Text>
+            <Text style={styles.userRole}>{user?.role === "system_admin" || user?.role === "marketing_manager" ? "مدير النظام" : user?.role === "viewer" ? "مشاهد" : "مستخدم ميداني"}</Text>
             <Text style={styles.userName}>{user?.name}</Text>
           </View>
           <View style={[styles.userAvatar, { backgroundColor: "rgba(255,255,255,0.3)" }]}><Text style={styles.userAvatarText}>{user?.name?.[0] || "م"}</Text></View>
@@ -181,7 +181,6 @@ export default function MoreScreen() {
         </View>
 
         <View style={[styles.settingsSection, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الإعدادات</Text>
           <TouchableOpacity style={[styles.settingsItem, { borderBottomColor: colors.border }]} onPress={() => router.push("/settings" as any)}>
             <MaterialIcons name="chevron-left" size={20} color={colors.muted} /><Text style={[styles.settingsText, { color: colors.foreground }]}>الإعدادات</Text><MaterialIcons name="settings" size={20} color={colors.primary} />
           </TouchableOpacity>

@@ -52,7 +52,7 @@ export function createSurveyResultsExport(template: SurveyTemplate, products: Pr
 export function parseSurveyResultsExport(value: string): SurveyResultsExportPayload {
   let raw: unknown;
   try { raw = JSON.parse(value); } catch { throw new Error("الملف ليس JSON صالحاً."); }
-  if (!isRecord(raw) || raw.type !== SURVEY_RESULTS_EXPORT_TYPE || raw.version !== SURVEY_RESULTS_EXPORT_VERSION) throw new Error("الملف ليس تصديراً لنتائج استبيان من تطبيق مدير تسويق مدار أو أن نسخته غير مدعومة.");
+  if (!isRecord(raw) || raw.type !== SURVEY_RESULTS_EXPORT_TYPE || raw.version !== SURVEY_RESULTS_EXPORT_VERSION) throw new Error("الملف ليس تصديراً لنتائج استبيان من تطبيق مساعد التسويق الميداني أو أن نسخته غير مدعومة.");
   if (!isRecord(raw.template) || !nonEmptyString(raw.template.id) || !nonEmptyString(raw.template.name) || !Array.isArray(raw.template.products)) throw new Error("ملف النتائج لا يحتوي على لقطة استبيان صالحة.");
   if (!Array.isArray(raw.products) || !Array.isArray(raw.cycles) || !Array.isArray(raw.results) || !raw.results.length) throw new Error("ملف النتائج لا يحتوي على منتجات أو دورات أو نتائج صالحة.");
   const products = raw.products.map(parseProduct).filter(Boolean) as Product[];

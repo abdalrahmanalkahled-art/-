@@ -54,7 +54,7 @@ export function parseFullBackup(raw: string): FullBackupPayload {
   let parsed: unknown;
   try { parsed = JSON.parse(raw); } catch { throw new Error("ملف النسخة الاحتياطية ليس JSON صالحاً"); }
   if (!isRecord(parsed) || parsed.type !== "madar-full-backup" || parsed.schemaVersion !== 1 || typeof parsed.createdAt !== "string" || !isRecord(parsed.data) || !Array.isArray(parsed.media) || !Array.isArray(parsed.skippedMediaPaths)) {
-    throw new Error("هذا الملف لا يحمل بنية نسخة احتياطية متوافقة مع مدير تسويق مدار");
+    throw new Error("هذا الملف لا يحمل بنية نسخة احتياطية متوافقة مع مساعد التسويق الميداني");
   }
   const data: Record<string, string> = {};
   Object.entries(parsed.data).forEach(([key, value]) => {

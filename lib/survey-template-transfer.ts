@@ -93,7 +93,7 @@ export function createSurveyTemplateExport(template: SurveyTemplate, products: S
 export function parseSurveyTemplateExport(value: string): SurveyTemplateExportPayload {
   let raw: unknown;
   try { raw = JSON.parse(value); } catch { throw new Error("الملف ليس JSON صالحاً."); }
-  if (!isRecord(raw) || raw.type !== SURVEY_TEMPLATE_EXPORT_TYPE || raw.version !== SURVEY_TEMPLATE_EXPORT_VERSION) throw new Error("الملف ليس قالب استبيان صادر من تطبيق مدير تسويق مدار أو أن نسخته غير مدعومة.");
+  if (!isRecord(raw) || raw.type !== SURVEY_TEMPLATE_EXPORT_TYPE || raw.version !== SURVEY_TEMPLATE_EXPORT_VERSION) throw new Error("الملف ليس قالب استبيان صادر من تطبيق مساعد التسويق الميداني أو أن نسخته غير مدعومة.");
   if (!isRecord(raw.template) || !nonEmptyString(raw.template.name) || !Array.isArray(raw.template.products) || !Array.isArray(raw.products)) throw new Error("ملف الاستبيان غير مكتمل أو لا يحتوي على منتجات صالحة.");
   const templateProducts = raw.template.products.map((item) => parseTemplateProduct(item)).filter(Boolean) as Omit<SurveyTemplateProduct, "productId">[];
   const products = raw.products.map((item) => parseProduct(item)).filter(Boolean) as SurveyTemplateExportPayload["products"];

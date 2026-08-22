@@ -65,7 +65,7 @@ describe("نقل قالب الاستبيان", () => {
     expect(reconciled.categories).toEqual(categories);
   });
 
-  it("يرفض ملفاً غير صادر من مدير تسويق مدار", () => {
+  it("يرفض ملفاً غير صادر من مساعد التسويق الميداني", () => {
     expect(() => parseSurveyTemplateExport(JSON.stringify({ type: "unknown", version: 1 }))).toThrow("ليس قالب استبيان");
   });
 });

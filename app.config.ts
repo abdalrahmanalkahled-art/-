@@ -23,7 +23,7 @@ const schemeFromBundleId = `manus${timestamp}`;
 const LOGO_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663483299685/iRCziKSNAVZvFjNG.png";
 
 const env = {
-  appName: "مدير تسويق مدار",
+  appName: "مساعد التسويق الميداني",
   appSlug: "madar-marketing-manager",
   logoUrl: LOGO_URL,
   scheme: schemeFromBundleId,
@@ -96,8 +96,8 @@ const config: ExpoConfig = {
     [
       "expo-image-picker",
       {
-        photosPermission: "السماح لتطبيق مدير تسويق مدار بالوصول إلى الصور لاستخدامها في توثيق الزيارات والفعاليات.",
-        cameraPermission: "السماح لتطبيق مدير تسويق مدار باستخدام الكاميرا لتوثيق الزيارات والفعاليات.",
+        photosPermission: "السماح لتطبيق مساعد التسويق الميداني بالوصول إلى الصور لاستخدامها في توثيق الزيارات والفعاليات.",
+        cameraPermission: "السماح لتطبيق مساعد التسويق الميداني باستخدام الكاميرا لتوثيق الزيارات والفعاليات.",
       },
     ],
     [

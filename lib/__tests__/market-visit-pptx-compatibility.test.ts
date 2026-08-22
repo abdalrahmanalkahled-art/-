@@ -15,7 +15,7 @@ const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwA
 async function realTemplateBase64() {
   const presentation = new PptxGenJS();
   presentation.layout = "LAYOUT_WIDE";
-  presentation.author = "اختبار مدير تسويق مدار";
+  presentation.author = "اختبار مساعد التسويق الميداني";
   presentation.addSlide().addText("تقرير زيارة السوق — {{اسم_الدورة}}", { x: 0.8, y: 0.8, w: 10, h: 0.5, fontSize: 26, rtlMode: true });
   const visit = presentation.addSlide();
   visit.addText("{{اسم_المحل}}", { x: 7.2, y: 0.5, w: 5, h: 0.45, fontSize: 22, rtlMode: true });

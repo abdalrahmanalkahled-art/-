@@ -182,7 +182,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
   if (Platform.OS === "web") return false;
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-      name: "تنبيهات مدير تسويق مدار",
+      name: "تنبيهات مساعد التسويق الميداني",
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 150, 250],
       lightColor: "#1A56DB",

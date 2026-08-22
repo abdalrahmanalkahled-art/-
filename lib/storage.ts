@@ -25,24 +25,16 @@ export interface AuthState {
 // Default users for the app
 export const DEFAULT_USERS: LocalUser[] = [
   {
-    id: "1",
-    username: "manager",
-    name: "مدير التسويق",
-    role: "marketing_manager",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    username: "supervisor",
-    name: "مشرف التسويق",
-    role: "marketing_supervisor",
+    id: "user-admin",
+    username: "admin",
+    name: "المستخدم الرئيسي",
+    role: "system_admin",
     createdAt: new Date().toISOString(),
   },
 ];
 
 const DEFAULT_PASSWORDS: Record<string, string> = {
-  manager: "madar2024",
-  supervisor: "madar2024",
+  admin: "123",
 };
 
 export async function login(username: string, password: string, rememberMe = true): Promise<LocalUser | null> {
@@ -94,7 +86,13 @@ export async function getStoredUser(): Promise<LocalUser | null> {
     if (!authStr || !userStr) return null;
     const auth = JSON.parse(authStr);
     if (!auth.isAuthenticated) return null;
-    return JSON.parse(userStr);
+    const parsed = JSON.parse(userStr) as LocalUser;
+    if (parsed.username === "manager" || parsed.username === "supervisor") {
+      const migrated: LocalUser = { ...parsed, id: "user-admin", username: "admin", name: parsed.username === "manager" ? "المستخدم الرئيسي" : parsed.name, role: "system_admin" };
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+    return parsed;
   } catch {
     return null;
   }

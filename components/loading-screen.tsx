@@ -135,7 +135,7 @@ export function LoadingScreen({ visible = true, message = "جاري التحمي
 
       {/* نص إضافي في الأسفل */}
       <Text style={[styles.footerText, { color: colors.muted }]}>
-        مدير تسويق مدار
+        مساعد التسويق الميداني
       </Text>
     </View>
   );

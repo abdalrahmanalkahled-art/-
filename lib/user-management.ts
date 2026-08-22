@@ -3,8 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ROLE_PERMISSION_PRESETS, USERS_STORAGE_KEY, type ManagedUser, type UserPermissions, type UserRole } from "./user-permissions-model";
 
 const INITIAL_USERS: ManagedUser[] = [
-  { id: "user-manager", username: "manager", password: "madar2024", name: "مدير التسويق", role: "system_admin", permissions: ROLE_PERMISSION_PRESETS.system_admin, isActive: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
-  { id: "user-supervisor", username: "supervisor", password: "madar2024", name: "مشرف التسويق", role: "field_supervisor", permissions: ROLE_PERMISSION_PRESETS.field_supervisor, isActive: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "user-admin", username: "admin", password: "123", name: "المستخدم الرئيسي", role: "system_admin", permissions: ROLE_PERMISSION_PRESETS.system_admin, isActive: true, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" },
 ];
 
 function clonePermissions(permissions: UserPermissions): UserPermissions {
@@ -32,7 +31,16 @@ export async function getManagedUsers(): Promise<ManagedUser[]> {
     const raw = await AsyncStorage.getItem(USERS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed.map(normalizeUser).filter(Boolean) as ManagedUser[];
+      if (Array.isArray(parsed)) {
+        const users = parsed.map(normalizeUser).filter(Boolean) as ManagedUser[];
+        const migrated = users
+          .filter((user) => user.username !== "supervisor")
+          .map((user) => user.username === "manager" ? { ...user, id: "user-admin", username: "admin", password: "123", name: user.name === "مدير التسويق" ? "المستخدم الرئيسي" : user.name, role: "system_admin" as const, permissions: clonePermissions(ROLE_PERMISSION_PRESETS.system_admin), updatedAt: new Date().toISOString() } : user);
+        if (migrated.length) {
+          await saveManagedUsers(migrated);
+          return migrated;
+        }
+      }
     }
   } catch {
     // يعود التطبيق إلى الحسابات الابتدائية القابلة للإدارة عند فساد البيانات.
@@ -68,15 +76,20 @@ export async function createManagedUser(input: { username: string; password: str
   return user;
 }
 
-export async function updateManagedUser(id: string, updates: Partial<Pick<ManagedUser, "name" | "password" | "role" | "permissions" | "isActive">>): Promise<ManagedUser> {
+export async function updateManagedUser(id: string, updates: Partial<Pick<ManagedUser, "username" | "name" | "password" | "role" | "permissions" | "isActive">>): Promise<ManagedUser> {
   const users = await getManagedUsers();
   const index = users.findIndex((user) => user.id === id);
   if (index < 0) throw new Error("المستخدم غير موجود");
   const current = users[index];
+  const username = updates.username?.trim().toLowerCase() || current.username;
+  if (!username) throw new Error("اسم المستخدم مطلوب");
+  if (users.some((user, userIndex) => userIndex !== index && user.username === username)) throw new Error("اسم المستخدم مستخدم بالفعل");
+  if (updates.password !== undefined && updates.password.trim().length < 3) throw new Error("كلمة المرور يجب أن تتكون من 3 أحرف على الأقل");
   const role = updates.role || current.role;
   const next: ManagedUser = {
     ...current,
     ...updates,
+    username,
     permissions: updates.permissions ? clonePermissions(updates.permissions) : updates.role ? clonePermissions(ROLE_PERMISSION_PRESETS[role]) : current.permissions,
     updatedAt: new Date().toISOString(),
   };

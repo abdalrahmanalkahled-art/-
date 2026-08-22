@@ -24,6 +24,7 @@ import type { NotificationPreferences } from "@/lib/notifications-model";
 import { useThemeContext } from "@/lib/theme-provider";
 import { useAppCustomization } from "@/lib/app-customization-context";
 import { chooseMarketingManagerLocation, loadMarketingManagerLocation, type MarketingManagerLocation } from "@/lib/marketing-manager-storage";
+import { ProfileSettingsModal } from "@/components/profile-settings-modal";
 
 interface SettingRowProps {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -45,8 +46,7 @@ function SettingRow({ icon, title, subtitle, color, onPress, right }: SettingRow
 
 export default function SettingsScreen() {
   const colors = useColors();
-  const { user } = useApp();
-  const isManager = useIsManager();
+  const { user, dispatch } = useApp();
   const { colorScheme, setColorScheme } = useThemeContext();
   const { settings: customization, save: saveCustomization } = useAppCustomization();
   const [pdfCustomization, setPdfCustomization] = useState<PdfCustomization>({ ...DEFAULT_PDF_CUSTOMIZATION });
@@ -66,6 +66,7 @@ export default function SettingsScreen() {
   const [roadReminderDays, setRoadReminderDays] = useState<15 | 30 | 60>(30);
   const [showRoadReminderPicker, setShowRoadReminderPicker] = useState(false);
   const [marketingManagerLocation, setMarketingManagerLocation] = useState<MarketingManagerLocation | null>(null);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
 
   const load = useCallback(async () => {
     const [settings, storedPreferences, products, storageLocation] = await Promise.all([loadAppSettings(), getNotificationPreferences(), getItems<{ id: string; name: string }>(STORAGE_KEYS.PRODUCTS), loadMarketingManagerLocation()]);
@@ -161,8 +162,12 @@ export default function SettingsScreen() {
     } finally { setIsRestoring(false); }
   };
   return <ScreenContainer containerClassName="bg-background">
-    <View style={[styles.header, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.surface }]}><MaterialIcons name="arrow-forward" size={22} color={colors.foreground} /></TouchableOpacity><View style={styles.headerText}><Text style={[styles.headerTitle, { color: colors.foreground }]}>الإعدادات</Text><Text style={[styles.headerSubtitle, { color: colors.muted }]}>تخصيص التطبيق والبيانات والتقارير</Text></View></View>
+    <View style={[styles.header, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: colors.surface }]}><MaterialIcons name="arrow-forward" size={22} color={colors.foreground} /></TouchableOpacity><View style={styles.headerText}><Text style={[styles.headerSubtitle, { color: colors.muted }]}>تخصيص التطبيق والبيانات والتقارير</Text></View></View>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <Text style={[styles.sectionTitle, { color: colors.muted }]}>الملف الشخصي</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <SettingRow icon="manage-accounts" title="إدارة الملف الشخصي" subtitle={`${user?.name || "المستخدم الرئيسي"} · ${user?.username || "admin"}`} color="#9333EA" onPress={() => setShowProfileSettings(true)} />
+      </View>
       <Text style={[styles.sectionTitle, { color: colors.muted }]}>المظهر</Text>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
         <SettingRow icon={colorScheme === "dark" ? "dark-mode" : "light-mode"} title="الوضع الليلي" subtitle="تغيير المظهر دون التأثير في البيانات" color={colors.primary} right={<Switch value={colorScheme === "dark"} onValueChange={(value) => setColorScheme(value ? "dark" : "light")} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface} />} />
@@ -212,14 +217,14 @@ export default function SettingsScreen() {
         <View style={styles.previewActions}><TouchableOpacity onPress={() => { setPendingBackup(null); setBackupPreview(null); setBackupFilename(""); setShowRestoreConfirmation(false); }} style={[styles.previewCancel, { borderColor: colors.border }]}><Text style={[styles.previewCancelText, { color: colors.foreground }]}>إلغاء</Text></TouchableOpacity><TouchableOpacity onPress={() => setShowRestoreConfirmation(true)} style={[styles.previewRestore, { backgroundColor: colors.primary }]}><Text style={styles.previewRestoreText}>استعادة النسخة</Text></TouchableOpacity></View>
       </View>}
 
-      {isManager && <><Text style={[styles.sectionTitle, { color: colors.muted }]}>الإدارة</Text><View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}><SettingRow icon="manage-accounts" title="إدارة المستخدمين" subtitle="إضافة الحسابات والأدوار والصلاحيات" color="#9333EA" onPress={() => router.push("/users" as any)} /></View></>}
-      <Text style={[styles.sectionTitle, { color: colors.muted }]}>حول التطبيق</Text><View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}><SettingRow icon="info" title="مدير تسويق مدار" subtitle={`المستخدم الحالي: ${user?.name || "—"}`} color={colors.muted} /></View>
+      <Text style={[styles.sectionTitle, { color: colors.muted }]}>حول التطبيق</Text><View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}><SettingRow icon="info" title="مساعد التسويق الميداني" subtitle={`المستخدم الحالي: ${user?.name || "—"}`} color={colors.muted} /></View>
     </ScrollView>
     <ConfirmDialog visible={showRestoreConfirmation && Boolean(pendingBackup && backupPreview)} title="تأكيد استعادة النسخة" message={backupPreview ? `سيتم استبدال ${backupPreview.dataGroupCount} مجموعة بيانات حالية بالبيانات الموجودة في النسخة المحددة. لا يمكن التراجع عن هذه العملية من داخل التطبيق.` : ""} confirmText="استعادة الآن" isSubmitting={isRestoring} isDangerous icon="restore" onCancel={() => !isRestoring && setShowRestoreConfirmation(false)} onConfirm={() => void confirmRestore()} />
     {dashboard ? <DashboardCustomizationSheet visible={showDashboardCustomization} value={dashboard} onClose={() => setShowDashboardCustomization(false)} onSave={(next) => void saveDashboardCustomization(next)} /> : null}
     <PresenceProductPickerSheet visible={showPresenceProductPicker} products={dashboardProducts} selectedProductId={dashboard?.presenceProductId} onClose={() => setShowPresenceProductPicker(false)} onSelect={selectPresenceProduct} />
     <PdfCustomizationSheet visible={showPdfCustomization} value={pdfCustomization} onClose={() => setShowPdfCustomization(false)} onSave={(next) => void savePdfCustomization(next)} />
     <AppCustomizationSheet visible={showAppCustomization} username={user?.username} value={customization} onClose={() => setShowAppCustomization(false)} onSave={saveCustomization} />
+    <ProfileSettingsModal visible={showProfileSettings} user={user} onClose={() => setShowProfileSettings(false)} onSaved={(updated) => dispatch({ type: "SET_USER", payload: updated })} />
     <Modal transparent visible={showRoadReminderPicker} animationType="fade" onRequestClose={() => setShowRoadReminderPicker(false)}><View style={styles.pickerOverlay}><Pressable style={StyleSheet.absoluteFill} onPress={() => setShowRoadReminderPicker(false)} /><View style={[styles.reminderDialog, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={styles.reminderHeader}><TouchableOpacity onPress={() => setShowRoadReminderPicker(false)} style={[styles.reminderClose, { backgroundColor: colors.background }]}><MaterialIcons name="close" size={20} color={colors.foreground} /></TouchableOpacity><View style={styles.reminderCopy}><Text style={[styles.reminderTitle, { color: colors.foreground }]}>مدة تذكير عقود اللوحات</Text><Text style={[styles.reminderSubtitle, { color: colors.muted }]}>يُعاد جدولة تنبيهات الهاتف للعقود النشطة تلقائياً.</Text></View></View>{([15, 30, 60] as const).map((days) => <TouchableOpacity key={days} onPress={() => void saveRoadReminderDays(days)} style={[styles.reminderOption, { borderColor: roadReminderDays === days ? colors.primary : colors.border, backgroundColor: roadReminderDays === days ? colors.primary + "10" : colors.background }]}><View style={[styles.reminderRadio, { borderColor: roadReminderDays === days ? colors.primary : colors.border }]}>{roadReminderDays === days ? <View style={[styles.reminderRadioDot, { backgroundColor: colors.primary }]} /> : null}</View><View style={styles.reminderOptionCopy}><Text style={[styles.reminderOptionTitle, { color: colors.foreground }]}>{days} يوماً قبل نهاية العقد</Text><Text style={[styles.reminderOptionSubtitle, { color: colors.muted }]}>{days === 15 ? "تنبيه قريب ومركز" : days === 30 ? "الخيار المتوازن" : "تنبيه مبكر للتخطيط"}</Text></View></TouchableOpacity>)}</View></View></Modal>
   </ScreenContainer>;
 }
