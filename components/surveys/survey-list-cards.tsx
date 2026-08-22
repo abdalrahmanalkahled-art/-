@@ -22,7 +22,7 @@ export function SurveyTemplateCard({ template, activeCycleResultCount, onStart, 
           <Text style={[styles.subtitle, { color: colors.muted }]}>{template.products.length} منتج • {activeCycleResultCount} محل في الدورة الحالية</Text>
         </View>
         <TouchableOpacity onPress={onStart} onLongPress={onLongPress} delayLongPress={300} style={[styles.startButton, { backgroundColor: colors.primary }]} activeOpacity={0.7} accessibilityLabel={`بدء استبيان ${template.name}`}>
-          <MaterialIcons name="arrow-back" size={16} color="#fff" />
+          <MaterialIcons name="arrow-forward" size={16} color="#fff" />
         </TouchableOpacity>
       </View>
     </Pressable>

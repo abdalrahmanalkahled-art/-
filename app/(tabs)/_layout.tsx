@@ -57,27 +57,11 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="more"
+        name="index"
         options={{
-          title: "المزيد",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="ellipsis.circle.fill" color={color} />,
-          tabBarButton: canViewMore ? undefined : () => null,
-        }}
-      />
-      <Tabs.Screen
-        name="events"
-        options={{
-          title: "الفعاليات",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="calendar.badge.clock" color={color} />,
-          tabBarButton: canViewEvents ? undefined : () => null,
-        }}
-      />
-      <Tabs.Screen
-        name="surveys"
-        options={{
-          title: "الاستبيانات",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="doc.text.fill" color={color} />,
-          tabBarButton: canViewSurveys ? undefined : () => null,
+          title: "الرئيسية",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} />,
+          tabBarButton: canViewDashboard ? undefined : () => null,
         }}
       />
       <Tabs.Screen
@@ -89,11 +73,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="index"
+        name="surveys"
         options={{
-          title: "الرئيسية",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} />,
-          tabBarButton: canViewDashboard ? undefined : () => null,
+          title: "الاستبيانات",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="doc.text.fill" color={color} />,
+          tabBarButton: canViewSurveys ? undefined : () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="events"
+        options={{
+          title: "الفعاليات",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="calendar.badge.clock" color={color} />,
+          tabBarButton: canViewEvents ? undefined : () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: "المزيد",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="ellipsis.circle.fill" color={color} />,
+          tabBarButton: canViewMore ? undefined : () => null,
         }}
       />
     </Tabs>

@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
   productInfo: { flex: 1 },
   productName: { fontSize: 13, fontWeight: "600" as any },
   productSubtitle: { fontSize: 11, marginTop: 2 },
-  productStats: { alignItems: "flex-start", gap: 4 },
+  productStats: { alignItems: "flex-end", gap: 4 },
   statBadge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
   statBadgeText: { fontSize: 12, fontWeight: "700" as any },
   shelfPercentage: { fontSize: 11 },

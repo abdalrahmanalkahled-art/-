@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   actionButton: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 8, gap: 8 },
   actionButtonText: { fontSize: 13, fontWeight: "600" as any },
   deleteBtn: { padding: 8, borderRadius: 6, minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center', zIndex: 10 },
-  complaintActions: { flex: 1, alignItems: "flex-start", gap: 8 },
+  complaintActions: { flex: 1, alignItems: "flex-end", gap: 8 },
   statusButton: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
   statusButtonText: { fontSize: 12, fontWeight: "600" as any, color: "#fff" },
   resolutionDate: { fontSize: 11, fontWeight: "500" as any },

@@ -42,7 +42,7 @@ export function InteractiveBarChart({
         showsHorizontalScrollIndicator={false}
         style={styles.chartContainer}
       >
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 16, paddingHorizontal: 16 }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 16, paddingHorizontal: 16 }}>
           {data.map((item, index) => {
             const barHeight = (item.value / max) * chartHeight;
             const isSelected = selectedBar === index;

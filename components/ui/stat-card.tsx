@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   iconContainer: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   trendBadge: { flexDirection: "row", alignItems: "center", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, gap: 2 },
   trendText: { fontSize: 11, fontWeight: "600" as any },
-  value: { fontSize: 26, fontWeight: "800" as any, marginBottom: 4, textAlign: "left" },
-  title: { fontSize: 13, fontWeight: "500" as any, textAlign: "left" },
-  subtitle: { fontSize: 11, marginTop: 2, textAlign: "left" },
+  value: { fontSize: 26, fontWeight: "800" as any, marginBottom: 4, textAlign: "right" },
+  title: { fontSize: 13, fontWeight: "500" as any, textAlign: "right" },
+  subtitle: { fontSize: 11, marginTop: 2, textAlign: "right" },
 });

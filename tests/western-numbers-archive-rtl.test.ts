@@ -22,10 +22,9 @@ describe("تنسيق الأرقام وأرشيف العقود وRTL", () => {
     expect(archive).not.toContain("reportAction");
   });
 
-  it("يعلن الاتجاه البصري LTR على جذر التطبيق للهاتف والمعاينة", () => {
+  it("يعلن RTL على جذر التطبيق للهاتف", () => {
     const layout = read("app/_layout.tsx");
-    expect(layout).toContain("I18nManager.allowRTL(false)");
-    expect(layout).toContain("I18nManager.forceRTL(false)");
-    expect(layout).toContain('direction: "ltr"');
+    expect(layout).toContain("I18nManager.allowRTL(true)");
+    expect(layout).toContain('direction: "rtl"');
   });
 });

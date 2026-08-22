@@ -380,12 +380,12 @@ const styles = StyleSheet.create({
 
   // Bar Chart
   barChartContainer: {
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
   },
   barChartContent: {
     flex: 1,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
   yAxisLabels: {
     justifyContent: "space-between",
@@ -394,12 +394,12 @@ const styles = StyleSheet.create({
   },
   yAxisLabel: {
     fontSize: 10,
-    textAlign: "left",
+    textAlign: "right",
   },
   barsContainer: {
     flex: 1,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
   barWrapper: {
     alignItems: "center",
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
 
   // Line Chart
   lineChartContainer: {
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
   },
   lineChartContent: {
     flex: 1,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   // Comparison Chart
   comparisonChartContainer: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "flex-end",
     justifyContent: "space-around",
     gap: 24,
   },

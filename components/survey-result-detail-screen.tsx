@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   storePhotoList: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     gap: 9,
   },
   storePhoto: {
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     fontWeight: "500" as any,
   },
   productPercentage: {
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
   productMetrics: {
     flexDirection: "row",

@@ -1490,10 +1490,10 @@ export default function SurveysScreen() {
           <View style={[styles.templateActionSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
             <Text style={[styles.templateActionTitle, { color: colors.foreground }]} numberOfLines={1}>{templateActionTarget?.name || "إجراءات الاستبيان"}</Text>
             <Text style={[styles.templateActionHint, { color: colors.muted }]}>اضغط أحد الإجراءات التالية</Text>
-            {canEdit ? <TouchableOpacity onPress={() => { const target = templateActionTarget; setTemplateActionTarget(null); if (target) handleEditTemplate(target); }} style={[styles.templateActionRow, { borderColor: colors.border }]}><MaterialIcons name="edit" size={21} color={colors.primary} /><Text style={[styles.templateActionText, { color: colors.foreground }]}>تعديل الاستبيان</Text><MaterialIcons name="chevron-right" size={21} color={colors.muted} /></TouchableOpacity> : null}
-            <TouchableOpacity disabled={exportingTemplateId === templateActionTarget?.id} onPress={() => { const target = templateActionTarget; setTemplateActionTarget(null); if (target) void handleExportTemplate(target); }} style={[styles.templateActionRow, { borderColor: colors.border }, exportingTemplateId === templateActionTarget?.id && { opacity: 0.55 }]}><MaterialIcons name="file-upload" size={21} color={colors.success} /><Text style={[styles.templateActionText, { color: colors.foreground }]}>{exportingTemplateId === templateActionTarget?.id ? "جارٍ إصدار الملف..." : "إصدار الاستبيان"}</Text><MaterialIcons name="chevron-right" size={21} color={colors.muted} /></TouchableOpacity>
-            <TouchableOpacity onPress={() => { const target = templateActionTarget; setTemplateActionTarget(null); if (target) requestCloseSurveyCycle(target); }} style={[styles.templateActionRow, { borderColor: colors.border }]}><MaterialIcons name="event-available" size={21} color={colors.warning} /><Text style={[styles.templateActionText, { color: colors.foreground }]}>انتهى الاستبيان</Text><MaterialIcons name="chevron-right" size={21} color={colors.muted} /></TouchableOpacity>
-            {canDelete ? <TouchableOpacity onPress={() => { const target = templateActionTarget; setTemplateActionTarget(null); if (target) handleDeleteTemplate(target.id); }} style={[styles.templateActionRow, { borderColor: colors.border }]}><MaterialIcons name="delete-outline" size={21} color={colors.error} /><Text style={[styles.templateActionText, { color: colors.error }]}>حذف الاستبيان</Text><MaterialIcons name="chevron-right" size={21} color={colors.muted} /></TouchableOpacity> : null}
+            {canEdit ? <TouchableOpacity onPress={() => { const target = templateActionTarget; setTemplateActionTarget(null); if (target) handleEditTemplate(target); }} style={[styles.templateActionRow, { borderColor: colors.border }]}><MaterialIcons name="edit" size={21} color={colors.primary} /><Text style={[styles.templateActionText, { color: colors.foreground }]}>تعديل الاستبيان</Text><MaterialIcons name="chevron-left" size={21} color={colors.muted} /></TouchableOpacity> : null}
+            <TouchableOpacity disabled={exportingTemplateId === templateActionTarget?.id} onPress={() => { const target = templateActionTarget; setTemplateActionTarget(null); if (target) void handleExportTemplate(target); }} style={[styles.templateActionRow, { borderColor: colors.border }, exportingTemplateId === templateActionTarget?.id && { opacity: 0.55 }]}><MaterialIcons name="file-upload" size={21} color={colors.success} /><Text style={[styles.templateActionText, { color: colors.foreground }]}>{exportingTemplateId === templateActionTarget?.id ? "جارٍ إصدار الملف..." : "إصدار الاستبيان"}</Text><MaterialIcons name="chevron-left" size={21} color={colors.muted} /></TouchableOpacity>
+            <TouchableOpacity onPress={() => { const target = templateActionTarget; setTemplateActionTarget(null); if (target) requestCloseSurveyCycle(target); }} style={[styles.templateActionRow, { borderColor: colors.border }]}><MaterialIcons name="event-available" size={21} color={colors.warning} /><Text style={[styles.templateActionText, { color: colors.foreground }]}>انتهى الاستبيان</Text><MaterialIcons name="chevron-left" size={21} color={colors.muted} /></TouchableOpacity>
+            {canDelete ? <TouchableOpacity onPress={() => { const target = templateActionTarget; setTemplateActionTarget(null); if (target) handleDeleteTemplate(target.id); }} style={[styles.templateActionRow, { borderColor: colors.border }]}><MaterialIcons name="delete-outline" size={21} color={colors.error} /><Text style={[styles.templateActionText, { color: colors.error }]}>حذف الاستبيان</Text><MaterialIcons name="chevron-left" size={21} color={colors.muted} /></TouchableOpacity> : null}
           </View>
         </View>
       </Modal>
@@ -2003,21 +2003,21 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 13, fontWeight: "600" as any },
   templateActionOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.42)", alignItems: "center", justifyContent: "center", paddingHorizontal: 22 },
   templateActionSheet: { width: "100%", maxWidth: 420, borderRadius: 20, borderWidth: 1, padding: 16, elevation: 12 },
-  templateActionTitle: { fontSize: 17, fontWeight: "900" as any, textAlign: "left" },
-  templateActionHint: { fontSize: 11, textAlign: "left", marginTop: 4, marginBottom: 12 },
-  templateActionRow: { minHeight: 54, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", gap: 10 },
-  templateActionText: { flex: 1, fontSize: 14, fontWeight: "800" as any, textAlign: "left" },
+  templateActionTitle: { fontSize: 17, fontWeight: "900" as any, textAlign: "right" },
+  templateActionHint: { fontSize: 11, textAlign: "right", marginTop: 4, marginBottom: 12 },
+  templateActionRow: { minHeight: 54, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row-reverse", alignItems: "center", gap: 10 },
+  templateActionText: { flex: 1, fontSize: 14, fontWeight: "800" as any, textAlign: "right" },
   resultsExportModal: { width: "100%", maxWidth: 470, maxHeight: "82%", borderRadius: 20, borderWidth: 1, padding: 16, gap: 10, elevation: 12 },
-  resultsExportHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  resultsExportHint: { fontSize: 11, lineHeight: 17, textAlign: "left" },
-  resultsExportLabel: { fontSize: 13, fontWeight: "800" as any, textAlign: "left", marginTop: 4 },
+  resultsExportHeader: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between" },
+  resultsExportHint: { fontSize: 11, lineHeight: 17, textAlign: "right" },
+  resultsExportLabel: { fontSize: 13, fontWeight: "800" as any, textAlign: "right", marginTop: 4 },
   resultsExportOptions: { maxHeight: 146, borderWidth: 1, borderRadius: 13 },
-  resultsExportOption: { minHeight: 46, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9, borderBottomWidth: StyleSheet.hairlineWidth },
-  resultsExportOptionText: { flex: 1, fontSize: 13, fontWeight: "700" as any, textAlign: "left" },
-  resultsExportFooter: { flexDirection: "row", gap: 9, marginTop: 6 },
+  resultsExportOption: { minHeight: 46, paddingHorizontal: 12, flexDirection: "row-reverse", alignItems: "center", gap: 9, borderBottomWidth: StyleSheet.hairlineWidth },
+  resultsExportOptionText: { flex: 1, fontSize: 13, fontWeight: "700" as any, textAlign: "right" },
+  resultsExportFooter: { flexDirection: "row-reverse", gap: 9, marginTop: 6 },
   resultsExportCancel: { flex: 1, minHeight: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   resultsExportCancelText: { fontSize: 13, fontWeight: "800" as any },
-  resultsExportSave: { flex: 1.5, minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  resultsExportSave: { flex: 1.5, minHeight: 44, borderRadius: 12, flexDirection: "row-reverse", alignItems: "center", justifyContent: "center", gap: 7 },
   resultsExportSaveText: { color: "#fff", fontSize: 13, fontWeight: "800" as any },
   closeCycleBtn: { minHeight: 42, marginHorizontal: 16, marginBottom: 12, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   closeCycleBtnText: { fontSize: 14, fontWeight: "700" as any },
@@ -2073,7 +2073,7 @@ const styles = StyleSheet.create({
   photoAction: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1 },
   photoActionText: { fontSize: 12, fontWeight: "700" as any },
   inPageSurveyAlert: { borderWidth: 1, borderRadius: 10, marginHorizontal: 16, marginTop: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 8 },
-  inPageSurveyAlertText: { flex: 1, textAlign: "left", fontSize: 12, lineHeight: 18, fontWeight: "600" as any },
+  inPageSurveyAlertText: { flex: 1, textAlign: "right", fontSize: 12, lineHeight: 18, fontWeight: "600" as any },
   analyticsContainer: { flex: 1 },
   notesSection: { borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1.5, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   notesHeaderContainer: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 },

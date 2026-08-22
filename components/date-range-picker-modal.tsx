@@ -84,13 +84,13 @@ export function DateRangePickerModal({ visible, startDate, endDate, selectionMod
 
       <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="none" keyboardShouldPersistTaps="always" showsVerticalScrollIndicator={false}>
         <View style={[styles.selectedDates, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          {selectionMode === "single" ? <DateSummary label="التاريخ" value={dateLabel(selectedStartDate)} active={Boolean(selectedStartDate)} colors={colors} /> : <><DateSummary label="من" value={dateLabel(selectedStartDate)} active={!selectingStart ? true : Boolean(selectedStartDate)} colors={colors} /><MaterialIcons name="arrow-forward" size={20} color={colors.muted} /><DateSummary label="إلى" value={dateLabel(selectedEndDate)} active={Boolean(selectedEndDate)} colors={colors} /></>}
+          {selectionMode === "single" ? <DateSummary label="التاريخ" value={dateLabel(selectedStartDate)} active={Boolean(selectedStartDate)} colors={colors} /> : <><DateSummary label="من" value={dateLabel(selectedStartDate)} active={!selectingStart ? true : Boolean(selectedStartDate)} colors={colors} /><MaterialIcons name="arrow-back" size={20} color={colors.muted} /><DateSummary label="إلى" value={dateLabel(selectedEndDate)} active={Boolean(selectedEndDate)} colors={colors} /></>}
         </View>
 
         <View style={[styles.monthNav, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <TouchableOpacity onPress={() => setCurrentMonth((value) => new Date(value.getFullYear(), value.getMonth() - 1, 1))} style={styles.monthButton} accessibilityLabel="الشهر السابق"><MaterialIcons name="chevron-left" size={27} color={colors.primary} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => setCurrentMonth((value) => new Date(value.getFullYear(), value.getMonth() - 1, 1))} style={styles.monthButton} accessibilityLabel="الشهر السابق"><MaterialIcons name="chevron-right" size={27} color={colors.primary} /></TouchableOpacity>
           <Text style={[styles.monthName, { color: colors.foreground }]}>{monthName}</Text>
-          <TouchableOpacity onPress={() => setCurrentMonth((value) => new Date(value.getFullYear(), value.getMonth() + 1, 1))} style={styles.monthButton} accessibilityLabel="الشهر التالي"><MaterialIcons name="chevron-right" size={27} color={colors.primary} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => setCurrentMonth((value) => new Date(value.getFullYear(), value.getMonth() + 1, 1))} style={styles.monthButton} accessibilityLabel="الشهر التالي"><MaterialIcons name="chevron-left" size={27} color={colors.primary} /></TouchableOpacity>
         </View>
 
         <View style={[styles.calendar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -120,13 +120,13 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { minHeight: 70, paddingHorizontal: 16, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", gap: 10 },
   iconButton: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
-  headerCopy: { flex: 1, alignItems: "flex-start" },
-  title: { fontSize: 17, fontWeight: "800" as any, textAlign: "left" },
-  subtitle: { fontSize: 11, marginTop: 3, textAlign: "left" },
+  headerCopy: { flex: 1, alignItems: "flex-end" },
+  title: { fontSize: 17, fontWeight: "800" as any, textAlign: "right" },
+  subtitle: { fontSize: 11, marginTop: 3, textAlign: "right" },
   headerGap: { width: 40 },
   content: { padding: 16, gap: 12, paddingBottom: 24 },
-  selectedDates: { minHeight: 80, borderWidth: 1, borderRadius: 16, padding: 8, flexDirection: "row", alignItems: "center", gap: 6 },
-  dateSummary: { flex: 1, minHeight: 60, paddingHorizontal: 9, justifyContent: "center", alignItems: "flex-start", borderRadius: 11 },
+  selectedDates: { minHeight: 80, borderWidth: 1, borderRadius: 16, padding: 8, flexDirection: "row-reverse", alignItems: "center", gap: 6 },
+  dateSummary: { flex: 1, minHeight: 60, paddingHorizontal: 9, justifyContent: "center", alignItems: "flex-end", borderRadius: 11 },
   dateLabel: { fontSize: 10, fontWeight: "700" as any },
   dateValue: { fontSize: 12, fontWeight: "800" as any, marginTop: 4 },
   monthNav: { minHeight: 54, borderWidth: 1, borderRadius: 14, paddingHorizontal: 4, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   daysGrid: { flexDirection: "row", flexWrap: "wrap" },
   day: { width: "14.285%", aspectRatio: 1, alignItems: "center", justifyContent: "center", borderRadius: 10, marginBottom: 3 },
   dayText: { fontSize: 13, fontWeight: "700" as any },
-  footer: { padding: 14, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 10 },
+  footer: { padding: 14, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row-reverse", gap: 10 },
   footerButton: { flex: 1, minHeight: 48, borderRadius: 13, alignItems: "center", justifyContent: "center" },
   cancelText: { fontSize: 14, fontWeight: "800" as any },
   confirmText: { color: "#fff", fontSize: 14, fontWeight: "800" as any },

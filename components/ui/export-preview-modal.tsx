@@ -158,7 +158,7 @@ export function ExportPreviewModal({
                 },
               ]}
             >
-              <MaterialIcons name="chevron-right" size={20} color="#fff" />
+              <MaterialIcons name="chevron-left" size={20} color="#fff" />
             </Pressable>
             <Text style={[styles.paginationText, { color: colors.foreground }]}>
               {previewPage + 1} / {totalPages}
@@ -174,7 +174,7 @@ export function ExportPreviewModal({
                 },
               ]}
             >
-              <MaterialIcons name="chevron-left" size={20} color="#fff" />
+              <MaterialIcons name="chevron-right" size={20} color="#fff" />
             </Pressable>
           </View>
         )}

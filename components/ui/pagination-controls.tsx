@@ -103,7 +103,7 @@ export function PaginationControls({
           ]}
         >
           <MaterialIcons
-            name="chevron-right"
+            name="chevron-left"
             size={20}
             color={hasPrevPage ? colors.foreground : colors.muted}
           />
@@ -126,7 +126,7 @@ export function PaginationControls({
           ]}
         >
           <MaterialIcons
-            name="chevron-left"
+            name="chevron-right"
             size={20}
             color={hasNextPage ? colors.foreground : colors.muted}
           />

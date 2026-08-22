@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
-  headerText: { flex: 1, fontSize: 15, fontWeight: "700" as any, textAlign: "left" },
+  headerText: { flex: 1, fontSize: 15, fontWeight: "700" as any, textAlign: "right" },
   badge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
   badgeText: { color: "#fff", fontSize: 11, fontWeight: "700" as any },
   alertItem: {
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   },
   alertItemBorder: { borderBottomWidth: 0.5 },
   alertContent: { flex: 1 },
-  alertTitle: { fontSize: 13, fontWeight: "600" as any, textAlign: "left", marginBottom: 2 },
-  alertMessage: { fontSize: 12, textAlign: "left", lineHeight: 18 },
-  alertTime: { fontSize: 11, textAlign: "left", marginTop: 4 },
+  alertTitle: { fontSize: 13, fontWeight: "600" as any, textAlign: "right", marginBottom: 2 },
+  alertMessage: { fontSize: 12, textAlign: "right", lineHeight: 18 },
+  alertTime: { fontSize: 11, textAlign: "right", marginTop: 4 },
 });

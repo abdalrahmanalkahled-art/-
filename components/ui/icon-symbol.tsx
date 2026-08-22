@@ -12,7 +12,7 @@ const MAPPING = {
   "house.fill": "home",
   "paperplane.fill": "send",
   "chevron.left.forwardslash.chevron.right": "code",
-  "chevron.right": "chevron-left",
+  "chevron.right": "chevron-right",
   // App tabs
   "chart.bar.fill": "dashboard",
   "storefront.fill": "store",
