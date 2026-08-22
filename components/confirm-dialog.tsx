@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   buttonsContainer: {
-    flexDirection: 'row-reverse',
+    flexDirection: "row",
     gap: DESIGN.spacing.md,
   },
   button: {

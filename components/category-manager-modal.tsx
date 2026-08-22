@@ -49,7 +49,7 @@ export function CategoryManagerModal({ visible, title, categories, onClose, onSa
       <SafeAreaView edges={["top", "bottom", "left", "right"]} style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={draft ? closeEditor : onClose} style={styles.headerButton}>
-            <MaterialIcons name={draft ? "arrow-back" : "close"} size={24} color={colors.foreground} />
+            <MaterialIcons name={draft ? "arrow-forward" : "close"} size={24} color={colors.foreground} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.foreground }]}>{draft ? (categories.some((item) => item.id === draft.id) ? "تعديل التصنيف" : "تصنيف جديد") : title}</Text>
           <TouchableOpacity onPress={draft ? saveDraft : openNew} style={styles.headerButton}>
@@ -111,7 +111,7 @@ export function CategoryManagerModal({ visible, title, categories, onClose, onSa
                   <MaterialIcons name={category.icon as keyof typeof MaterialIcons.glyphMap} size={21} color={category.color} />
                 </View>
                 <Text style={[styles.categoryLabel, { color: colors.foreground }]}>{category.label}</Text>
-                <MaterialIcons name="chevron-left" size={22} color={colors.muted} />
+                <MaterialIcons name="chevron-right" size={22} color={colors.muted} />
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -137,12 +137,12 @@ const styles = StyleSheet.create({
   headerButton: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 17, fontWeight: "700" as any },
   listContent: { padding: 16, gap: 10 },
-  description: { fontSize: 13, lineHeight: 20, marginBottom: 4, textAlign: "right" },
+  description: { fontSize: 13, lineHeight: 20, marginBottom: 4, textAlign: "left" },
   categoryRow: { minHeight: 64, borderRadius: 14, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12 },
   categoryIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  categoryLabel: { flex: 1, fontSize: 15, fontWeight: "700" as any, textAlign: "right" },
+  categoryLabel: { flex: 1, fontSize: 15, fontWeight: "700" as any, textAlign: "left" },
   editorContent: { padding: 16, paddingBottom: 32 },
-  fieldLabel: { fontSize: 14, fontWeight: "700" as any, marginBottom: 8, marginTop: 12, textAlign: "right" },
+  fieldLabel: { fontSize: 14, fontWeight: "700" as any, marginBottom: 8, marginTop: 12, textAlign: "left" },
   input: { minHeight: 48, borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, fontSize: 15 },
   iconsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
   iconChoice: { width: 48, height: 48, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },

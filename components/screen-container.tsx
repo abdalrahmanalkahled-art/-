@@ -38,7 +38,7 @@ export interface ScreenContainerProps extends ViewProps {
  * </ScreenContainer>
  * ```
  */
-const styles = StyleSheet.create({ root: { direction: "rtl" } });
+const styles = StyleSheet.create({ root: { direction: "ltr" } });
 
 export function ScreenContainer({
   children,

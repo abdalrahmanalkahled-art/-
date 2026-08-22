@@ -57,27 +57,11 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="more"
         options={{
-          title: "الرئيسية",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} />,
-          tabBarButton: canViewDashboard ? undefined : () => null,
-        }}
-      />
-      <Tabs.Screen
-        name="stores"
-        options={{
-          title: "المحلات",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="storefront.fill" color={color} />,
-          tabBarButton: canViewStores ? undefined : () => null,
-        }}
-      />
-      <Tabs.Screen
-        name="surveys"
-        options={{
-          title: "الاستبيانات",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="doc.text.fill" color={color} />,
-          tabBarButton: canViewSurveys ? undefined : () => null,
+          title: "المزيد",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="ellipsis.circle.fill" color={color} />,
+          tabBarButton: canViewMore ? undefined : () => null,
         }}
       />
       <Tabs.Screen
@@ -89,11 +73,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="more"
+        name="surveys"
         options={{
-          title: "المزيد",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="ellipsis.circle.fill" color={color} />,
-          tabBarButton: canViewMore ? undefined : () => null,
+          title: "الاستبيانات",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="doc.text.fill" color={color} />,
+          tabBarButton: canViewSurveys ? undefined : () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="stores"
+        options={{
+          title: "المحلات",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="storefront.fill" color={color} />,
+          tabBarButton: canViewStores ? undefined : () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: "الرئيسية",
+          tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} />,
+          tabBarButton: canViewDashboard ? undefined : () => null,
         }}
       />
     </Tabs>

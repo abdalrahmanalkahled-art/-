@@ -154,13 +154,13 @@ export function DashboardCustomizationSheet({ visible, value, onClose, onSave }:
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.48)", justifyContent: "flex-end" },
+  overlay: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.48)", justifyContent: "flex-start" },
   sheet: { maxHeight: "91%", borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: "hidden" },
   header: { minHeight: 76, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 11, borderBottomWidth: StyleSheet.hairlineWidth },
   closeButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  headerText: { flex: 1, alignItems: "flex-end" }, title: { fontSize: 16, fontWeight: "800" as any, textAlign: "right" }, subtitle: { fontSize: 11, marginTop: 3, textAlign: "right" }, headerIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
-  content: { padding: 16, paddingBottom: 24 }, sectionTitle: { textAlign: "right", fontSize: 12, fontWeight: "800" as any, marginTop: 6, marginBottom: 8, marginRight: 4 },
-  card: { borderWidth: 1, borderRadius: 16, overflow: "hidden", marginBottom: 14 }, optionRow: { minHeight: 70, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 10 }, optionText: { flex: 1, alignItems: "flex-end" }, optionTitle: { fontSize: 13, fontWeight: "700" as any, textAlign: "right" }, optionSubtitle: { fontSize: 10, marginTop: 3, textAlign: "right", lineHeight: 15 }, optionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  headerText: { flex: 1, alignItems: "flex-start" }, title: { fontSize: 16, fontWeight: "800" as any, textAlign: "left" }, subtitle: { fontSize: 11, marginTop: 3, textAlign: "left" }, headerIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  content: { padding: 16, paddingBottom: 24 }, sectionTitle: { textAlign: "left", fontSize: 12, fontWeight: "800" as any, marginTop: 6, marginBottom: 8, marginRight: 4 },
+  card: { borderWidth: 1, borderRadius: 16, overflow: "hidden", marginBottom: 14 }, optionRow: { minHeight: 70, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 10 }, optionText: { flex: 1, alignItems: "flex-start" }, optionTitle: { fontSize: 13, fontWeight: "700" as any, textAlign: "left" }, optionSubtitle: { fontSize: 10, marginTop: 3, textAlign: "left", lineHeight: 15 }, optionIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   orderActions: { flexDirection: "row", gap: 5 }, orderButton: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   footer: { padding: 14, paddingBottom: 16, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: "row", gap: 10 }, cancelButton: { flex: 0.76, minHeight: 48, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center" }, cancelText: { fontSize: 14, fontWeight: "700" as any }, saveButton: { flex: 1.35, minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 7 }, saveText: { color: "#fff", fontSize: 14, fontWeight: "800" as any },
 });

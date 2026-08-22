@@ -124,10 +124,10 @@ export function MediaGalleryLightbox({ mediaItems, onDeleteMedia, onAddMedia }: 
 
           <View style={styles.lightboxFooter}>
             <TouchableOpacity onPress={() => selectedIndex !== null && selectedIndex > 0 && handleSelect(mediaItems[selectedIndex - 1], selectedIndex - 1)} disabled={selectedIndex === 0} style={[styles.navigationButton, selectedIndex === 0 && styles.navigationButtonDisabled]}>
-              <MaterialIcons name="chevron-right" size={28} color={selectedIndex === 0 ? "#666" : "#fff"} />
+              <MaterialIcons name="chevron-left" size={28} color={selectedIndex === 0 ? "#666" : "#fff"} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => selectedIndex !== null && selectedIndex < mediaItems.length - 1 && handleSelect(mediaItems[selectedIndex + 1], selectedIndex + 1)} disabled={selectedIndex === mediaItems.length - 1} style={[styles.navigationButton, selectedIndex === mediaItems.length - 1 && styles.navigationButtonDisabled]}>
-              <MaterialIcons name="chevron-left" size={28} color={selectedIndex === mediaItems.length - 1 ? "#666" : "#fff"} />
+              <MaterialIcons name="chevron-right" size={28} color={selectedIndex === mediaItems.length - 1 ? "#666" : "#fff"} />
             </TouchableOpacity>
           </View>
         </View>
@@ -176,13 +176,13 @@ const styles = StyleSheet.create({
   addButtonIconOnly: { width: 40, height: 40, borderRadius: 20, justifyContent: "center", alignItems: "center" },
   mediaPickerBackdrop: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.42)", justifyContent: "center", padding: 24 },
   mediaPickerSheet: { borderRadius: 24, borderWidth: 1, padding: 18, gap: 18, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.22, shadowRadius: 22, elevation: 10 },
-  mediaPickerHead: { flexDirection: "row-reverse", alignItems: "center", gap: 11 },
+  mediaPickerHead: { flexDirection: "row", alignItems: "center", gap: 11 },
   mediaPickerIcon: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-  mediaPickerCopy: { flex: 1, alignItems: "flex-end" },
-  mediaPickerTitle: { fontSize: 17, fontWeight: "800", textAlign: "right" },
-  mediaPickerSubtitle: { fontSize: 11, lineHeight: 17, textAlign: "right", marginTop: 3 },
+  mediaPickerCopy: { flex: 1, alignItems: "flex-start" },
+  mediaPickerTitle: { fontSize: 17, fontWeight: "800", textAlign: "left" },
+  mediaPickerSubtitle: { fontSize: 11, lineHeight: 17, textAlign: "left", marginTop: 3 },
   closePickerButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
-  mediaPickerOptions: { flexDirection: "row-reverse", gap: 10 },
+  mediaPickerOptions: { flexDirection: "row", gap: 10 },
   mediaOption: { flex: 1, minHeight: 132, borderRadius: 16, borderWidth: 1, justifyContent: "center", alignItems: "center", padding: 12, gap: 5 },
   mediaOptionIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 3 },
   mediaOptionText: { fontSize: 13, fontWeight: "700" },

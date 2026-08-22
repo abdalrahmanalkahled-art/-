@@ -36,11 +36,11 @@ export function FABMenu({ items }: { items: FABMenuItem[] }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: "absolute", right: 18, bottom: 20, alignItems: "flex-end", gap: 10, zIndex: 100 },
+  wrap: { position: "absolute", right: 18, bottom: 20, alignItems: "flex-start", gap: 10, zIndex: 100 },
   fab: { width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center", elevation: 5 },
   menu: { minWidth: 176, borderRadius: 16, borderWidth: 1, paddingVertical: 7, elevation: 4 },
-  header: { fontSize: 10, fontWeight: "800", paddingHorizontal: 13, paddingTop: 5, textAlign: "right" },
-  item: { minHeight: 43, paddingHorizontal: 13, flexDirection: "row-reverse", alignItems: "center", gap: 8 },
+  header: { fontSize: 10, fontWeight: "800", paddingHorizontal: 13, paddingTop: 5, textAlign: "left" },
+  item: { minHeight: 43, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 8 },
   itemText: { fontSize: 12, fontWeight: "800" },
   divider: { height: 1, marginVertical: 2 },
 });

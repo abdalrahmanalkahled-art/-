@@ -112,7 +112,7 @@ export default function StoreDetailScreen() {
     <ScreenContainer className="flex-1">
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <TouchableOpacity onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={24} color="#fff" />
+          <MaterialIcons name="arrow-forward" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>{storeName}</Text>
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   },
   trendContainer: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "flex-start",
     justifyContent: "space-around",
     height: 150,
     paddingVertical: 12,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     overflow: "hidden",
     backgroundColor: "#f0f0f0",
-    justifyContent: "flex-end",
+    justifyContent: "flex-start",
   },
   presenceBar: {
     width: "100%",

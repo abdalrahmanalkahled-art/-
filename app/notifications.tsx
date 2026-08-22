@@ -55,7 +55,7 @@ export default function NotificationsScreen() {
     <ScreenContainer className="bg-background">
       <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
         <TouchableOpacity accessibilityLabel="العودة" onPress={() => router.back()} style={[styles.headerButton, { backgroundColor: colors.surface }]}>
-          <MaterialIcons name="arrow-forward" size={22} color={colors.foreground} />
+          <MaterialIcons name="arrow-back" size={22} color={colors.foreground} />
         </TouchableOpacity>
         <View style={styles.titleArea}>
           <Text style={[styles.title, { color: colors.foreground }]}>الإشعارات</Text>
@@ -95,7 +95,7 @@ export default function NotificationsScreen() {
                 <Text style={[styles.notificationMessage, { color: colors.muted }]}>{item.message}</Text>
                 <Text style={[styles.notificationTime, { color: colors.muted }]}>{formatRelativeDate(item.createdAt)}</Text>
               </View>
-              <MaterialIcons name="chevron-left" size={22} color={colors.muted} />
+              <MaterialIcons name="chevron-right" size={22} color={colors.muted} />
             </TouchableOpacity>
           );
         }}
@@ -114,7 +114,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   header: { height: 76, flexDirection: "row", alignItems: "center", borderBottomWidth: 1, paddingHorizontal: 16, gap: 12 },
   headerButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20 },
-  titleArea: { flex: 1, alignItems: "flex-end" },
+  titleArea: { flex: 1, alignItems: "flex-start" },
   title: { fontSize: 18, fontWeight: "800" as any },
   subtitle: { fontSize: 12, marginTop: 2 },
   markAllButton: { borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 },
@@ -123,11 +123,11 @@ const styles = StyleSheet.create({
   emptyContent: { flexGrow: 1, padding: 24 },
   notificationCard: { borderRadius: 16, borderWidth: 1, padding: 13, flexDirection: "row", alignItems: "center", gap: 11 },
   iconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  notificationBody: { flex: 1, alignItems: "flex-end" },
+  notificationBody: { flex: 1, alignItems: "flex-start" },
   notificationTitleRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  notificationTitle: { fontSize: 14, fontWeight: "800" as any, textAlign: "right" },
-  notificationMessage: { fontSize: 12, lineHeight: 18, textAlign: "right", marginTop: 3 },
-  notificationTime: { fontSize: 11, textAlign: "right", marginTop: 5 },
+  notificationTitle: { fontSize: 14, fontWeight: "800" as any, textAlign: "left" },
+  notificationMessage: { fontSize: 12, lineHeight: 18, textAlign: "left", marginTop: 3 },
+  notificationTime: { fontSize: 11, textAlign: "left", marginTop: 5 },
   unreadDot: { width: 7, height: 7, borderRadius: 4 },
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 30, paddingBottom: 80 },
   emptyIcon: { width: 76, height: 76, borderRadius: 38, alignItems: "center", justifyContent: "center", marginBottom: 16 },

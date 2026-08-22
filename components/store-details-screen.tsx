@@ -283,7 +283,7 @@ export function StoreDetailsScreen({ store, visible, onClose, onEdit }: StoreDet
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الملاحظات</Text>
                 <TouchableOpacity onPress={() => setShowAllNotes(true)} style={[styles.viewMoreBtn, { backgroundColor: colors.primary }]}>
                   <Text style={styles.viewMoreBtnText}>عرض المزيد</Text>
-                  <MaterialIcons name="arrow-forward" size={14} color="#fff" />
+                  <MaterialIcons name="arrow-back" size={14} color="#fff" />
                 </TouchableOpacity>
               </View>
               {notesSummary.slice(-2).map((note, idx) => (
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   calendarTitle: { fontSize: 16, fontWeight: "700" as any },
   calendarContent: { flex: 1, padding: 16 },
   dateInputContainer: { marginBottom: 20 },
-  dateInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14, textAlign: "right" },
+  dateInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 14, textAlign: "left" },
   monthSelector: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   monthButton: { flex: 1, minWidth: "30%", borderWidth: 1, borderRadius: 10, padding: 12, alignItems: "center", justifyContent: "center" },
   monthText: { fontSize: 13, fontWeight: "600" as any, textAlign: "center" },
