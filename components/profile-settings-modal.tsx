@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, Tex
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/use-colors";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { updateManagedUser } from "@/lib/user-management";
 import type { LocalUser } from "@/lib/storage";
 import { DESIGN } from "@/lib/design-system";
@@ -21,6 +22,7 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
   const [password, setPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [showCredentialsConfirmation, setShowCredentialsConfirmation] = useState(false);
 
   useEffect(() => {
     if (!visible || !user) return;
@@ -30,9 +32,9 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
     setError("");
   }, [visible, user]);
 
-  const save = async () => {
+  const persist = async () => {
     if (!user) return;
-    if (!name.trim() || !username.trim()) { setError("أدخل الاسم الشخصي واسم المستخدم"); return; }
+    setShowCredentialsConfirmation(false);
     setIsSaving(true);
     setError("");
     try {
@@ -45,7 +47,19 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
     } finally { setIsSaving(false); }
   };
 
-  return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+  const requestSave = () => {
+    if (!user) return;
+    if (!name.trim() || !username.trim()) { setError("أدخل الاسم الشخصي واسم المستخدم"); return; }
+    const credentialsChanged = username.trim().toLowerCase() !== user.username || Boolean(password.trim());
+    if (credentialsChanged) {
+      setShowCredentialsConfirmation(true);
+      return;
+    }
+    void persist();
+  };
+
+  return <>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -57,10 +71,12 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
         <Text style={[styles.label, { color: colors.foreground }]}>كلمة المرور الجديدة</Text>
         <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="اتركها فارغة للإبقاء على الحالية" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlign="left" />
         {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-        <TouchableOpacity disabled={isSaving} onPress={() => void save()} style={[styles.save, { backgroundColor: colors.primary }, isSaving && { opacity: 0.6 }]}><Text style={styles.saveText}>{isSaving ? "جارٍ الحفظ..." : "حفظ بيانات الملف"}</Text></TouchableOpacity>
+        <TouchableOpacity disabled={isSaving} onPress={requestSave} style={[styles.save, { backgroundColor: colors.primary }, isSaving && { opacity: 0.6 }]}><Text style={styles.saveText}>{isSaving ? "جارٍ الحفظ..." : "حفظ بيانات الملف"}</Text></TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
-  </Modal>;
+  </Modal>
+    <ConfirmDialog visible={showCredentialsConfirmation} title="تأكيد تغيير بيانات الدخول" message="سيتم حفظ اسم المستخدم أو كلمة المرور الجديدة على هذا الجهاز. هل تريد المتابعة؟" confirmText="حفظ التغييرات" cancelText="مراجعة البيانات" icon="lock" onCancel={() => setShowCredentialsConfirmation(false)} onConfirm={() => void persist()} />
+  </>;
 }
 
 const styles = StyleSheet.create({
