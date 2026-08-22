@@ -18,9 +18,9 @@ function escapeHtml(value: unknown): string {
 function table(columns: string[], rows: unknown[][]): string {
   return `<table><thead><tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map((row) => `<tr>${row.map((value) => `<td>${value}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${columns.length}">لا توجد بيانات ضمن الخيارات المختارة.</td></tr>`}</tbody></table>`;
 }
-function imageCell(uri: string | undefined, includeImages: boolean): string {
+function imageCell(uri: string | undefined, includeImages: boolean, inlineStyle = ""): string {
   if (!includeImages || !uri) return "—";
-  return `<img src="${escapeHtml(uri)}" alt="صورة الأداة" />`;
+  return `<img src="${escapeHtml(uri)}" alt="صورة الأداة"${inlineStyle ? ` style="${inlineStyle}"` : ""} />`;
 }
 
 function imageMimeType(uri: string): string {
@@ -44,20 +44,28 @@ async function localToolImageUri(uri: string): Promise<{ uri: string; temporaryU
   return { uri: temporaryUri, temporaryUri };
 }
 
-async function embeddedToolImage(uri: string | undefined, settings: WarehouseReportSettings): Promise<string> {
+function toolImageProfile(settings: WarehouseReportSettings) {
+  if (settings.toolDisplayMode !== "cards") return { width: settings.imageMaxWidth ?? 900, quality: settings.imageQuality ?? 0.72 };
+  if (settings.toolImageCompression === "original") return { width: 1600, quality: 0.95 };
+  if (settings.toolImageCompression === "compact") return { width: 720, quality: 0.55 };
+  return { width: 1200, quality: 0.72 };
+}
+
+async function embeddedToolImage(uri: string | undefined, settings: WarehouseReportSettings, inlineStyle = ""): Promise<string> {
   if (!settings.includeImages || !uri) return "—";
   let temporaryUri: string | undefined;
   let resizedUri: string | undefined;
   try {
     const localImage = await localToolImageUri(uri);
     temporaryUri = localImage.temporaryUri;
-    const resized = await ImageManipulator.manipulateAsync(localImage.uri, [{ resize: { width: settings.imageMaxWidth ?? 900 } }], { compress: settings.imageQuality ?? 0.72, format: ImageManipulator.SaveFormat.JPEG });
+    const profile = toolImageProfile(settings);
+    const resized = await ImageManipulator.manipulateAsync(localImage.uri, [{ resize: { width: profile.width } }], { compress: profile.quality, format: ImageManipulator.SaveFormat.JPEG });
     resizedUri = resized.uri;
     const base64 = await FileSystem.readAsStringAsync(resized.uri, { encoding: FileSystem.EncodingType.Base64 });
-    return imageCell(`data:image/jpeg;base64,${base64}`, true);
+    return imageCell(`data:image/jpeg;base64,${base64}`, true, inlineStyle);
   } catch {
     try {
-      return imageCell(`data:${imageMimeType(uri)};base64,${await readToolImageBase64(uri)}`, true);
+      return imageCell(`data:${imageMimeType(uri)};base64,${await readToolImageBase64(uri)}`, true, inlineStyle);
     } catch {
       return "—";
     }
@@ -69,6 +77,26 @@ const MATERIAL_FIELDS = { name: "المادة", category: "الفئة", currentQ
 const TOOL_FIELDS = { name: "الأداة", quantity: "الكمية", brands: "الماركات", condition: "الحالة" } as const;
 const MOVEMENT_FIELDS = { movementDate: "التاريخ", itemName: "المادة", movementType: "النوع", quantity: "الكمية", notes: "الملاحظات" } as const;
 function selected(columns: readonly string[], fields: Record<string, string>, row: Record<string, unknown>) { return { columns: columns.map((column) => fields[column]), row: Object.fromEntries(columns.map((column) => [fields[column], row[column] ?? "—"])) }; }
+
+function toolCardImageStyle(settings: WarehouseReportSettings): string {
+  const size = settings.toolImageSize ?? "medium";
+  const dimensions = size === "small" ? "width:88px;height:72px;" : size === "large" ? "width:100%;height:188px;" : "width:100%;height:124px;";
+  const fit = settings.toolImageFit === "width" ? "object-fit:contain;height:auto;max-height:188px;background:#f8fafc;" : settings.toolImageFit === "height" ? "object-fit:contain;width:auto;max-width:100%;" : "object-fit:cover;";
+  return `${dimensions}${fit}display:block;margin:0 auto 9px;border:1px solid #dce7f8;border-radius:9px;`;
+}
+
+async function toolCards(data: WarehouseReportData, settings: WarehouseReportSettings): Promise<string> {
+  const grid = settings.toolCardLayout === "full" ? "grid-template-columns:1fr;" : "grid-template-columns:repeat(2,1fr);";
+  const cards = await Promise.all(data.tools.map(async (tool, index) => {
+    const condition = conditionMeta(tool.condition);
+    const values: Record<string, string | number> = { name: tool.name, quantity: tool.quantity, brands: tool.brandNames.join("، ") || "—", condition: condition.label };
+    const details = settings.toolColumns.map((column) => `<div style="padding:6px;background:#f7faff;border-radius:8px;min-width:0"><span style="display:block;font-size:8px;color:#64748b">${escapeHtml(TOOL_FIELDS[column])}</span><strong style="display:block;font-size:9px;color:#172033;margin-top:2px;word-break:break-word">${escapeHtml(values[column])}</strong></div>`).join("");
+    const image = settings.includeImages ? await embeddedToolImage(tool.imageUri, settings, toolCardImageStyle(settings)) : "";
+    return `<article style="border:1px solid #dce7f8;border-radius:15px;padding:10px;background:#fff;break-inside:avoid"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><span style="display:flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:9px;background:#f7faff;color:#1A56DB;font-weight:bold">${index + 1}</span><div style="flex:1"><span style="font-size:8px;color:#1A56DB;font-weight:bold">أداة مستودع</span><h4 style="font-size:12px;color:#172033;margin:2px 0 0">${escapeHtml(tool.name)}</h4></div><span style="font-size:9px;font-weight:bold;color:${condition.color};background:${condition.color}18;padding:5px 7px;border-radius:999px">${escapeHtml(condition.label)}</span></div>${image === "—" ? "" : image}<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:5px">${details}</div></article>`;
+  }));
+  return `<div style="display:grid;${grid}gap:9px">${cards.join("")}</div>`;
+}
+
 async function reportHtml(data: WarehouseReportData, settings: WarehouseReportSettings, logoMarkup = ""): Promise<string> {
   const summary = [
     settings.includeMaterials ? `<div><strong>${data.materials.length}</strong><span>مواد</span></div>` : "",
@@ -76,7 +104,7 @@ async function reportHtml(data: WarehouseReportData, settings: WarehouseReportSe
     settings.includeMovements ? `<div><strong>${data.movements.length}</strong><span>حركات</span></div>` : "",
   ].join("");
   const materials = settings.includeMaterials ? `<section><h2>المواد</h2>${table(selected(settings.materialColumns, MATERIAL_FIELDS, {}).columns, data.materials.map((item) => settings.materialColumns.map((column) => escapeHtml({ name: item.name, category: item.categoryLabel, currentQuantity: item.currentQuantity, minimumQuantity: item.minimumQuantity, unit: item.unit, status: item.status, description: item.description || "—" }[column]))))}</section>` : "";
-  const tools = settings.includeTools ? `<section><h2>الأدوات</h2>${table([...selected(settings.toolColumns, TOOL_FIELDS, {}).columns, ...(settings.includeImages ? ["الصورة"] : [])], await Promise.all(data.tools.map(async (tool) => [...settings.toolColumns.map((column) => escapeHtml({ name: tool.name, quantity: tool.quantity, brands: tool.brandNames.join("، ") || "—", condition: conditionMeta(tool.condition).label }[column])), ...(settings.includeImages ? [await embeddedToolImage(tool.imageUri, settings)] : [])])))}</section>` : "";
+  const tools = settings.includeTools ? `<section><h2>الأدوات</h2>${settings.toolDisplayMode === "cards" ? await toolCards(data, settings) : table([...selected(settings.toolColumns, TOOL_FIELDS, {}).columns, ...(settings.includeImages ? ["الصورة"] : [])], await Promise.all(data.tools.map(async (tool) => [...settings.toolColumns.map((column) => escapeHtml({ name: tool.name, quantity: tool.quantity, brands: tool.brandNames.join("، ") || "—", condition: conditionMeta(tool.condition).label }[column])), ...(settings.includeImages ? [await embeddedToolImage(tool.imageUri, settings)] : [])])))}</section>` : "";
   const movements = settings.includeMovements ? `<section><h2>سجل الحركة</h2>${table(selected(settings.movementColumns, MOVEMENT_FIELDS, {}).columns, data.movements.map((movement) => settings.movementColumns.map((column) => escapeHtml({ movementDate: movement.movementDate, itemName: movement.itemName, movementType: movement.movementType === "in" ? "إدخال" : "إخراج", quantity: movement.quantity, notes: movement.notes || "—" }[column]))))}</section>` : "";
   return `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{direction:rtl;font-family:Tahoma,Arial,sans-serif;color:#172033;font-size:10px}.report-head{display:flex;gap:12px;align-items:center}.shared-report-logo{width:48px;height:48px;object-fit:contain;border-radius:10px}h1{font-size:24px;color:#1A56DB;margin:0 0 5px}h2{font-size:15px;color:#1A56DB;margin:20px 0 8px}.meta{color:#64748b;margin:0 0 14px}.summary{display:flex;gap:8px;margin:12px 0 15px}.summary div{flex:1;background:#f7faff;border:1px solid #dce7f8;padding:9px;text-align:center}.summary strong{display:block;font-size:15px}.summary span{display:block;color:#64748b;margin-top:3px}table{width:100%;border-collapse:collapse}th{background:#1A56DB;color:#fff}th,td{padding:7px;border-bottom:1px solid #e1e8f2;text-align:right;vertical-align:top}tr:nth-child(even){background:#f8fbff}img{width:62px;height:48px;object-fit:cover;border:1px solid #dce7f8}@media print{tr{break-inside:avoid}}</style></head><body><header class="report-head">${logoMarkup}<div><h1>تقرير المستودع</h1><p class="meta">تاريخ الإنشاء: ${escapeHtml(data.generatedAt)}</p></div></header><div class="summary">${summary}</div>${materials}${tools}${movements}</body></html>`;
 }

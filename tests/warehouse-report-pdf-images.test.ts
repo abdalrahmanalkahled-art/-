@@ -31,6 +31,16 @@ describe("إعداد تقرير المستودع", () => {
     expect(settingsSheet).toContain("الجداول والأعمدة");
   });
 
+  it("يتيح تبديل أدوات PDF بين الجدول وبطاقات الوسائط المشابهة لعقود اللوحات", () => {
+    expect(settingsSheet).toContain("عرض الأدوات كبطاقات");
+    expect(settingsSheet).toContain("تخطيط بطاقات الأدوات");
+    expect(settingsSheet).toContain("ملاءمة الصورة ضمن مساحة البطاقة");
+    expect(exporter).toContain('settings.toolDisplayMode === "cards" ? await toolCards');
+    expect(exporter).toContain("function toolCards");
+    expect(exporter).toContain("function toolCardImageStyle");
+    expect(exporter).toContain("toolImageCompression");
+  });
+
   it("يوحد رأس وحدات المزيد مع نمط مختصر للمنتجات", () => {
     expect(moreScreen).toContain("<MoreModuleShell");
     expect(moreScreen).toContain('compact={activeModule === "products"}');

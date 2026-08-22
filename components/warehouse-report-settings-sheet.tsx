@@ -46,7 +46,7 @@ export function WarehouseReportSettingsSheet({ visible, value, onClose, onSave }
   const selectedColumnCount = enabledTables.reduce((count, group) => count + (draft[group.key] as string[]).length, 0);
   const sectionSummary = `${enabledSections} أقسام مفعلة`;
   const columnsSummary = `${enabledTables.length} جداول · ${selectedColumnCount} أعمدة محددة`;
-  const mediaSummary = !draft.includeTools ? "فعّل قسم الأدوات أولاً" : !draft.includeImages ? "بدون صور" : `${draft.imageMaxWidth === 600 ? "صورة صغيرة" : draft.imageMaxWidth === 1200 ? "صورة كبيرة" : "صورة متوسطة"} · ${draft.imageQuality === 0.55 ? "ضغط أعلى" : draft.imageQuality === 0.9 ? "جودة أعلى" : "ضغط متوازن"}`;
+  const mediaSummary = !draft.includeTools ? "فعّل قسم الأدوات أولاً" : draft.toolDisplayMode === "cards" ? `${draft.toolCardLayout === "full" ? "بطاقة واحدة في الصف" : "بطاقتان في الصف"} · ${draft.includeImages ? `${draft.toolImageSize === "large" ? "صورة كبيرة" : draft.toolImageSize === "small" ? "صورة صغيرة" : "صورة متوسطة"}` : "بدون صور"}` : !draft.includeImages ? "عرض جدولي بدون صور" : `${draft.imageMaxWidth === 600 ? "صورة صغيرة" : draft.imageMaxWidth === 1200 ? "صورة كبيرة" : "صورة متوسطة"} · ${draft.imageQuality === 0.55 ? "ضغط أعلى" : draft.imageQuality === 0.9 ? "جودة أعلى" : "ضغط متوازن"}`;
   const activeGroup = activeColumnGroup ? COLUMN_GROUPS.find((group) => group.key === activeColumnGroup) : null;
 
   return <FloatingFormModal visible={visible} onClose={onClose} backgroundColor={colors.background}>
@@ -79,13 +79,28 @@ export function WarehouseReportSettingsSheet({ visible, value, onClose, onSave }
 
       <PanelModal visible={activePanel === "media"} title="الصور والوسائط" colors={colors} onClose={() => setActivePanel(null)}>
         {!draft.includeTools ? <Text style={[styles.panelHint, { color: colors.warning }]}>فعّل قسم الأدوات ضمن أقسام التقرير أولاً حتى تتمكن من تضمين صورها.</Text> : <>
-          <SettingToggle label="تضمين صور الأدوات" description="تُضمّن الصور الفعلية داخل PDF، ويظهر مؤشر توفرها في Excel." icon="image" value={draft.includeImages} colors={colors} onPress={() => toggleSection("includeImages")} />
-          {draft.includeImages ? <>
+          <SettingToggle label="عرض الأدوات كبطاقات" description="يحوّل أدوات PDF إلى بطاقات بصرية مماثلة لبطاقات عقود اللوحات. عند إلغائه تبقى الأدوات ضمن الجدول الحالي." icon="view-agenda" value={draft.toolDisplayMode === "cards"} colors={colors} onPress={() => setDraft((current) => ({ ...current, toolDisplayMode: current.toolDisplayMode === "cards" ? "table" : "cards" }))} />
+          {draft.toolDisplayMode === "cards" ? <>
+            <SettingTitle label="تخطيط بطاقات الأدوات" colors={colors} />
+            <ChoiceGrid options={[{ value: "grid", label: "بطاقتان في الصف", icon: "view-column" as const }, { value: "full", label: "بطاقة واحدة في الصف", icon: "view-agenda" as const }]} active={draft.toolCardLayout || "grid"} colors={colors} onSelect={(toolCardLayout) => setDraft((current) => ({ ...current, toolCardLayout: toolCardLayout as "grid" | "full" }))} />
+            <SettingToggle label="تضمين صور الأدوات" description="يُضمّن الصور الفعلية داخل بطاقات PDF ويشير لتوفرها في Excel." icon="image" value={draft.includeImages} colors={colors} onPress={() => toggleSection("includeImages")} />
+            {draft.includeImages ? <>
+              <SettingTitle label="المساحة المخصصة للصورة داخل البطاقة" colors={colors} />
+              <ChoiceGrid options={[{ value: "small", label: "صغيرة", icon: "photo-size-select-small" as const }, { value: "medium", label: "متوسطة", icon: "photo-size-select-actual" as const }, { value: "large", label: "كبيرة", icon: "photo-size-select-large" as const }]} active={draft.toolImageSize || "medium"} colors={colors} onSelect={(toolImageSize) => setDraft((current) => ({ ...current, toolImageSize: toolImageSize as "small" | "medium" | "large" }))} />
+              <SettingTitle label="ملاءمة الصورة ضمن مساحة البطاقة" colors={colors} />
+              <ChoiceGrid options={[{ value: "width", label: "ملاءمة العرض", icon: "fit-screen" as const }, { value: "height", label: "ملاءمة الطول", icon: "height" as const }, { value: "card", label: "ملاءمة البطاقة", icon: "crop" as const }]} active={draft.toolImageFit || "card"} colors={colors} onSelect={(toolImageFit) => setDraft((current) => ({ ...current, toolImageFit: toolImageFit as "width" | "height" | "card" }))} />
+              <SettingTitle label="جودة وحجم ملف PDF" colors={colors} />
+              <ChoiceGrid options={[{ value: "original", label: "الجودة الأصلية", icon: "high-quality" as const }, { value: "balanced", label: "ضغط متوازن", icon: "compress" as const }, { value: "compact", label: "ضغط أعلى", icon: "archive" as const }]} active={draft.toolImageCompression || "balanced"} colors={colors} onSelect={(toolImageCompression) => setDraft((current) => ({ ...current, toolImageCompression: toolImageCompression as "original" | "balanced" | "compact" }))} />
+            </> : null}
+          </> : <>
+            <SettingToggle label="تضمين صور الأدوات" description="تُضمّن الصور الفعلية داخل PDF، ويظهر مؤشر توفرها في Excel." icon="image" value={draft.includeImages} colors={colors} onPress={() => toggleSection("includeImages")} />
+            {draft.includeImages ? <>
             <SettingTitle label="المساحة المخصصة للصورة داخل التقرير" colors={colors} />
             <ChoiceGrid options={[{ value: "600", label: "صغيرة", icon: "photo-size-select-small" as const }, { value: "900", label: "متوسطة", icon: "photo-size-select-actual" as const }, { value: "1200", label: "كبيرة", icon: "photo-size-select-large" as const }]} active={String(draft.imageMaxWidth)} colors={colors} onSelect={(value) => setDraft((current) => ({ ...current, imageMaxWidth: Number(value) }))} />
             <SettingTitle label="جودة وحجم ملف PDF" colors={colors} />
             <ChoiceGrid options={[{ value: "0.55", label: "ضغط أعلى", icon: "archive" as const }, { value: "0.72", label: "ضغط متوازن", icon: "compress" as const }, { value: "0.9", label: "جودة أعلى", icon: "high-quality" as const }]} active={String(draft.imageQuality)} colors={colors} onSelect={(value) => setDraft((current) => ({ ...current, imageQuality: Number(value) }))} />
-          </> : null}
+            </> : null}
+          </>}
         </>}
       </PanelModal>
 

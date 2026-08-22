@@ -11,6 +11,12 @@ export interface WarehouseReportSettings {
   includeTools: boolean;
   includeMovements: boolean;
   includeImages: boolean;
+  /** يعرض الأدوات كبطاقات مرئية بدلاً من الصفوف الجدولية داخل PDF. */
+  toolDisplayMode?: "table" | "cards";
+  toolCardLayout?: "grid" | "full";
+  toolImageSize?: "small" | "medium" | "large";
+  toolImageFit?: "width" | "height" | "card";
+  toolImageCompression?: "original" | "balanced" | "compact";
   /** الحد الأقصى لعرض صورة الأداة داخل PDF بالبكسل */
   imageMaxWidth?: number;
   /** جودة JPEG من 0.1 إلى 1 */
@@ -25,6 +31,11 @@ export const DEFAULT_WAREHOUSE_REPORT_SETTINGS: WarehouseReportSettings = {
   includeTools: true,
   includeMovements: true,
   includeImages: true,
+  toolDisplayMode: "table",
+  toolCardLayout: "grid",
+  toolImageSize: "medium",
+  toolImageFit: "card",
+  toolImageCompression: "balanced",
   imageMaxWidth: 900,
   imageQuality: 0.72,
   materialColumns: [...WAREHOUSE_MATERIAL_COLUMNS],
@@ -39,11 +50,16 @@ function allowedColumns<T extends readonly string[]>(value: unknown, allowed: T)
 
 export function normalizeWarehouseReportSettings(value: unknown): WarehouseReportSettings {
   const candidate = value && typeof value === "object" ? value as Partial<WarehouseReportSettings> : {};
-  const settings = {
+  const settings: WarehouseReportSettings = {
     includeMaterials: candidate.includeMaterials !== false,
     includeTools: candidate.includeTools !== false,
     includeMovements: candidate.includeMovements !== false,
     includeImages: candidate.includeImages !== false,
+    toolDisplayMode: candidate.toolDisplayMode === "cards" ? "cards" : "table",
+    toolCardLayout: candidate.toolCardLayout === "full" ? "full" : "grid",
+    toolImageSize: candidate.toolImageSize === "small" || candidate.toolImageSize === "large" ? candidate.toolImageSize : "medium",
+    toolImageFit: candidate.toolImageFit === "width" || candidate.toolImageFit === "height" ? candidate.toolImageFit : "card",
+    toolImageCompression: candidate.toolImageCompression === "original" || candidate.toolImageCompression === "compact" ? candidate.toolImageCompression : "balanced",
     imageMaxWidth: typeof candidate.imageMaxWidth === "number" ? Math.min(1600, Math.max(320, Math.round(candidate.imageMaxWidth))) : 900,
     imageQuality: typeof candidate.imageQuality === "number" ? Math.min(1, Math.max(0.35, candidate.imageQuality)) : 0.72,
     materialColumns: allowedColumns(candidate.materialColumns, WAREHOUSE_MATERIAL_COLUMNS),
