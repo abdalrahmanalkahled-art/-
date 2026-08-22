@@ -6,7 +6,7 @@ import { useColors } from "@/hooks/use-colors";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { updateManagedUser } from "@/lib/user-management";
 import { launchImageLibrary } from "@/lib/media-picker";
-import { saveStoredUser, type LocalUser } from "@/lib/storage";
+import { saveStoredUser, verifyLocalUserPassword, type LocalUser } from "@/lib/storage";
 import { DESIGN } from "@/lib/design-system";
 
 interface ProfileSettingsModalProps {
@@ -21,6 +21,7 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
   const [name, setName] = useState("");
   const [avatarUri, setAvatarUri] = useState<string | undefined>();
   const [username, setUsername] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -31,6 +32,7 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
     setName(user.name);
     setAvatarUri(user.avatarUri);
     setUsername(user.username);
+    setCurrentPassword("");
     setPassword("");
     setError("");
   }, [visible, user]);
@@ -59,9 +61,13 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
     });
   };
 
-  const requestSave = () => {
+  const requestSave = async () => {
     if (!user) return;
     if (!name.trim() || !username.trim()) { setError("أدخل الاسم الشخصي واسم المستخدم"); return; }
+    if (password.trim()) {
+      if (!currentPassword.trim()) { setError("أدخل كلمة المرور الحالية قبل تعيين كلمة مرور جديدة"); return; }
+      if (!(await verifyLocalUserPassword(user.username, currentPassword))) { setError("كلمة المرور الحالية غير صحيحة"); return; }
+    }
     const credentialsChanged = username.trim().toLowerCase() !== user.username || Boolean(password.trim());
     if (credentialsChanged) {
       setShowCredentialsConfirmation(true);
@@ -92,10 +98,12 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
         <TextInput value={name} onChangeText={setName} placeholder="أدخل الاسم الشخصي" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlign="right" />
         <Text style={[styles.label, { color: colors.foreground }]}>اسم المستخدم</Text>
         <TextInput value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="admin" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlign="left" />
+        <Text style={[styles.label, { color: colors.foreground }]}>كلمة المرور الحالية</Text>
+        <TextInput value={currentPassword} onChangeText={(value) => { setCurrentPassword(value); setError(""); }} secureTextEntry placeholder="مطلوبة عند تغيير كلمة المرور فقط" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlign="left" />
         <Text style={[styles.label, { color: colors.foreground }]}>كلمة المرور الجديدة</Text>
         <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="اتركها فارغة للإبقاء على الحالية" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlign="left" />
         {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-        <TouchableOpacity disabled={isSaving} onPress={requestSave} style={[styles.save, { backgroundColor: colors.primary }, isSaving && { opacity: 0.6 }]}><Text style={styles.saveText}>{isSaving ? "جارٍ الحفظ..." : "حفظ بيانات الملف"}</Text></TouchableOpacity>
+        <TouchableOpacity disabled={isSaving} onPress={() => void requestSave()} style={[styles.save, { backgroundColor: colors.primary }, isSaving && { opacity: 0.6 }]}><Text style={styles.saveText}>{isSaving ? "جارٍ الحفظ..." : "حفظ بيانات الملف"}</Text></TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   </Modal>
