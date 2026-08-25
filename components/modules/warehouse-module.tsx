@@ -138,6 +138,7 @@ export default function WarehouseModule() {
   const handleSaveMovement = async () => {
     if (!selectedItemForMovement || !movementForm.quantity) { showNotice("بيانات ناقصة", "اختر المادة وأدخل الكمية قبل الحفظ.", "swap-horiz"); return; }
     const qty = calculateMovementPieces(movementForm.quantity, movementForm.movementUnit, selectedItemForMovement);
+    if (!Number.isInteger(qty)) { showNotice("كمية غير قابلة للتحويل", "اختر كمية ينتج عنها عدد كامل من القطع. مثال: 0.5 طرد مسموح إذا كان الطرد يحتوي عدداً زوجياً من القطع.", "swap-horiz"); return; }
     if (movementForm.movementType === "out" && qty > selectedItemForMovement.currentQuantity) {
       showNotice("كمية غير متاحة", "الكمية المطلوبة أكبر من المخزون المتاح لهذه المادة.", "warning");
       return;
@@ -158,7 +159,7 @@ export default function WarehouseModule() {
       movementType: movementForm.movementType,
       quantity: qty,
       movementUnit: movementForm.movementUnit,
-      enteredQuantity: parseInt(movementForm.quantity),
+      enteredQuantity: Number(movementForm.quantity.replace(",", ".")),
       notes: movementForm.notes,
       movementDate: movementForm.movementDate,
       createdAt: new Date().toISOString(),
@@ -174,10 +175,10 @@ export default function WarehouseModule() {
   };
 
   const requestSaveMovement = () => {
-    const enteredQuantity = Number(movementForm.quantity);
+    const enteredQuantity = Number(movementForm.quantity.replace(",", "."));
     const quantityInPieces = selectedItemForMovement ? calculateMovementPieces(enteredQuantity, movementForm.movementUnit, selectedItemForMovement) : 0;
-    if (!selectedItemForMovement || !Number.isInteger(enteredQuantity) || enteredQuantity <= 0 || quantityInPieces <= 0) {
-      showNotice("بيانات ناقصة", "اختر المادة وأدخل كمية صحيحة قبل التأكيد.", "swap-horiz");
+    if (!selectedItemForMovement || !Number.isFinite(enteredQuantity) || enteredQuantity <= 0 || !Number.isInteger(quantityInPieces) || quantityInPieces <= 0) {
+      showNotice("بيانات ناقصة", "أدخل كمية موجبة، ويجب أن تنتج عن الطرود الجزئية عدداً كاملاً من القطع.", "swap-horiz");
       return;
     }
     if (movementForm.movementType === "out" && quantityInPieces > selectedItemForMovement.currentQuantity) {
@@ -483,7 +484,7 @@ export default function WarehouseModule() {
             </View>
 
             {[
-              { key: "quantity", label: `الكمية (${movementForm.movementUnit === "package" ? "طرود" : "قطع"}) *`, placeholder: "0", keyboardType: "numeric" as const },
+              { key: "quantity", label: `الكمية (${movementForm.movementUnit === "package" ? "طرود" : "قطع"}) *`, placeholder: movementForm.movementUnit === "package" ? "مثال: 0.5" : "0", keyboardType: "decimal-pad" as const },
               { key: "notes", label: "ملاحظات", placeholder: "سبب الحركة..." },
             ].map((field) => (
               <View key={field.key} style={styles.formGroup}>
@@ -491,7 +492,7 @@ export default function WarehouseModule() {
                 <TextInput
                   style={[styles.formInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
                   value={(movementForm as any)[field.key]}
-                  onChangeText={(v) => setMovementForm((f) => ({ ...f, [field.key]: v }))}
+                  onChangeText={(v) => setMovementForm((f) => ({ ...f, [field.key]: field.key === "quantity" ? v.replace(",", ".") : v }))}
                   placeholder={field.placeholder}
                   placeholderTextColor={colors.muted}
                   keyboardType={field.keyboardType || "default"}

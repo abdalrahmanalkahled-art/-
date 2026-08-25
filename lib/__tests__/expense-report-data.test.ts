@@ -53,6 +53,12 @@ describe("إعدادات وبيانات تقرير الصرفيات", () => {
     expect(report.categoryScopeLabel).toBe("كل التصنيفات");
   });
 
+  it("يحافظ على المبالغ العشرية عند التجميع داخل التقرير", () => {
+    const report = buildExpenseReportData([...expenses, { id: "4", title: "رسم جزئي", amount: 0.5, category: "field", expenseDate: "2026-08-13", notes: "" }], categories, DEFAULT_EXPENSE_REPORT_SETTINGS);
+    expect(report.totalAmount).toBe(80000.5);
+    expect(report.categoryTotals.find((item) => item.id === "field")?.amount).toBe(15000.5);
+  });
+
   it("يحصر التقرير ضمن فترة التاريخ المختارة بشكل شامل لطرفي الفترة", () => {
     const report = buildExpenseReportData(expenses, categories, {
       ...DEFAULT_EXPENSE_REPORT_SETTINGS,

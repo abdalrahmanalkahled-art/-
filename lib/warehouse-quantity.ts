@@ -11,6 +11,16 @@ function positiveWholeNumber(value: unknown, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
 
+function positiveDecimal(value: unknown, fallback: number): number {
+  const normalized = typeof value === "string" ? value.replace(",", ".") : value;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function formatDecimal(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Math.round(value * 1000) / 1000);
+}
+
 /** تعيد عدد قطع الطرد مع توافق تلقائي للمواد القديمة المخزنة بالقطعة. */
 export function getPiecesPerPackage(item: Pick<WarehousePackageQuantity, "piecesPerPackage">): number {
   return positiveWholeNumber(item.piecesPerPackage, 1);
@@ -22,7 +32,7 @@ export function calculatePackagePieces(packageCount: unknown, piecesPerPackage: 
 }
 
 export function calculateMovementPieces(quantity: unknown, unit: WarehouseMovementUnit, item: Pick<WarehousePackageQuantity, "piecesPerPackage">): number {
-  const enteredQuantity = positiveWholeNumber(quantity, 0);
+  const enteredQuantity = positiveDecimal(quantity, 0);
   return unit === "package" ? enteredQuantity * getPiecesPerPackage(item) : enteredQuantity;
 }
 
@@ -38,8 +48,8 @@ export function formatWarehouseQuantity(totalPieces: unknown, item: Pick<Warehou
 export function formatMovementQuantity(movement: { quantity: number; movementUnit?: WarehouseMovementUnit; enteredQuantity?: number }, item?: Pick<WarehousePackageQuantity, "piecesPerPackage">): string {
   const unit = movement.movementUnit;
   if (unit) {
-    const entered = positiveWholeNumber(movement.enteredQuantity, unit === "package" && item ? Math.floor(movement.quantity / getPiecesPerPackage(item)) : movement.quantity);
-    return `${entered} ${unit === "package" ? "طرد" : "قطعة"}`;
+    const entered = positiveDecimal(movement.enteredQuantity, unit === "package" && item ? movement.quantity / getPiecesPerPackage(item) : movement.quantity);
+    return `${formatDecimal(entered)} ${unit === "package" ? "طرد" : "قطعة"}`;
   }
   return item ? formatWarehouseQuantity(movement.quantity, item) : `${Math.max(0, Math.floor(movement.quantity || 0))} قطعة`;
 }

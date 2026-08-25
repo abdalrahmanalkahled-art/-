@@ -15,6 +15,8 @@ describe("كميات المستودع بالطرود والقطع", () => {
     expect(calculateMovementPieces(2, "package", item)).toBe(48);
     expect(calculateMovementPieces(3, "piece", item)).toBe(3);
     expect(formatMovementQuantity({ quantity: 48, movementUnit: "package", enteredQuantity: 2 }, item)).toBe("2 طرد");
+    expect(calculateMovementPieces("0.5", "package", item)).toBe(12);
+    expect(formatMovementQuantity({ quantity: 12, movementUnit: "package", enteredQuantity: 0.5 }, item)).toBe("0.5 طرد");
   });
 
   it("يعرض سجل المادة القديم المحفوظ بالقطعة من دون تعطيل", () => {

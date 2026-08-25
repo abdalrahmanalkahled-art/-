@@ -80,11 +80,16 @@ export default function ExpensesModule() {
       Alert.alert("خطأ", "أدخل العنوان والمبلغ");
       return;
     }
+    const amount = Number(form.amount.replace(",", "."));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Alert.alert("مبلغ غير صالح", "أدخل مبلغاً موجباً، ويمكن استخدام قيمة عشرية مثل 0.5.");
+      return;
+    }
     const allExpenses = await getItems<Expense>(STORAGE_KEYS.EXPENSES);
     const newExpense: Expense = {
       id: Date.now().toString(),
       title: form.title.trim(),
-      amount: Number.parseFloat(form.amount) || 0,
+      amount,
       category: form.category,
       expenseDate: form.expenseDate,
       notes: form.notes,
@@ -193,11 +198,11 @@ export default function ExpensesModule() {
               <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
                 {[
                   { key: "title", label: "العنوان *", placeholder: "وصف الصرفية" },
-                  { key: "amount", label: "المبلغ (ل.س) *", placeholder: "0", keyboardType: "numeric" as const },
+                  { key: "amount", label: "المبلغ (ل.س) *", placeholder: "مثال: 0.5", keyboardType: "decimal-pad" as const },
                 ].map((field) => (
                   <View key={field.key} style={styles.formGroup}>
                     <Text style={[styles.formLabel, { color: colors.foreground }]}>{field.label}</Text>
-                    <TextInput style={[styles.formInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]} value={(form as Record<string, string>)[field.key]} onChangeText={(value) => setForm((current) => ({ ...current, [field.key]: value }))} placeholder={field.placeholder} placeholderTextColor={colors.muted} keyboardType={field.keyboardType ?? "default"} textAlign="right" />
+                    <TextInput style={[styles.formInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]} value={(form as Record<string, string>)[field.key]} onChangeText={(value) => setForm((current) => ({ ...current, [field.key]: field.key === "amount" ? value.replace(",", ".") : value }))} placeholder={field.placeholder} placeholderTextColor={colors.muted} keyboardType={field.keyboardType ?? "default"} textAlign="right" />
                   </View>
                 ))}
                 <View style={styles.formGroup}>
