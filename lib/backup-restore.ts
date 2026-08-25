@@ -6,6 +6,7 @@ import { createLastRestoreHistory, saveLastRestoreHistory } from "./backup-resto
 import { BACKUP_DATA_KEYS } from "./full-backup";
 import type { BackupMediaFile, BackupSectionId, FullBackupPayload } from "./full-backup";
 import { restoreMarketingManagerFile } from "./marketing-manager-storage";
+import { describeBackupRestoreSpaceError, estimateBackupRestoreSpace, hasEnoughBackupRestoreSpace } from "./backup-storage-capacity";
 
 export interface BackupPreviewGroup {
   key: string;
@@ -95,10 +96,21 @@ export async function readBackupFromUri(uri: string): Promise<FullBackupPayload>
   return parseFullBackup(content);
 }
 
-async function writeMediaToDirectory(media: BackupMediaFile[], directory: string): Promise<Map<string, string>> {
+/** يزيل فقط مجلدات المرحلية التي أنشأتها إصدارات أقدم من الاستعادة عند انقطاع محاولة سابقة. */
+async function clearStaleRestoreStagingDirectories(): Promise<void> {
+  const roots = [FileSystem.cacheDirectory, FileSystem.documentDirectory].filter((root): root is string => Boolean(root));
+  await Promise.all(roots.map(async (root) => {
+    const names = await FileSystem.readDirectoryAsync(root).catch(() => [] as string[]);
+    await Promise.all(names
+      .filter((name) => name.startsWith("madar-restore-"))
+      .map((name) => FileSystem.deleteAsync(`${root}${name}`, { idempotent: true }).catch(() => undefined)));
+  }));
+}
+
+async function writeLocalMediaDirectly(media: BackupMediaFile[], documentDirectory: string): Promise<Map<string, string>> {
   const restored = new Map<string, string>();
   for (const file of media) {
-    const uri = `${directory}${file.relativePath}`;
+    const uri = `${documentDirectory}${file.relativePath}`;
     const parent = uri.slice(0, uri.lastIndexOf("/") + 1);
     const parentInfo = await FileSystem.getInfoAsync(parent);
     if (!parentInfo.exists) await FileSystem.makeDirectoryAsync(parent, { intermediates: true });
@@ -169,34 +181,23 @@ export async function createMergePreview(payload: FullBackupPayload): Promise<Ba
 export async function restoreFullBackup(payload: FullBackupPayload, mode: RestoreMode = "replace", sourceLabel = "نسخة احتياطية"): Promise<RestoreResult> {
   const documentDirectory = FileSystem.documentDirectory;
   if (!documentDirectory) throw new Error("تعذر الوصول إلى مساحة المستندات المحلية");
-  const staging = `${FileSystem.cacheDirectory || documentDirectory}madar-restore-${Date.now()}/`;
-  try {
-    await FileSystem.makeDirectoryAsync(staging, { intermediates: true });
-    const marketingManagerMedia = payload.media.filter((media) => media.relativePath.startsWith("marketing-manager/"));
-    const localMedia = payload.media.filter((media) => !media.relativePath.startsWith("marketing-manager/"));
-    const uriMap = await writeMediaToDirectory(localMedia, staging);
-    for (const media of localMedia) {
-      const source = `${staging}${media.relativePath}`;
-      const target = `${documentDirectory}${media.relativePath}`;
-      const parent = target.slice(0, target.lastIndexOf("/") + 1);
-      const parentInfo = await FileSystem.getInfoAsync(parent);
-      if (!parentInfo.exists) await FileSystem.makeDirectoryAsync(parent, { intermediates: true });
-      await FileSystem.copyAsync({ from: source, to: target });
-      if (media.sourceUri) uriMap.set(media.sourceUri, target);
-    }
-    for (const media of marketingManagerMedia) {
-      const target = await restoreMarketingManagerFile(media.relativePath.replace(/^marketing-manager\//, ""), media.base64);
-      if (media.sourceUri) uriMap.set(media.sourceUri, target);
-    }
-    const restoredPayload = rebasePayloadMediaReferences(payload, uriMap);
-    const mergePreview = mode === "merge" ? await mergeDataWithRollback(restoredPayload) : undefined;
-    if (mode === "replace") await restoreDataWithRollback(restoredPayload);
-    const preview = createBackupPreview(payload);
-    const history = createLastRestoreHistory(payload, preview, mode, sourceLabel, mergePreview);
-    await saveLastRestoreHistory(history);
-    return { dataGroupCount: Object.keys(payload.data).filter((key) => !LOCAL_SETTINGS_KEYS.has(key)).length, mediaCount: payload.media.length, mode, mergePreview };
-  } finally {
-    const info = await FileSystem.getInfoAsync(staging);
-    if (info.exists) await FileSystem.deleteAsync(staging, { idempotent: true });
+  await clearStaleRestoreStagingDirectories();
+  const availableBytes = await FileSystem.getFreeDiskStorageAsync().catch(() => null);
+  if (!hasEnoughBackupRestoreSpace(payload, availableBytes)) {
+    throw new Error(describeBackupRestoreSpaceError(estimateBackupRestoreSpace(payload).requiredBytes, availableBytes!));
   }
+  const marketingManagerMedia = payload.media.filter((media) => media.relativePath.startsWith("marketing-manager/"));
+  const localMedia = payload.media.filter((media) => !media.relativePath.startsWith("marketing-manager/"));
+  const uriMap = await writeLocalMediaDirectly(localMedia, documentDirectory);
+  for (const media of marketingManagerMedia) {
+    const target = await restoreMarketingManagerFile(media.relativePath.replace(/^marketing-manager\//, ""), media.base64);
+    if (media.sourceUri) uriMap.set(media.sourceUri, target);
+  }
+  const restoredPayload = rebasePayloadMediaReferences(payload, uriMap);
+  const mergePreview = mode === "merge" ? await mergeDataWithRollback(restoredPayload) : undefined;
+  if (mode === "replace") await restoreDataWithRollback(restoredPayload);
+  const preview = createBackupPreview(payload);
+  const history = createLastRestoreHistory(payload, preview, mode, sourceLabel, mergePreview);
+  await saveLastRestoreHistory(history);
+  return { dataGroupCount: Object.keys(payload.data).filter((key) => !LOCAL_SETTINGS_KEYS.has(key)).length, mediaCount: payload.media.length, mode, mergePreview };
 }
