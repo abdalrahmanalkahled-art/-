@@ -1,0 +1,42 @@
+# Dependencies and generated output
+node_modules/
+.expo/
+dist/
+web-build/
+.cache/
+.metro-health-check*
+
+# Version-control and local tooling metadata
+.git/
+.manus-logs/
+.webdev/
+.vscode/
+.idea/
+
+# Documentation and presentation-only assets
+docs/
+presentation-assets/
+README*
+*.md
+
+# Tests and backups are not needed to build the mobile bundle
+tests/
+lib/__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+*.bak
+
+# Local archives and logs
+*.zip
+*.tgz
+*.tar.gz
+*.log
+*.tmp
+.DS_Store
+
+# Keep these runtime/build inputs included:
+# app.config.ts, package.json, pnpm-lock.yaml, scripts/load-env.js,
+# app/, components/, lib/ (except lib/__tests__/), assets/, hooks/,
+# constants/, shared/, and server/ when required by the project.
