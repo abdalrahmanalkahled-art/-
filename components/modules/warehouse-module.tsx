@@ -307,7 +307,6 @@ export default function WarehouseModule() {
                       <Text style={[styles.itemCat, { color: colors.muted }]}>{catInfo.label}</Text>
                     </View>
                   </View>
-                  <View style={[styles.holdHint, { backgroundColor: colors.background }]}><MaterialIcons name="touch-app" size={15} color={colors.muted} /><Text style={[styles.holdHintText, { color: colors.muted }]}>اضغط مطولاً</Text></View>
                 </View>
                 <View style={[styles.stockRow, { backgroundColor: isLow ? colors.warning + "12" : colors.background }]}>
                   <View style={styles.stockLabelRow}>{isLow ? <MaterialIcons name="warning" size={16} color={colors.warning} /> : <MaterialIcons name="inventory-2" size={16} color={colors.muted} />}<Text style={[styles.stockLabel, { color: colors.muted }]}>{isLow ? "مخزون منخفض" : "المخزون المتاح"}</Text></View>
@@ -625,7 +624,7 @@ const styles = StyleSheet.create({
   stockRow: { minHeight: 42, borderRadius: 10, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   stockLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   stockLabel: { fontSize: 12, fontWeight: "600" as any },
-  itemQty: { fontSize: 20, fontWeight: "800" as any },
+  itemQty: { fontSize: 15, fontWeight: "800" as any },
   itemUnit: { fontSize: 12 },
   movementCard: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 12, padding: 12, borderWidth: 1, borderLeftWidth: 4 },
   movementRight: { flex: 1 },

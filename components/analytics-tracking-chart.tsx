@@ -12,6 +12,7 @@ type Palette = ReturnType<typeof useColors>;
 const CHART_LABELS: Record<ChartType, string> = { line: "خطي", bar: "أعمدة", pie: "دائري", area: "مساحي", scatter: "نقاط", radar: "رادار", candlestick: "شمعدان" };
 const LABEL_FONT_SIZES: Record<ChartLabelSize, number> = { small: 6, medium: 7, large: 9 };
 export const MAX_BARS_BEFORE_HORIZONTAL_SCROLL = 8;
+export const SCROLLABLE_BAR_GAP = 12;
 
 export function AnalyticsTrackingChart({ analytics, scopeLabel, chartType = "line", chartOrientation = "vertical", selectedSingleCycle = false, showValues = false, showProductNames = false, labelSize = "medium", rotateProductNames = false }: { analytics: AdvancedSurveyAnalytics; scopeLabel: string; chartType?: ChartType; chartOrientation?: ChartOrientation; selectedSingleCycle?: boolean; showValues?: boolean; showProductNames?: boolean; labelSize?: ChartLabelSize; rotateProductNames?: boolean }) {
   const colors = useColors();
@@ -26,7 +27,7 @@ export function AnalyticsTrackingChart({ analytics, scopeLabel, chartType = "lin
   const showNativeProductLabels = false;
   const totalBars = analytics.points.length * products.length;
   const shouldScrollBars = ((chartType === "bar" && effectiveOrientation === "vertical") || usesProductAxis) && totalBars > MAX_BARS_BEFORE_HORIZONTAL_SCROLL;
-  const minimumScrollableWidth = 48 + totalBars * 16 + (totalBars + 1) * 8;
+  const minimumScrollableWidth = 48 + totalBars * 16 + (totalBars + 1) * SCROLLABLE_BAR_GAP;
   const width = shouldScrollBars ? Math.max(baseWidth, minimumScrollableWidth) : baseWidth;
   const chartHeight = isHorizontalBar ? Math.max(208, products.length * 34 + 54) : 208 + (showValues ? 18 : 0) + productLabelDepth;
   const padding = { left: 24, right: 24, top: 18, bottom: 42 + (showValues ? 18 : 0) + productLabelDepth };

@@ -18,4 +18,10 @@ describe("توزيع أعمدة المخططات", () => {
   it("يحافظ على عرض ثابت للأعمدة ما دامت المساحة تسمح", () => {
     expect(getDynamicBarLayout(600, 1, 2).barWidth).toBe(getDynamicBarLayout(600, 1, 10).barWidth);
   });
+
+  it("يستوعب ثمانية أعمدة بعرض ثابت 16 وتباعد متزايد 12", () => {
+    const layout = getDynamicBarLayout(8 * 16 + 9 * 12, 1, 8);
+    expect(layout.barWidth).toBe(16);
+    expect(layout.gap).toBe(12);
+  });
 });

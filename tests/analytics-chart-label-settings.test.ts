@@ -20,6 +20,7 @@ describe("تفاصيل مخطط الأعمدة في إعدادات التحلي�
 
   it("يربط النسبة بقمة العمود والاسم بأسفله ويبدأ السحب بعد ثمانية أعمدة", () => {
     expect(chartSource).toContain("MAX_BARS_BEFORE_HORIZONTAL_SCROLL = 8");
+    expect(chartSource).toContain("SCROLLABLE_BAR_GAP = 12");
     expect(chartSource).toContain("yAt(value) - 5");
     expect(chartSource).toContain("rotate(-45");
     expect(chartSource).toContain("toWesternDigits(product.productName)");
