@@ -10,6 +10,7 @@ import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { ExpenseReportSettingsSheet } from "@/components/expense-report-settings-sheet";
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { MoreModuleEmptyState, MoreModuleFilterChips } from "@/components/more-module-ui";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { ReportFab } from "@/components/report-fab";
 import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
@@ -39,6 +40,7 @@ export default function ExpensesModule() {
   const canEdit = useHasPermission("expenses", "edit");
   const canDelete = useHasPermission("expenses", "delete");
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [categories, setCategories] = useState<ManagedCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
   const [showModal, setShowModal] = useState(false);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
@@ -54,16 +56,18 @@ export default function ExpensesModule() {
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
 
   const loadData = useCallback(async () => {
-    const [expenseData, storedCategories, storedReportSettings] = await Promise.all([
-      getItems<Expense>(STORAGE_KEYS.EXPENSES),
-      getItems<ManagedCategory>(STORAGE_KEYS.EXPENSE_CATEGORIES),
-      loadExpenseReportSettings(),
-    ]);
-    const resolvedCategories = getManagedCategories(storedCategories, DEFAULT_EXPENSE_CATEGORIES);
-    if (storedCategories.length === 0) await saveItems(STORAGE_KEYS.EXPENSE_CATEGORIES, resolvedCategories);
-    setExpenses(expenseData.sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()));
-    setCategories(resolvedCategories);
-    setReportSettings(storedReportSettings);
+    try {
+      const [expenseData, storedCategories, storedReportSettings] = await Promise.all([
+        getItems<Expense>(STORAGE_KEYS.EXPENSES),
+        getItems<ManagedCategory>(STORAGE_KEYS.EXPENSE_CATEGORIES),
+        loadExpenseReportSettings(),
+      ]);
+      const resolvedCategories = getManagedCategories(storedCategories, DEFAULT_EXPENSE_CATEGORIES);
+      if (storedCategories.length === 0) await saveItems(STORAGE_KEYS.EXPENSE_CATEGORIES, resolvedCategories);
+      setExpenses(expenseData.sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()));
+      setCategories(resolvedCategories);
+      setReportSettings(storedReportSettings);
+    } finally { setIsInitialLoading(false); }
   }, []);
 
   useEffect(() => { void loadData(); }, [loadData]);
@@ -185,7 +189,7 @@ export default function ExpensesModule() {
 
       <MoreModuleFilterChips items={[{ id: "all", label: "الكل" }, ...categories.map((category) => ({ id: category.id, label: category.label }))]} selectedId={filterCat} onSelect={setFilterCat} />
 
-      <FlatList
+      {isInitialLoading ? <SkeletonList rows={4} /> : <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -207,9 +211,9 @@ export default function ExpensesModule() {
           );
         }}
         ListEmptyComponent={<MoreModuleEmptyState icon="receipt" title="لا توجد صرفيات" description="ستظهر الصرفيات التي تضيفها هنا." />}
-      />
+      />}
 
-      <FloatingFormModal visible={showModal} onClose={closeExpenseForm} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showModal} onClose={closeExpenseForm} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>

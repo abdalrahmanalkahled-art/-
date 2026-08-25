@@ -7,12 +7,13 @@ interface SurveyPageSheetModalProps {
   visible: boolean;
   onClose: () => void;
   backgroundColor: string;
+  isLoading?: boolean;
   children: ReactNode;
 }
 
 /** غلاف موحّد لنوافذ الاستبيان التي تملأ الصفحة مع دعم الرجوع ولوحة المفاتيح. */
-export function SurveyPageSheetModal({ visible, onClose, backgroundColor, children }: SurveyPageSheetModalProps) {
-  return <FloatingFormModal visible={visible} onClose={onClose} backgroundColor={backgroundColor}>
+export function SurveyPageSheetModal({ visible, onClose, backgroundColor, isLoading = false, children }: SurveyPageSheetModalProps) {
+  return <FloatingFormModal visible={visible} onClose={onClose} backgroundColor={backgroundColor} isLoading={isLoading}>
     <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor }}>{children}</SafeAreaView>
   </FloatingFormModal>;
 }

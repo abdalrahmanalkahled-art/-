@@ -17,6 +17,7 @@ import { useLocalSearchParams } from "expo-router";
 import { launchImageLibrary, launchCamera, type ImagePickerResponse } from "@/lib/media-picker";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScreenContainer } from "@/components/screen-container";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { MediaSourcePickerModal } from "@/components/media-source-picker-modal";
@@ -83,6 +84,7 @@ export default function EventsScreen() {
   const canDelete = useHasPermission("events", "delete");
   const [events, setEvents] = useState<EventItem[]>([]);
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showModal, setShowModal] = useState(false);
@@ -114,8 +116,10 @@ export default function EventsScreen() {
   });
 
   const loadEvents = useCallback(async () => {
-    const data = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
-    setEvents(data.map((event) => ({ ...event, eventDate: event.eventDate || event.startDate || event.endDate || "" })).sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()));
+    try {
+      const data = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
+      setEvents(data.map((event) => ({ ...event, eventDate: event.eventDate || event.startDate || event.endDate || "" })).sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()));
+    } finally { setIsInitialLoading(false); }
   }, []);
 
   const refreshGoals = useCallback(async () => {
@@ -577,6 +581,7 @@ export default function EventsScreen() {
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>إدارة الفعاليات</Text>
       </View>
 
+      {isInitialLoading ? <SkeletonList rows={4} /> : <>
       <View style={[styles.searchBar, { backgroundColor: colors.surface }]}>
         <TextInput
           style={[styles.searchInput, { color: colors.foreground }]}
@@ -614,8 +619,9 @@ export default function EventsScreen() {
           </View>
         }
       />
+      </>}
 
-      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}> 
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>

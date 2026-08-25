@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SignageReportSettingsSheet } from "@/components/signage-report-settings-sheet";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { MediaSourcePickerModal } from "@/components/media-source-picker-modal";
 import { SignageDetailsSheet } from "@/components/signage-details-sheet";
 import { SignageDetailsTab } from "@/components/signage/signage-details-tab";
@@ -247,6 +248,7 @@ export default function SignageModule() {
   const canDelete = useHasPermission("signage", "delete");
   const [activeTab, setActiveTab] = useState<"signage" | "stands" | "details">("signage");
   const [signages, setSignages] = useState<Signage[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [stands, setStands] = useState<Stand[]>([]);
   const [shelves, setShelves] = useState<ShelfInstallation[]>([]);
   const [advertisingVehicles, setAdvertisingVehicles] = useState<AdvertisingVehicle[]>([]);
@@ -377,7 +379,7 @@ export default function SignageModule() {
       setRoadReminderDays(appSettings.roadsideContractReminderDays);
     } catch (error) {
       console.error("خطأ في تحميل بيانات اللوحات والستاندات:", error);
-    }
+    } finally { setIsInitialLoading(false); }
   }, []);
 
   const loadReferenceData = useCallback(async () => {
@@ -1302,7 +1304,7 @@ export default function SignageModule() {
         })()}
       </View>
 
-      {activeTab === "signage" ? (
+      {isInitialLoading ? <SkeletonList rows={4} /> : activeTab === "signage" ? (
         <>
           <FlatList
             data={signageFeed}
@@ -1480,7 +1482,7 @@ export default function SignageModule() {
       </Modal>
 
       {/* Main Modal */}
-      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
           <KeyboardAvoidingView behavior={getKeyboardAvoidingBehavior(Platform.OS)} style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={[styles.modal, { backgroundColor: colors.background }]}>

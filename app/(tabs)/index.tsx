@@ -6,6 +6,7 @@ import { formatArabicDate } from "@/lib/analytics-number-format";
 
 import { AlertCard } from "@/components/ui/alert-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { SkeletonPage } from "@/components/ui/skeleton-loading";
 import { AnimatedPressable } from "@/components/animated-pressable";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -49,7 +50,7 @@ export default function DashboardScreen() {
   const canCreateSurvey = useHasPermission("surveys", "create");
   const canCreateEvent = useHasPermission("events", "create");
   const canCreateStore = useHasPermission("stores", "create");
-  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD); const [notifications, setNotifications] = useState<AppNotification[]>([]); const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings>(DEFAULT_DASHBOARD_SETTINGS); const [refreshing, setRefreshing] = useState(false);
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD); const [notifications, setNotifications] = useState<AppNotification[]>([]); const [dashboardSettings, setDashboardSettings] = useState<DashboardSettings>(DEFAULT_DASHBOARD_SETTINGS); const [refreshing, setRefreshing] = useState(false); const [isInitialLoading, setIsInitialLoading] = useState(true);
   const loadData = useCallback(async () => {
     try {
       const [events, expenses, budgets, stores, surveyResults, warehouseItems, tools, tasks, goals, products, roadContracts, appSettings] = await Promise.all([
@@ -63,7 +64,7 @@ export default function DashboardScreen() {
       const recentActivities = [...events.map((event: any) => ({ id: `event:${event.id}`, title: event.title || "فعالية", subtitle: event.location || "فعالية ميدانية", date: event.eventDate || event.createdAt, icon: "event" as const, color: colors.primary, route: "/(tabs)/events" })), ...surveyResults.map((result: any) => ({ id: `survey:${result.id}`, title: result.storeName || "استبيان ميداني", subtitle: `${result.templateName || "استبيان"} • ${result.storeRegion || "بدون منطقة"}`, date: result.surveyDate || result.createdAt, icon: "assignment" as const, color: colors.accent, route: "/(tabs)/surveys" }))].filter((activity) => activity.date).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 4);
       const dashboard = { eventsCount: events.length, completedEventsCount: events.filter((event: any) => event.status === "completed").length, totalExpenses, totalBudget, storesCount: stores.filter((store: any) => store.isActive !== false).length, surveysCount: surveyResults.length, avgPresence, lowStockItems, delayedTasks, upcomingEvents, maintenanceTools, recentActivities, goalsProgress: goals.slice(0, 3), expenseTrend, presenceTrend, activityTrend: [{ label: "فعاليات", value: events.length, color: colors.primary }, { label: "محلات", value: stores.filter((item: any) => item.isActive !== false).length, color: colors.secondary }, { label: "استبيانات", value: surveyResults.length, color: colors.accent }] };
       setDashboardSettings(appSettings.dashboard); setData(dashboard); setNotifications(await syncNotificationCenter(buildDashboardNotifications({ lowStockItems, delayedTasks, upcomingEvents, maintenanceTools, roadsideContracts: roadContracts.filter((contract: any) => contract.status === "active"), roadsideReminderDays: appSettings.roadsideContractReminderDays })));
-    } catch (error) { console.error("Error loading dashboard data:", error); }
+    } catch (error) { console.error("Error loading dashboard data:", error); } finally { setIsInitialLoading(false); }
   }, [colors.accent, colors.primary, colors.secondary, colors.success]);
   useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
   const budgetPercentage = data.totalBudget > 0 ? Math.min(data.totalExpenses / data.totalBudget * 100, 100) : 0; const unread = unreadNotificationCount(notifications); const alerts = notifications.filter((notification) => !notification.isRead).slice(0, 3).map((notification) => ({ id: notification.id, type: notification.type === "task" ? "error" as const : notification.type === "stock" || notification.type === "tool" ? "warning" as const : "info" as const, title: notification.title, message: notification.message })); const greeting = new Date().getHours() < 12 ? "صباح الخير" : new Date().getHours() < 17 ? "مساء الخير" : "مساء النور";
@@ -79,7 +80,7 @@ export default function DashboardScreen() {
     if (id === "activity" && data.recentActivities.length) return <View key={id} style={styles.section}><SectionHeader title="آخر النشاطات" icon="history" /><View style={[styles.listCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>{data.recentActivities.map((activity, index) => <AnimatedPressable key={activity.id} style={[styles.activity, index < data.recentActivities.length - 1 ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border } : {}] as any} onPress={() => router.push(activity.route as any)} hapticFeedback><MaterialIcons name="chevron-left" size={19} color={colors.muted} /><View style={styles.activityText}><Text style={[styles.activityTitle, { color: colors.foreground }]}>{activity.title}</Text><Text style={[styles.activitySubtitle, { color: colors.muted }]}>{activity.subtitle}</Text></View><View style={[styles.activityIcon, { backgroundColor: activity.color + "17" }]}><MaterialIcons name={activity.icon as any} size={18} color={activity.color} /></View></AnimatedPressable>)}</View></View>;
     return null;
   };
-  return <ScreenContainer containerClassName="bg-background"><ScrollView style={styles.scroll} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadData(); setRefreshing(false); }} tintColor={colors.primary} />} showsVerticalScrollIndicator={false}><View style={styles.phoneFrame}>{dashboardSettings.enabledSections.filter(enabled).map(renderSection)}<View style={styles.bottomPadding} /></View></ScrollView></ScreenContainer>;
+  return <ScreenContainer containerClassName="bg-background">{isInitialLoading ? <SkeletonPage cards={4} /> : <ScrollView style={styles.scroll} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadData(); setRefreshing(false); }} tintColor={colors.primary} />} showsVerticalScrollIndicator={false}><View style={styles.phoneFrame}>{dashboardSettings.enabledSections.filter(enabled).map(renderSection)}<View style={styles.bottomPadding} /></View></ScrollView>}</ScreenContainer>;
 }
 
 const styles = StyleSheet.create({

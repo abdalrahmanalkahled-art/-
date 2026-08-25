@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { launchImageLibrary, launchCamera, type ImagePickerResponse } from "@/lib/media-picker";
 import { ScreenContainer } from "@/components/screen-container";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { MediaSourcePickerModal } from "@/components/media-source-picker-modal";
 import { useColors } from "@/hooks/use-colors";
@@ -68,6 +69,7 @@ export default function StoresScreen() {
   const analytics = useAnalytics();
   const [stores, setStores] = useState<StoreItem[]>([]);
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   // تسجيل عرض الصفحة
   useEffect(() => {
@@ -147,7 +149,7 @@ export default function StoresScreen() {
       const appError = ErrorHandler.parse(err);
       showError(appError);
       analytics.trackError('Load Stores', err as Error);
-    }
+    } finally { setIsInitialLoading(false); }
   }, [showError, analytics]);
 
   useEffect(() => {
@@ -480,6 +482,7 @@ export default function StoresScreen() {
       </View>
       <ReportFab module="stores" addLabel="إضافة محل" onAdd={canCreate ? openAddModal : undefined} exporting={exporting} onExport={handleExportStores} />
 
+      {isInitialLoading ? <SkeletonList rows={4} /> : <>
       <View style={[styles.searchBar, { backgroundColor: colors.surface }]}>
         <TextInput
           style={[styles.searchInput, { color: colors.foreground }]}
@@ -531,8 +534,9 @@ export default function StoresScreen() {
           </View>
         }
       />
+      </>}
 
-      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
           <KeyboardAvoidingView
             behavior={getKeyboardAvoidingBehavior(Platform.OS)}

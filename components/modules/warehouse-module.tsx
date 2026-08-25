@@ -15,6 +15,7 @@ import { useHasPermission } from "@/lib/app-context";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { MoreModuleEmptyState, MoreModuleTabs } from "@/components/more-module-ui";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { SuccessModal } from "@/components/success-modal";
 import { CategoryManagerModal } from "@/components/category-manager-modal";
@@ -73,6 +74,7 @@ export default function WarehouseModule() {
   const canDelete = useHasPermission("warehouse", "delete");
   const [items, setItems] = useState<WarehouseItem[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [categories, setCategories] = useState<ManagedCategory[]>(DEFAULT_WAREHOUSE_CATEGORIES);
   const [activeTab, setActiveTab] = useState<"tools" | "items" | "movements">("tools");
   const [toolOpenSignal, setToolOpenSignal] = useState(0);
@@ -100,16 +102,18 @@ export default function WarehouseModule() {
   };
 
   const loadData = useCallback(async () => {
-    const [itemData, movementData, storedCategories] = await Promise.all([
-      getItems<WarehouseItem>(STORAGE_KEYS.WAREHOUSE_ITEMS),
-      getItems<Movement>(STORAGE_KEYS.WAREHOUSE_MOVEMENTS),
-      getItems<ManagedCategory>(STORAGE_KEYS.WAREHOUSE_CATEGORIES),
-    ]);
-    const resolvedCategories = getManagedCategories(storedCategories, DEFAULT_WAREHOUSE_CATEGORIES);
-    if (storedCategories.length === 0) await saveItems(STORAGE_KEYS.WAREHOUSE_CATEGORIES, resolvedCategories);
-    setItems(itemData.filter((i) => i.isActive));
-    setMovements(movementData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    setCategories(resolvedCategories);
+    try {
+      const [itemData, movementData, storedCategories] = await Promise.all([
+        getItems<WarehouseItem>(STORAGE_KEYS.WAREHOUSE_ITEMS),
+        getItems<Movement>(STORAGE_KEYS.WAREHOUSE_MOVEMENTS),
+        getItems<ManagedCategory>(STORAGE_KEYS.WAREHOUSE_CATEGORIES),
+      ]);
+      const resolvedCategories = getManagedCategories(storedCategories, DEFAULT_WAREHOUSE_CATEGORIES);
+      if (storedCategories.length === 0) await saveItems(STORAGE_KEYS.WAREHOUSE_CATEGORIES, resolvedCategories);
+      setItems(itemData.filter((i) => i.isActive));
+      setMovements(movementData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      setCategories(resolvedCategories);
+    } finally { setIsInitialLoading(false); }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -269,7 +273,7 @@ export default function WarehouseModule() {
 
       <MoreModuleTabs items={[{ id: "tools", label: "الأدوات" }, { id: "items", label: "المواد" }, { id: "movements", label: "سجل الحركة" }]} selectedId={activeTab} onSelect={(id) => setActiveTab(id as typeof activeTab)} />
 
-      {activeTab === "tools" ? <WarehouseToolsTab openSignal={toolOpenSignal} /> : activeTab === "items" ? (
+      {isInitialLoading ? <SkeletonList rows={4} /> : activeTab === "tools" ? <WarehouseToolsTab openSignal={toolOpenSignal} /> : activeTab === "items" ? (
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
@@ -328,7 +332,7 @@ export default function WarehouseModule() {
       <WarehouseMaterialDetailsSheet visible={Boolean(itemDetails)} item={itemDetails} category={itemDetails ? getCategoryInfo(itemDetails.category) : undefined} movements={itemDetails ? movements.filter((movement) => movement.itemId === itemDetails.id) : []} onClose={() => setItemDetails(null)} />
 
       {/* Item Modal */}
-      <FloatingFormModal visible={showItemModal} onClose={() => setShowItemModal(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showItemModal} onClose={() => setShowItemModal(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -398,7 +402,7 @@ export default function WarehouseModule() {
       </FloatingFormModal>
 
       {/* Movement Modal */}
-      <FloatingFormModal visible={showMovementModal} onClose={() => setShowMovementModal(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showMovementModal} onClose={() => setShowMovementModal(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>

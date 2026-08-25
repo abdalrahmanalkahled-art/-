@@ -21,6 +21,7 @@ import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { launchImageLibrary, launchCamera, type ImagePickerResponse } from "@/lib/media-picker";
 import { useFocusEffect } from "@react-navigation/native";
 import { ScreenContainer } from "@/components/screen-container";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
@@ -95,6 +96,7 @@ export default function SurveysScreen() {
   const [cycles, setCycles] = useState<SurveyCycle[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
   const [exportingTemplateId, setExportingTemplateId] = useState<string | null>(null);
   const [showResultsExportModal, setShowResultsExportModal] = useState(false);
@@ -335,7 +337,7 @@ export default function SurveysScreen() {
     } catch (err) {
       const appError = ErrorHandler.parse(err);
       showError(appError.message);
-    }
+    } finally { setIsInitialLoading(false); }
   }, [showError]);
 
   const normalizedSearchText = searchText.trim().toLowerCase();
@@ -960,6 +962,7 @@ export default function SurveysScreen() {
         </TouchableOpacity>
       </View>
 
+      {isInitialLoading ? <SkeletonList rows={4} /> : <>
       {/* Content */}
       {activeTab === "templates" ? (
         <>
@@ -1223,12 +1226,14 @@ export default function SurveysScreen() {
           )}
         </View>
       )}
+      </>}
 
       {/* Create Template Modal */}
       <SurveyPageSheetModal
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         backgroundColor={colors.background}
+        isLoading={isInitialLoading}
       >
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -1352,6 +1357,7 @@ export default function SurveysScreen() {
         visible={showEditModal}
         onClose={() => setShowEditModal(false)}
         backgroundColor={colors.background}
+        isLoading={isInitialLoading}
       >
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -1654,6 +1660,7 @@ export default function SurveysScreen() {
         visible={showUseModal}
         onClose={() => setShowUseModal(false)}
         backgroundColor={colors.background}
+        isLoading={isInitialLoading}
       >
           <View style={[styles.modal, { backgroundColor: colors.background }]}> 
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}> 

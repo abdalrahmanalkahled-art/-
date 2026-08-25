@@ -7,6 +7,7 @@ import { CardActionModal } from "@/components/card-action-modal";
 import { FABMenu } from "@/components/fab-menu";
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { MoreModuleEmptyState, MoreModuleTabs } from "@/components/more-module-ui";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
 import {
@@ -25,6 +26,7 @@ export function BrandsRegionsModule() {
   const canDelete = useHasPermission("products", "delete");
   const [tab, setTab] = useState<Tab>("brands");
   const [catalog, setCatalog] = useState<BrandRegionCatalog>({ brands: [], regions: [], ratings: [] });
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [editing, setEditing] = useState<EditingTarget>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [name, setName] = useState("");
@@ -33,7 +35,9 @@ export function BrandsRegionsModule() {
   const [deleteTarget, setDeleteTarget] = useState<EditingTarget>(null);
   const [actionTarget, setActionTarget] = useState<EditingTarget>(null);
 
-  const load = useCallback(async () => setCatalog(await loadBrandRegionCatalog()), []);
+  const load = useCallback(async () => {
+    try { setCatalog(await loadBrandRegionCatalog()); } finally { setIsInitialLoading(false); }
+  }, []);
   useEffect(() => { load(); }, [load]);
 
   const openCreate = () => {
@@ -102,7 +106,7 @@ export function BrandsRegionsModule() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <MoreModuleTabs items={[{ id: "brands", label: "الماركات" }, { id: "regions", label: "المناطق" }, { id: "ratings", label: "التقييمات" }]} selectedId={tab} onSelect={(id) => setTab(id as Tab)} />
-      <FlatList<ReferenceRow>
+      {isInitialLoading ? <SkeletonList rows={4} /> : <FlatList<ReferenceRow>
         data={rows}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -118,9 +122,9 @@ export function BrandsRegionsModule() {
           </TouchableOpacity>;
         }}
         ListEmptyComponent={<MoreModuleEmptyState icon={tab === "brands" ? "branding-watermark" : tab === "regions" ? "location-on" : "grade"} title="لا توجد بيانات بعد" description="أضف سجلاً جديداً من الزر العائم للبدء." />}
-      />
+      />}
       <FABMenu items={canCreate ? [{ id: "add-reference", icon: "add", label: tab === "brands" ? "ماركة جديدة" : tab === "regions" ? "منطقة جديدة" : "تقييم جديد", onPress: openCreate }] : []} />
-      <FloatingFormModal visible={showEditor} onClose={() => setShowEditor(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showEditor} onClose={() => setShowEditor(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
           <View style={{ flex: 1 }}>
             <View style={[styles.modalHeader, { borderColor: colors.border }]}><TouchableOpacity onPress={() => setShowEditor(false)}><MaterialIcons name="close" size={24} color={colors.foreground} /></TouchableOpacity><Text style={[styles.modalTitle, { color: colors.foreground }]}>{editing ? "تعديل" : "إضافة"} {tab === "brands" ? "ماركة" : tab === "regions" ? "منطقة" : "تقييم"}</Text><View style={{ width: 24 }} /></View>

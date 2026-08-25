@@ -14,6 +14,7 @@ import { SuccessModal } from "@/components/success-modal";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { MoreModuleEmptyState, MoreModuleFilterChips } from "@/components/more-module-ui";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { AnimatedCard } from "@/components/animated-card";
 import { useColors } from "@/hooks/use-colors";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
@@ -87,6 +88,7 @@ const fromIsoDate = (value: string) => value ? new Date(`${value}T12:00:00`) : n
 export default function GoalsModule() {
   const colors = useColors();
   const [goals, setGoals] = useState<MarketingGoal[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<MarketingGoal | null>(null);
@@ -116,9 +118,10 @@ export default function GoalsModule() {
   });
 
   const loadData = useCallback(async () => {
-    const data = await getItems<MarketingGoal>(STORAGE_KEYS.MARKETING_GOALS);
-    setGoals(data.map((goal) => ({ ...goal, period: deriveGoalPeriod(goal.startDate, goal.endDate) })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    setRefreshing(false);
+    try {
+      const data = await getItems<MarketingGoal>(STORAGE_KEYS.MARKETING_GOALS);
+      setGoals(data.map((goal) => ({ ...goal, period: deriveGoalPeriod(goal.startDate, goal.endDate) })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    } finally { setRefreshing(false); setIsInitialLoading(false); }
   }, []);
 
   const handleRefresh = useCallback(async () => {
@@ -291,7 +294,7 @@ export default function GoalsModule() {
     <View style={styles.container}>
       <MoreModuleFilterChips items={[{ id: "all", label: "الكل" }, ...PERIOD_OPTIONS.map((period) => ({ id: period.value, label: period.label }))]} selectedId={filterPeriod} onSelect={(id) => setFilterPeriod(id as typeof filterPeriod)} />
 
-      <FlatList
+      {isInitialLoading ? <SkeletonList rows={4} /> : <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -370,10 +373,10 @@ export default function GoalsModule() {
           );
         }}
         ListEmptyComponent={<MoreModuleEmptyState icon="flag" title="لا توجد أهداف" description="أضف هدفاً من الزر العائم لتبدأ الخطة التسويقية." />}
-      />
+      />}
 
       {/* Goal Modal */}
-      <FloatingFormModal visible={showGoalModal} onClose={() => { setShowGoalModal(false); setIsEditing(false); setSelectedGoal(null); }} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showGoalModal} onClose={() => { setShowGoalModal(false); setIsEditing(false); setSelectedGoal(null); }} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>

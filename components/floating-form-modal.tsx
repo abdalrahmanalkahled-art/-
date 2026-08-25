@@ -3,22 +3,24 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } fr
 
 import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
 import { DESIGN } from "@/lib/design-system";
+import { SkeletonForm } from "@/components/ui/skeleton-loading";
 
 interface FloatingFormModalProps {
   visible: boolean;
   onClose: () => void;
   backgroundColor: string;
   compactHeight?: boolean;
+  isLoading?: boolean;
   children: ReactNode;
 }
 
 /** غلاف موحد يحافظ على محتوى نماذج الإضافة ويعرضه كنافذة عائمة مناسبة للهاتف. */
-export function FloatingFormModal({ visible, onClose, backgroundColor, compactHeight = false, children }: FloatingFormModalProps) {
+export function FloatingFormModal({ visible, onClose, backgroundColor, compactHeight = false, isLoading = false, children }: FloatingFormModalProps) {
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={styles.backdrop}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <KeyboardAvoidingView behavior={getKeyboardAvoidingBehavior(Platform.OS)} style={styles.keyboard}>
-        <View style={[styles.dialog, compactHeight && styles.compactDialog, { backgroundColor }]}>{children}</View>
+        <View style={[styles.dialog, compactHeight && styles.compactDialog, { backgroundColor }]}>{isLoading ? <SkeletonForm /> : children}</View>
       </KeyboardAvoidingView>
     </View>
   </Modal>;

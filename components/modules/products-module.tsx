@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { FloatingFormModal } from "@/components/floating-form-modal";
 import { MoreModuleEmptyState, MoreModuleFilterChips, MoreModuleTabs } from "@/components/more-module-ui";
+import { SkeletonList } from "@/components/ui/skeleton-loading";
 import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
@@ -50,6 +51,7 @@ export function ProductsModule() {
   const colors = useColors();
   const canCreate = useHasPermission("products", "create");
   const [products, setProducts] = useState<Product[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [competitors, setCompetitors] = useState<string[]>([]);
   const [brands, setBrands] = useState<string[]>([]);
@@ -83,20 +85,22 @@ export function ProductsModule() {
   const [competitorForm, setCompetitorForm] = useState({ name: "" });
 
   const loadData = useCallback(async () => {
-    const [productsData, categoriesData, competitorsData, catalog] = await Promise.all([
-      getItems<Product>(STORAGE_KEYS.PRODUCTS),
-      getItems<ProductCategory>(STORAGE_KEYS.PRODUCT_CATEGORIES),
-      getItems<string>(STORAGE_KEYS.COMPETITORS),
-      loadBrandRegionCatalog(),
-    ]);
-    const resolvedCategories = categoriesData.length > 0 ? categoriesData : createDefaultProductCategories();
-    if (categoriesData.length === 0) {
-      await saveItems(STORAGE_KEYS.PRODUCT_CATEGORIES, resolvedCategories);
-    }
-    setProducts(productsData);
-    setCategories(resolvedCategories);
-    setCompetitors(competitorsData);
-    setBrands(catalog.brands.filter((brand) => brand.isActive).map((brand) => brand.name));
+    try {
+      const [productsData, categoriesData, competitorsData, catalog] = await Promise.all([
+        getItems<Product>(STORAGE_KEYS.PRODUCTS),
+        getItems<ProductCategory>(STORAGE_KEYS.PRODUCT_CATEGORIES),
+        getItems<string>(STORAGE_KEYS.COMPETITORS),
+        loadBrandRegionCatalog(),
+      ]);
+      const resolvedCategories = categoriesData.length > 0 ? categoriesData : createDefaultProductCategories();
+      if (categoriesData.length === 0) {
+        await saveItems(STORAGE_KEYS.PRODUCT_CATEGORIES, resolvedCategories);
+      }
+      setProducts(productsData);
+      setCategories(resolvedCategories);
+      setCompetitors(competitorsData);
+      setBrands(catalog.brands.filter((brand) => brand.isActive).map((brand) => brand.name));
+    } finally { setIsInitialLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -333,6 +337,7 @@ export function ProductsModule() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {isInitialLoading ? <SkeletonList rows={4} /> : <>
       {/* Tabs */}
       <MoreModuleTabs items={[{ id: "company", label: "منتجات الشركة" }, { id: "competitor", label: "منتجات المنافسين" }]} selectedId={activeTab} onSelect={(id) => { setActiveTab(id as typeof activeTab); if (id === "company") setSelectedCompetitor(""); }} />
 
@@ -362,12 +367,13 @@ export function ProductsModule() {
         contentContainerStyle={styles.list}
         ListEmptyComponent={<MoreModuleEmptyState icon="inventory-2" title="لا توجد منتجات" description="أضف منتجاً أو تصنيفاً لتبدأ التنظيم." />}
       />
+      </>}
 
       {/* FAB Menu */}
       <FABMenu items={fabItems} />
 
       {/* Products in selected category */}
-      <FloatingFormModal visible={Boolean(selectedCategory)} onClose={() => setSelectedCategory(null)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={Boolean(selectedCategory)} onClose={() => setSelectedCategory(null)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
           <View style={[styles.modal, { backgroundColor: colors.background }]}> 
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}> 
@@ -416,7 +422,7 @@ export function ProductsModule() {
       />
 
       {/* Add Product Modal */}
-      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -533,7 +539,7 @@ export function ProductsModule() {
       </FloatingFormModal>
 
       {/* Add Category Modal */}
-      <FloatingFormModal visible={showCategoryModal} onClose={() => { setShowCategoryModal(false); setEditingCategory(null); setCategoryForm({ name: "" }); }} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showCategoryModal} onClose={() => { setShowCategoryModal(false); setEditingCategory(null); setCategoryForm({ name: "" }); }} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -625,7 +631,7 @@ export function ProductsModule() {
       </FloatingFormModal>
 
       {/* Add Competitor Modal */}
-      <FloatingFormModal visible={showCompetitorModal} onClose={() => setShowCompetitorModal(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showCompetitorModal} onClose={() => setShowCompetitorModal(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
