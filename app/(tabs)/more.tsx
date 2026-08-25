@@ -2,9 +2,7 @@ import React, { useRef, useState } from "react";
 import {
   Animated,
   Easing,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,7 +19,6 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useApp, useHasPermission } from "@/lib/app-context";
 import { logout } from "@/lib/storage";
-import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MORE_MODULES, MoreModuleContent, type MoreModuleId } from "@/components/modules/more-module-screen";
 import { MoreModuleShell } from "@/components/modules/more-module-shell";
@@ -207,9 +204,7 @@ export default function MoreScreen() {
             {moduleOpened && activeModule ? <SafeAreaView edges={["top", "bottom", "left", "right"]} style={[styles.expandedPage, { backgroundColor: colors.background }]}> 
               <MoreModuleShell title={activeModuleInfo.title} subtitle={activeModuleInfo.subtitle} icon={activeModuleInfo.icon} accent={activeModuleInfo.color} compact={activeModule === "products"} onClose={closeModule} />
               <Animated.View style={[styles.moduleContent, { transform: [{ translateY: contentReveal }] }]}> 
-                <KeyboardAvoidingView behavior={getKeyboardAvoidingBehavior(Platform.OS)} style={styles.moduleContent}> 
-                  <MoreModuleContent moduleId={activeModule} />
-                </KeyboardAvoidingView>
+                <MoreModuleContent moduleId={activeModule} />
               </Animated.View>
             </SafeAreaView> : null}
           </> : null}

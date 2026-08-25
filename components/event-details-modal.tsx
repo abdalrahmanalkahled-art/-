@@ -9,6 +9,7 @@ import { launchImageLibrary, type ImagePickerResponse } from "@/lib/media-picker
 import { MediaGalleryLightbox } from "./media-gallery-lightbox";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CardActionModal } from "./card-action-modal";
+import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 
 interface EventDetailsModalProps {
   visible: boolean;
@@ -49,6 +50,15 @@ export function EventDetailsModal({
   const [goals, setGoals] = useState<EventGoal[]>([]);
   const [deleteConfirmationVisible, setDeleteConfirmationVisible] = useState(false);
   const [showEventActions, setShowEventActions] = useState(false);
+  const handleDetailsOverlayBack = useCallback(() => {
+    if (deleteConfirmationVisible) { setDeleteConfirmationVisible(false); return true; }
+    if (showEventActions) { setShowEventActions(false); return true; }
+    return false;
+  }, [deleteConfirmationVisible, showEventActions]);
+  useOverlayBackHandler(handleDetailsOverlayBack);
+  const closeDetailsOrTop = useCallback(() => {
+    if (!handleDetailsOverlayBack()) onClose();
+  }, [handleDetailsOverlayBack, onClose]);
   const statusInfo = useMemo(
     () => STATUS_OPTIONS.find((status) => status.value === event?.status) || STATUS_OPTIONS[0],
     [event?.status],
@@ -105,10 +115,10 @@ export function EventDetailsModal({
   ];
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} presentationStyle="fullScreen">
+    <Modal visible={visible} animationType="slide" onRequestClose={closeDetailsOrTop} presentationStyle="fullScreen">
       <SafeAreaView edges={["top", "bottom", "left", "right"]} style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
-          <TouchableOpacity accessibilityLabel="إغلاق التفاصيل" onPress={onClose} style={[styles.iconButton, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity accessibilityLabel="إغلاق التفاصيل" onPress={closeDetailsOrTop} style={[styles.iconButton, { backgroundColor: colors.surface }]}>
             <MaterialIcons name="close" size={22} color={colors.foreground} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>تفاصيل الفعالية</Text>

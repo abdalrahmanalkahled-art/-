@@ -16,6 +16,7 @@ import { deleteLocalBackup, listLocalBackups, previewLocalBackup, type LocalBack
 import { saveSelectedBackupsToPhone, shareSelectedBackups } from "@/lib/selected-backup-export";
 import { STORAGE_KEYS, verifyLocalUserPassword } from "@/lib/storage";
 import { formatStorageBytes } from "@/lib/storage-space-model";
+import { closeTopOverlay, useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 
 type CreateMode = "full" | "partial" | null;
 type PendingRestore = { label: string; payload: FullBackupPayload; preview: BackupPreview; mergePreview: BackupMergePreview };
@@ -40,6 +41,35 @@ export default function BackupManagementScreen() {
   const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState<"share" | "save" | null>(null);
   const [success, setSuccess] = useState("");
+
+  const handleOverlayBack = useCallback(() => closeTopOverlay([
+    () => {
+      if (!restoreHistoryVisible) return false;
+      setRestoreHistoryVisible(false);
+      return true;
+    },
+    () => {
+      if (!pendingRestore || busy) return false;
+      setPendingRestore(null);
+      return true;
+    },
+    () => {
+      if (!deletePasswordVisible || busy) return false;
+      setDeletePasswordVisible(false);
+      return true;
+    },
+    () => {
+      if (!sectionPickerVisible || createMode) return false;
+      setSectionPickerVisible(false);
+      return true;
+    },
+    () => {
+      if (!selectionMode) return false;
+      exitSelection();
+      return true;
+    },
+  ]), [restoreHistoryVisible, pendingRestore, busy, deletePasswordVisible, sectionPickerVisible, createMode, selectionMode]);
+  useOverlayBackHandler(handleOverlayBack);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -183,7 +213,7 @@ export default function BackupManagementScreen() {
     : `يستبدل هذا النمط بيانات الأقسام الموجودة في النسخة فقط، ولا يحذف الأقسام الغائبة.${categoryRestoreNotice}` : "";
 
   return <ScreenContainer containerClassName="bg-background">
-    <View style={[styles.header, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface }]}><MaterialIcons name="arrow-forward" size={22} color={colors.foreground} /></TouchableOpacity><View style={styles.headerCopy}><Text style={[styles.headerTitle, { color: colors.foreground }]}>{selectionMode ? `${selectedUris.length} نسخة محددة` : "إدارة النسخ الاحتياطية"}</Text><Text style={[styles.headerSubtitle, { color: colors.muted }]}>{selectionMode ? "اضغط النسخ لتحديدها أو إلغاء تحديدها" : "إنشاء واستعادة وإدارة نسخ بيانات التطبيق"}</Text></View>{selectionMode ? <View style={styles.selectionHeaderActions}><TouchableOpacity accessibilityLabel="حفظ النسخ المحددة على الهاتف" disabled={!selectedUris.length || exporting !== null} onPress={() => void saveSelectedToPhone()} style={[styles.selectionHeaderAction, { backgroundColor: colors.surface, borderColor: colors.border, opacity: selectedUris.length ? 1 : 0.5 }]}>{exporting === "save" ? <ActivityIndicator size="small" color={colors.primary} /> : <><MaterialIcons name="save-alt" size={17} color={colors.primary} /><Text style={[styles.selectionHeaderActionText, { color: colors.primary }]}>حفظ</Text></>}</TouchableOpacity><TouchableOpacity accessibilityLabel="مشاركة النسخ المحددة" disabled={!selectedUris.length || exporting !== null} onPress={() => void shareSelected()} style={[styles.selectionHeaderAction, { backgroundColor: colors.surface, borderColor: colors.border, opacity: selectedUris.length ? 1 : 0.5 }]}>{exporting === "share" ? <ActivityIndicator size="small" color={colors.primary} /> : <><MaterialIcons name="share" size={17} color={colors.primary} /><Text style={[styles.selectionHeaderActionText, { color: colors.primary }]}>مشاركة</Text></>}</TouchableOpacity><TouchableOpacity onPress={exitSelection} style={styles.headerAction}><Text style={[styles.headerActionText, { color: colors.primary }]}>إلغاء</Text></TouchableOpacity></View> : null}</View>
+    <View style={[styles.header, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => { if (!handleOverlayBack()) router.back(); }} style={[styles.back, { backgroundColor: colors.surface }]}><MaterialIcons name="arrow-forward" size={22} color={colors.foreground} /></TouchableOpacity><View style={styles.headerCopy}><Text style={[styles.headerTitle, { color: colors.foreground }]}>{selectionMode ? `${selectedUris.length} نسخة محددة` : "إدارة النسخ الاحتياطية"}</Text><Text style={[styles.headerSubtitle, { color: colors.muted }]}>{selectionMode ? "اضغط النسخ لتحديدها أو إلغاء تحديدها" : "إنشاء واستعادة وإدارة نسخ بيانات التطبيق"}</Text></View>{selectionMode ? <View style={styles.selectionHeaderActions}><TouchableOpacity accessibilityLabel="حفظ النسخ المحددة على الهاتف" disabled={!selectedUris.length || exporting !== null} onPress={() => void saveSelectedToPhone()} style={[styles.selectionHeaderAction, { backgroundColor: colors.surface, borderColor: colors.border, opacity: selectedUris.length ? 1 : 0.5 }]}>{exporting === "save" ? <ActivityIndicator size="small" color={colors.primary} /> : <><MaterialIcons name="save-alt" size={17} color={colors.primary} /><Text style={[styles.selectionHeaderActionText, { color: colors.primary }]}>حفظ</Text></>}</TouchableOpacity><TouchableOpacity accessibilityLabel="مشاركة النسخ المحددة" disabled={!selectedUris.length || exporting !== null} onPress={() => void shareSelected()} style={[styles.selectionHeaderAction, { backgroundColor: colors.surface, borderColor: colors.border, opacity: selectedUris.length ? 1 : 0.5 }]}>{exporting === "share" ? <ActivityIndicator size="small" color={colors.primary} /> : <><MaterialIcons name="share" size={17} color={colors.primary} /><Text style={[styles.selectionHeaderActionText, { color: colors.primary }]}>مشاركة</Text></>}</TouchableOpacity><TouchableOpacity onPress={exitSelection} style={styles.headerAction}><Text style={[styles.headerActionText, { color: colors.primary }]}>إلغاء</Text></TouchableOpacity></View> : null}</View>
     <FlatList data={backups} keyExtractor={(item) => item.uri} renderItem={renderBackup} refreshing={loading} onRefresh={() => void load()} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} ListHeaderComponent={<><View style={[styles.summary, { backgroundColor: colors.primary, borderColor: colors.primary }]}><MaterialIcons name="backup" size={30} color="#fff" /><View style={styles.summaryCopy}><Text style={styles.summaryValue}>{backups.length}</Text><Text style={styles.summaryLabel}>نسخة محفوظة داخل التطبيق</Text></View></View><View style={styles.actions}><TouchableOpacity disabled={createMode !== null} onPress={() => void createFull()} style={[styles.primaryAction, { backgroundColor: colors.primary, opacity: createMode ? 0.7 : 1 }]}>{createMode === "full" ? <ActivityIndicator color="#fff" /> : <MaterialIcons name="backup" size={20} color="#fff" />}<Text style={styles.primaryActionText}>إنشاء نسخة كاملة</Text></TouchableOpacity><View style={styles.secondaryActions}><TouchableOpacity onPress={() => setSectionPickerVisible(true)} style={[styles.secondaryAction, { borderColor: colors.border, backgroundColor: colors.surface }]}><MaterialIcons name="content-copy" size={19} color="#7C3AED" /><Text style={[styles.secondaryActionText, { color: colors.foreground }]}>نسخة جزئية</Text></TouchableOpacity><TouchableOpacity onPress={() => void importFromPhone()} style={[styles.secondaryAction, { borderColor: colors.border, backgroundColor: colors.surface }]}><MaterialIcons name="phone-android" size={19} color="#0891B2" /><Text style={[styles.secondaryActionText, { color: colors.foreground }]}>استعادة من الهاتف</Text></TouchableOpacity></View></View><Text style={[styles.hint, { color: colors.muted }]}>اضغط مطولاً على أي نسخة لبدء التحديد المتعدد وحذف النسخ المحمية بكلمة المرور.</Text></>} ListEmptyComponent={!loading ? <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}><MaterialIcons name="backup" size={38} color={colors.muted} /><Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد نسخ محفوظة بعد. أنشئ نسخة كاملة أو جزئية لحماية بياناتك.</Text></View> : <View style={styles.loading}><ActivityIndicator size="large" color={colors.primary} /></View>} ItemSeparatorComponent={() => <View style={styles.gap} />} />
     {!selectionMode && lastRestore ? <TouchableOpacity accessibilityLabel="عرض سجل آخر عملية استعادة" onPress={() => setRestoreHistoryVisible(true)} activeOpacity={0.86} style={[restoreHistoryStyles.shortcut, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={[restoreHistoryStyles.shortcutIcon, { backgroundColor: colors.primary + "14" }]}><MaterialIcons name="history" size={20} color={colors.primary} /></View><View style={restoreHistoryStyles.shortcutCopy}><Text style={[restoreHistoryStyles.shortcutTitle, { color: colors.foreground }]}>آخر عملية استعادة</Text><Text style={[restoreHistoryStyles.shortcutMeta, { color: colors.muted }]}>{lastRestore.mode === "merge" ? "كتابة فوق البيانات" : "استبدال البيانات"} • {new Date(lastRestore.restoredAt).toLocaleString("en-US")}</Text></View><MaterialIcons name="chevron-left" size={22} color={colors.muted} /></TouchableOpacity> : null}
     {selectionMode ? <View style={[styles.selectionBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}><TouchableOpacity onPress={() => setSelectedUris(backups.map((backup) => backup.uri))} style={[styles.selectionButton, { borderColor: colors.border }]}><Text style={[styles.selectionButtonText, { color: colors.foreground }]}>تحديد الكل</Text></TouchableOpacity><TouchableOpacity disabled={!selectedUris.length || busy} onPress={requestDelete} style={[styles.deleteButton, { backgroundColor: colors.error, opacity: selectedUris.length ? 1 : 0.55 }]}><MaterialIcons name="delete-outline" size={19} color="#fff" /><Text style={styles.deleteButtonText}>حذف المحدد</Text></TouchableOpacity></View> : null}

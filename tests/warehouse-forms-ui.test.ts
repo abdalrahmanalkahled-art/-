@@ -13,6 +13,15 @@ describe("نماذج إدارة المستودع", () => {
     expect(warehouse).toContain("DESIGN.control.standard");
   });
 
+  it("يضيف المادة بالطرود والقطع ويتيح تحديد وحدة الإدخال أو الإخراج", () => {
+    expect(warehouse).toContain('key: "packageCount"');
+    expect(warehouse).toContain('key: "piecesPerPackage"');
+    expect(warehouse).toContain('movementUnit: "package"');
+    expect(warehouse).toContain('movementUnit === "piece"');
+    expect(warehouse).toContain("calculateMovementPieces");
+    expect(warehouse).toContain("formatWarehouseQuantity");
+  });
+
   it("يبقى حقل حالة الأداة بخياراته الحالية داخل نموذج الإضافة والتعديل", () => {
     expect(tools).toContain("حالة الأداة");
     expect(tools).toContain('["new", "good", "needs_repair"]');

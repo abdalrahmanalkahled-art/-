@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { useColors } from "@/hooks/use-colors";
@@ -81,6 +81,7 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
     <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <ScrollView contentContainerStyle={styles.dialogContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.header}><TouchableOpacity onPress={onClose} style={[styles.close, { backgroundColor: colors.background }]}><MaterialIcons name="close" size={20} color={colors.foreground} /></TouchableOpacity><View style={styles.copy}><Text style={[styles.title, { color: colors.foreground }]}>إدارة الملف الشخصي</Text><Text style={[styles.subtitle, { color: colors.muted }]}>عدّل الاسم وبيانات الدخول الخاصة بك</Text></View></View>
         <View style={styles.avatarSection}>
           <View style={[styles.avatar, { backgroundColor: colors.primary + "16", borderColor: colors.border }]}>
@@ -103,7 +104,8 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
         <Text style={[styles.label, { color: colors.foreground }]}>كلمة المرور الجديدة</Text>
         <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="اتركها فارغة للإبقاء على الحالية" placeholderTextColor={colors.muted} style={[styles.input, { color: colors.foreground, backgroundColor: colors.background, borderColor: colors.border }]} textAlign="left" />
         {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-        <TouchableOpacity disabled={isSaving} onPress={() => void requestSave()} style={[styles.save, { backgroundColor: colors.primary }, isSaving && { opacity: 0.6 }]}><Text style={styles.saveText}>{isSaving ? "جارٍ الحفظ..." : "حفظ بيانات الملف"}</Text></TouchableOpacity>
+        </ScrollView>
+        <View style={[styles.saveFooter, { borderTopColor: colors.border }]}><TouchableOpacity disabled={isSaving} onPress={() => void requestSave()} style={[styles.save, { backgroundColor: colors.primary }, isSaving && { opacity: 0.6 }]}><Text style={styles.saveText}>{isSaving ? "جارٍ الحفظ..." : "حفظ بيانات الملف"}</Text></TouchableOpacity></View>
       </View>
     </KeyboardAvoidingView>
   </Modal>
@@ -113,7 +115,8 @@ export function ProfileSettingsModal({ visible, user, onClose, onSaved }: Profil
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: DESIGN.spacing.md },
-  dialog: { width: "100%", maxWidth: 460, alignSelf: "center", borderRadius: DESIGN.radius.xl, borderWidth: 1, padding: DESIGN.spacing.xl, gap: DESIGN.spacing.sm },
+  dialog: { width: "100%", maxWidth: 460, maxHeight: "88%", alignSelf: "center", borderRadius: DESIGN.radius.xl, borderWidth: 1, overflow: "hidden" },
+  dialogContent: { padding: DESIGN.spacing.xl, gap: DESIGN.spacing.sm },
   header: { flexDirection: "row", alignItems: "center", gap: DESIGN.spacing.sm, marginBottom: DESIGN.spacing.sm },
   avatarSection: { flexDirection: "row", alignItems: "center", gap: DESIGN.spacing.md, marginBottom: DESIGN.spacing.sm },
   avatar: { width: 76, height: 76, borderRadius: 38, borderWidth: 1, alignItems: "center", justifyContent: "center", overflow: "hidden" },
@@ -130,6 +133,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: "700", textAlign: "right", marginTop: DESIGN.spacing.xs },
   input: { minHeight: DESIGN.control.standard, borderWidth: 1, borderRadius: DESIGN.radius.md, paddingHorizontal: DESIGN.spacing.md, fontSize: 14 },
   error: { fontSize: 12, textAlign: "right" },
-  save: { minHeight: DESIGN.control.standard, borderRadius: DESIGN.radius.md, alignItems: "center", justifyContent: "center", marginTop: DESIGN.spacing.sm },
+  saveFooter: { borderTopWidth: StyleSheet.hairlineWidth, padding: DESIGN.spacing.md },
+  save: { minHeight: DESIGN.control.standard, borderRadius: DESIGN.radius.md, alignItems: "center", justifyContent: "center" },
   saveText: { color: "#fff", fontSize: 14, fontWeight: "800" },
 });

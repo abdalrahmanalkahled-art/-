@@ -11,6 +11,7 @@ const moduleSource = readFileSync(resolve(process.cwd(), "components/modules/sig
 const detailsSource = readFileSync(resolve(process.cwd(), "components/signage/signage-details-tab.tsx"), "utf8");
 const settingsSource = readFileSync(resolve(process.cwd(), "components/signage-report-settings-sheet.tsx"), "utf8");
 const exporterSource = readFileSync(resolve(process.cwd(), "lib/signage-report-exporter.ts"), "utf8");
+const pdfMediaSource = readFileSync(resolve(process.cwd(), "lib/pdf-media.ts"), "utf8");
 const archiveSource = readFileSync(resolve(process.cwd(), "app/roadside-contract-archive.tsx"), "utf8");
 const storageManagerSource = readFileSync(resolve(process.cwd(), "lib/storage-space-manager.ts"), "utf8");
 const storageDetailSource = readFileSync(resolve(process.cwd(), "lib/storage-detail-manager.ts"), "utf8");
@@ -85,7 +86,8 @@ describe("تقارير اللوحات والأعمال الإعلانية", () =
     expect(exporterSource).toContain("boardCard");
     expect(exporterSource).toContain("asset-card");
     expect(exporterSource).toContain("preparePdfData");
-    expect(exporterSource).toContain("FileSystem.readAsStringAsync");
+    expect(exporterSource).toContain("preparePdfImageDataUri");
+    expect(pdfMediaSource).toContain("FileSystem.readAsStringAsync");
     expect(exporterSource).toContain("سيارة معلنة");
     expect(exporterSource).not.toContain("<table>");
   });
@@ -151,9 +153,10 @@ describe("تقارير اللوحات والأعمال الإعلانية", () =
     expect(settingsSource).toContain("ضغط أعلى");
     expect(exporterSource).toContain("frameHeight");
     expect(exporterSource).toContain("max-height:calc(100% - 13px)");
-    expect(exporterSource).toContain("ImageManipulator.manipulateAsync");
-    expect(exporterSource).toContain("COMPRESSION_PROFILES");
-    expect(exporterSource).toContain("FileSystem.deleteAsync");
+    expect(exporterSource).toContain("preparePdfImageDataUri");
+    expect(exporterSource).toContain("imageCompression");
+    expect(pdfMediaSource).toContain("ImageManipulator.manipulateAsync");
+    expect(pdfMediaSource).toContain("FileSystem.deleteAsync");
   });
 
   it("يجمع تخطيط البطاقات وملاءمة الصور ومساحة العرض والضغط داخل إعدادات الوسائط", () => {

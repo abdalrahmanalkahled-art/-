@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 
@@ -184,7 +184,6 @@ export default function ExpensesModule() {
 
       <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
             <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setShowModal(false)}><MaterialIcons name="close" size={24} color={colors.foreground} /></TouchableOpacity>
@@ -233,7 +232,6 @@ export default function ExpensesModule() {
                 <TouchableOpacity style={[styles.footerBtn, { backgroundColor: colors.primary }]} onPress={() => void handleSave()}><Text style={styles.saveText}>حفظ</Text></TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
       <DateRangePickerModal visible={showExpenseDatePicker} startDate={fromIsoDate(form.expenseDate)} endDate={fromIsoDate(form.expenseDate)} selectionMode="single" title="تاريخ الصرفية" onCancel={() => setShowExpenseDatePicker(false)} onConfirm={(date) => { setForm((current) => ({ ...current, expenseDate: toIsoDate(date) })); setShowExpenseDatePicker(false); }} />

@@ -8,6 +8,7 @@ import { isWithinDateRange, type DailyReportDateRange, type DailyReportSummary }
 import { ensureDirectoryExists, sanitizeFilename } from "./export-sanitizer";
 import { applyPdfReportTemplate } from "./pdf-report-templates";
 import { loadSharedPdfReportLogo, pdfLogoMarkup } from "./pdf-report-logo";
+import { pdfExportErrorMessage, preparePdfImageDataUri } from "./pdf-media";
 import { recordGeneratedReport } from "./report-history";
 import { getItems, STORAGE_KEYS } from "./storage";
 import { formatArabicDate } from "./analytics-number-format";
@@ -79,15 +80,7 @@ export function buildDailyReportData(
 }
 
 async function imageDataUri(uri?: string): Promise<string | null> {
-  if (!uri) return null;
-  if (uri.startsWith("data:image/")) return uri;
-  if (Platform.OS === "web" || !uri.startsWith("file:")) return null;
-  try {
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-    const extension = uri.split("?")[0].split(".").pop()?.toLowerCase();
-    const mime = extension === "png" ? "image/png" : extension === "webp" ? "image/webp" : "image/jpeg";
-    return base64 ? `data:${mime};base64,${base64}` : null;
-  } catch { return null; }
+  return (await preparePdfImageDataUri(uri, { width: 1024, quality: 0.6, prefix: "daily-report" })) || null;
 }
 
 function productsHtml(result: SurveyResult): string {
@@ -150,6 +143,6 @@ export async function exportDailyReportPdf(report: DailyReportData, options: Dai
     if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: "مشاركة التقرير اليومي" });
     else Alert.alert("تم الحفظ", `حُفظ التقرير داخل مجلد التقارير بالتطبيق:\n${safeFilename}`);
   } catch (error) {
-    Alert.alert("فشل تصدير التقرير", error instanceof Error ? error.message : "خطأ غير معروف");
+    Alert.alert("فشل تصدير التقرير", pdfExportErrorMessage(error));
   }
 }

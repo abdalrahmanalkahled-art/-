@@ -12,6 +12,7 @@ import type { FullBackupPayload } from "@/lib/full-backup";
 import type { MarketVisitReportTemplate } from "@/lib/market-visit-report-model";
 import { deleteLocalBackup, deleteStorageExternalAnalyticsPackage, deleteStorageSignageMedia, deleteStorageStorePhoto, deleteStorageTemplate, listLocalBackups, listStorageExternalAnalyticsPackages, listStorageSignageMedia, listStorageStorePhotos, listStorageTemplates, previewLocalBackup, type LocalBackupFile, type StorageDetailBucketId, type StorageExternalAnalyticsPackage, type StorageSignageMedia, type StorageStorePhoto } from "@/lib/storage-detail-manager";
 import { formatStorageBytes } from "@/lib/storage-space-model";
+import { closeTopOverlay, useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 
 type Item = StorageStorePhoto | StorageSignageMedia | MarketVisitReportTemplate | LocalBackupFile | StorageExternalAnalyticsPackage;
 type PendingDelete = { type: "photo"; items: StorageStorePhoto[] } | { type: "signageMedia"; items: StorageSignageMedia[] } | { type: "template"; items: MarketVisitReportTemplate[] } | { type: "backup"; items: LocalBackupFile[] } | { type: "externalAnalytics"; items: StorageExternalAnalyticsPackage[] };
@@ -41,6 +42,25 @@ export default function StorageDetailsScreen() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedUris, setSelectedUris] = useState<string[]>([]);
   const [success, setSuccess] = useState("");
+
+  const handleOverlayBack = useCallback(() => closeTopOverlay([
+    () => {
+      if (!pendingRestore || busy) return false;
+      setPendingRestore(null);
+      return true;
+    },
+    () => {
+      if (!pendingDelete || busy) return false;
+      setPendingDelete(null);
+      return true;
+    },
+    () => {
+      if (!selectionMode) return false;
+      exitSelection();
+      return true;
+    },
+  ]), [pendingRestore, busy, pendingDelete, selectionMode]);
+  useOverlayBackHandler(handleOverlayBack);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,7 +163,7 @@ export default function StorageDetailsScreen() {
   const deleteMessage = pendingDelete?.type === "photo" ? "ستُحذف الصور المحددة وتُزال مراجعها من نتائج الاستبيانات. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "signageMedia" ? "ستُحذف الوسائط المحددة من الجهاز وتُزال من اللوحات أو الستاندات أو الأرشيف المرتبط بها. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "template" ? "ستُحذف قوالب PowerPoint المحددة من الجهاز ومن قائمة القوالب. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "externalAnalytics" ? "ستُحذف الحزم التحليلية المحددة وملفاتها المحلية نهائياً. لا يمكن استعادتها بعد الحذف." : "سيُحذف ملف النسخة الاحتياطية من الجهاز فقط. لا تتأثر بيانات التطبيق الحالية.";
 
   return <ScreenContainer containerClassName="bg-background">
-    <View style={[styles.header, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => selectionMode ? exitSelection() : router.back()} style={[styles.back, { backgroundColor: colors.surface }]}><MaterialIcons name={selectionMode ? "close" : "arrow-forward"} size={22} color={colors.foreground} /></TouchableOpacity><View style={styles.headerCopy}><Text style={[styles.headerTitle, { color: colors.foreground }]}>{selectionMode ? `${selectedUris.length} عنصر محدد` : detail.title}</Text><Text style={[styles.headerSubtitle, { color: colors.muted }]}>{selectionMode ? "اضغط العناصر لتحديدها أو إلغاء تحديدها" : detail.subtitle}</Text></View></View>
+    <View style={[styles.header, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => { if (!handleOverlayBack()) router.back(); }} style={[styles.back, { backgroundColor: colors.surface }]}><MaterialIcons name={selectionMode ? "close" : "arrow-forward"} size={22} color={colors.foreground} /></TouchableOpacity><View style={styles.headerCopy}><Text style={[styles.headerTitle, { color: colors.foreground }]}>{selectionMode ? `${selectedUris.length} عنصر محدد` : detail.title}</Text><Text style={[styles.headerSubtitle, { color: colors.muted }]}>{selectionMode ? "اضغط العناصر لتحديدها أو إلغاء تحديدها" : detail.subtitle}</Text></View></View>
     <FlatList data={items} keyExtractor={(item) => item.uri} renderItem={renderItem} refreshing={loading} onRefresh={() => void load()} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} ListHeaderComponent={<View style={[styles.summary, { backgroundColor: detail.color, borderColor: detail.color }]}><MaterialIcons name={detail.icon} size={29} color="#fff" /><View style={styles.summaryCopy}><Text style={styles.summaryValue}>{items.length}</Text><Text style={styles.summaryLabel}>عنصر محفوظ • {formatStorageBytes(totalBytes)}</Text></View></View>} ListEmptyComponent={!loading ? <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}><MaterialIcons name={detail.icon} size={36} color={colors.muted} /><Text style={[styles.emptyText, { color: colors.muted }]}>{detail.empty}</Text></View> : <View style={styles.loading}><ActivityIndicator size="large" color={detail.color} /></View>} ItemSeparatorComponent={() => <View style={styles.gap} />} />
     <ConfirmDialog visible={Boolean(pendingDelete)} title={deleteTitle} message={deleteMessage} confirmText="حذف نهائياً" isDangerous isSubmitting={busy} icon="delete-outline" onCancel={() => !busy && setPendingDelete(null)} onConfirm={() => void confirmDelete()} />
     <ConfirmDialog visible={Boolean(pendingRestore)} title="استعادة النسخة الاحتياطية" message={pendingRestore ? `تاريخ النسخة: ${new Date(pendingRestore.preview.createdAt).toLocaleString("en-US")}\n${pendingRestore.preview.recordCount} سجل و${pendingRestore.preview.mediaCount} ملف وسائط.\n\nسيتم استبدال بيانات الأعمال الحالية على هذا الجهاز، بينما تبقى بيانات الدخول الحالية دون تغيير.` : ""} confirmText="استعادة الآن" isSubmitting={busy} icon="restore" onCancel={() => !busy && setPendingRestore(null)} onConfirm={() => void confirmRestore()} />

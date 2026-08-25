@@ -11,7 +11,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  BackHandler,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -32,6 +31,7 @@ import { SuccessModal } from "@/components/success-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StoreDetailsScreen } from "@/components/store-details-screen";
 import { CardActionModal } from "@/components/card-action-modal";
+import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAnalytics, EventType } from "@/lib/analytics";
 import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
@@ -407,37 +407,19 @@ export default function StoresScreen() {
     try { if (format === "pdf") await exportTabReportPdf(report); else await exportTabReportExcel(report); } finally { setExporting(null); }
   };
 
-  // معالج زر الرجوع للهاتف
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (showDetailsScreen) {
-        setShowDetailsScreen(false);
-        return true;
-      }
-      if (showModal) {
-        setShowModal(false);
-        return true;
-      }
-      if (showImagePickerModal) {
-        setShowImagePickerModal(false);
-        return true;
-      }
-      if (showAddRegionModal) {
-        setShowAddRegionModal(false);
-        setNewRegion("");
-        return true;
-      }
-      if (showDeleteRegionConfirm) {
-        setShowDeleteRegionConfirm(false);
-        return true;
-      }
-      return false;
-    });
-    
-    return () => backHandler.remove();
-  }, [showDetailsScreen, showModal, showImagePickerModal, showAddRegionModal, showDeleteRegionConfirm]);
+  const handleStoreOverlayBack = useCallback(() => {
+    if (error) { dismissError(); return true; }
+    if (showDeleteRegionConfirm) { setShowDeleteRegionConfirm(false); return true; }
+    if (showAddRegionModal) { setShowAddRegionModal(false); setNewRegion(""); return true; }
+    if (showCategoryManager) { setShowCategoryManager(false); return true; }
+    if (deleteConfirmation.visible) { setDeleteConfirmation({ visible: false, storeId: "" }); return true; }
+    if (storeActionTarget) { setStoreActionTarget(null); return true; }
+    if (showImagePickerModal) { setShowImagePickerModal(false); return true; }
+    if (showModal) { setShowModal(false); return true; }
+    if (showDetailsScreen) { setShowDetailsScreen(false); return true; }
+    return false;
+  }, [error, showDeleteRegionConfirm, showAddRegionModal, showCategoryManager, deleteConfirmation.visible, storeActionTarget, showImagePickerModal, showModal, showDetailsScreen]);
+  useOverlayBackHandler(handleStoreOverlayBack);
 
 
 

@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   TextInput, Modal, ScrollView, Alert,
-  KeyboardAvoidingView,
-  Platform,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -337,11 +335,7 @@ export default function GoalsModule() {
       {/* Goal Modal */}
       <FloatingFormModal visible={showGoalModal} onClose={() => { setShowGoalModal(false); setIsEditing(false); setSelectedGoal(null); }} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1, backgroundColor: colors.background }}
-          >
-            <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => {
                   setShowGoalModal(false);
@@ -473,7 +467,6 @@ export default function GoalsModule() {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
       <DateRangePickerModal
@@ -491,11 +484,7 @@ export default function GoalsModule() {
       {/* Task Modal */}
       <FloatingFormModal visible={showTaskModal} onClose={() => setShowTaskModal(false)} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1, backgroundColor: colors.background }}
-          >
-            <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setShowTaskModal(false)}>
                   <MaterialIcons name="close" size={24} color={colors.foreground} />
@@ -544,7 +533,6 @@ export default function GoalsModule() {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
       <DateRangePickerModal

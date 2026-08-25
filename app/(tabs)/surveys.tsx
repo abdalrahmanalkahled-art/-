@@ -13,7 +13,6 @@ import {
   Pressable,
   Image,
   Platform,
-  BackHandler,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as DocumentPicker from "expo-document-picker";
@@ -26,7 +25,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
-import { deleteSurveyResultCascade, deleteSurveyTemplateCascade, loadSurveyScreenData } from "@/lib/survey-storage";
+import { deleteSurveyResultCascade, deleteSurveyTemplateCascade, loadSurveyScreenData, saveSurveyTemplateWithActiveCycleSync } from "@/lib/survey-storage";
 import { SurveyAnalyticsModule } from "@/components/modules/survey-analytics-module";
 import { ReportFab } from "@/components/report-fab";
 import { usePaginatedData } from "@/hooks/use-paginated-data";
@@ -48,6 +47,7 @@ import { exportSurveyTemplateFile, readSurveyTemplateFile } from "@/lib/survey-t
 import { createSurveyResultsExport } from "@/lib/survey-results-transfer";
 import { exportSurveyResultsFile } from "@/lib/survey-results-transfer-service";
 import { getSurveyOverlayToClose } from "@/lib/survey-overlay-state";
+import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 import { shouldShowProductPrice, shouldShowShelfPercentage } from "@/lib/survey-product-fields";
 import {
   addResultToActiveSurveyCycle,
@@ -205,39 +205,31 @@ export default function SurveysScreen() {
   const [, setShowAddEditQuestion] = useState(false);
   
 
-  // معالج زر الرجوع للهاتف
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      const overlay = getSurveyOverlayToClose({
-        showResultDetail,
-        showStoreDetails,
-        showCreateModal,
-        showUseModal,
-        showEditModal,
-        showDateRangePicker: false,
-        showDeleteConfirm,
-        showDeleteResultConfirm,
-        showCloseCycleConfirm,
-        showAddQuestion,
-      });
-
-      if (overlay === "resultDetail") setShowResultDetail(false);
-      else if (overlay === "storeDetails") setShowStoreDetails(false);
-      else if (overlay === "create") setShowCreateModal(false);
-      else if (overlay === "use") setShowUseModal(false);
-      else if (overlay === "edit") setShowEditModal(false);
-      else if (overlay === "deleteTemplate") setShowDeleteConfirm(false);
-      else if (overlay === "deleteResult") setShowDeleteResultConfirm(false);
-      else if (overlay === "closeCycle") setShowCloseCycleConfirm(false);
-      else if (overlay === "addQuestion") setShowAddQuestion(false);
-
-      return overlay !== null;
+  const handleSurveyOverlayBack = useCallback(() => {
+    const overlay = getSurveyOverlayToClose({
+      showResultDetail,
+      showStoreDetails,
+      showCreateModal,
+      showUseModal,
+      showEditModal,
+      showDateRangePicker: false,
+      showDeleteConfirm,
+      showDeleteResultConfirm,
+      showCloseCycleConfirm,
+      showAddQuestion,
     });
-    
-    return () => backHandler.remove();
+    if (overlay === "resultDetail") setShowResultDetail(false);
+    else if (overlay === "storeDetails") setShowStoreDetails(false);
+    else if (overlay === "create") setShowCreateModal(false);
+    else if (overlay === "use") setShowUseModal(false);
+    else if (overlay === "edit") setShowEditModal(false);
+    else if (overlay === "deleteTemplate") setShowDeleteConfirm(false);
+    else if (overlay === "deleteResult") setShowDeleteResultConfirm(false);
+    else if (overlay === "closeCycle") setShowCloseCycleConfirm(false);
+    else if (overlay === "addQuestion") setShowAddQuestion(false);
+    return overlay !== null;
   }, [showResultDetail, showStoreDetails, showCreateModal, showUseModal, showEditModal, showDeleteConfirm, showDeleteResultConfirm, showCloseCycleConfirm, showAddQuestion]);
+  useOverlayBackHandler(handleSurveyOverlayBack);
 
   const handleExportSurveys = async (format: "pdf" | "excel") => {
     setExporting(format);
@@ -689,11 +681,9 @@ export default function SurveysScreen() {
         questions: editQuestions.length > 0 ? editQuestions : undefined,
       };
 
-      const allTemplates = await getItems<SurveyTemplate>(STORAGE_KEYS.SURVEY_TEMPLATES);
-      const updatedTemplates = allTemplates.map((t) => (t.id === editingTemplate.id ? updatedTemplate : t));
-      await saveItems(STORAGE_KEYS.SURVEY_TEMPLATES, updatedTemplates);
-      
-      setTemplates(updatedTemplates);
+      const synchronized = await saveSurveyTemplateWithActiveCycleSync(updatedTemplate);
+      setTemplates(synchronized.templates);
+      setResults(synchronized.results);
       setShowEditModal(false);
       setSuccessMessage("تم تحديث الاستبيان بنجاح");
       setShowSuccessUpdate(true);

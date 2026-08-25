@@ -36,6 +36,7 @@ import { useAppError } from "@/hooks/use-app-error";
 import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
 import { loadEventGoals, type EventGoal } from "@/lib/event-goal-loader";
 import { persistEventMedia } from "@/lib/event-video-storage";
+import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 
 interface EventItem {
   id: string;
@@ -201,6 +202,18 @@ export default function EventsScreen() {
     const matchStatus = filterStatus === "all" || e.status === filterStatus;
     return matchSearch && matchStatus;
   });
+
+  const handleEventOverlayBack = useCallback(() => {
+    if (showGoalSelector) { setShowGoalSelector(false); return true; }
+    if (showEventDatePicker) { setShowEventDatePicker(false); return true; }
+    if (showImagePickerModal) { setShowImagePickerModal(false); return true; }
+    if (deleteConfirmation.visible) { setDeleteConfirmation({ visible: false, eventId: "" }); return true; }
+    if (eventActionTarget) { setEventActionTarget(null); return true; }
+    if (showModal) { setShowModal(false); return true; }
+    if (showEventDetails) { setShowEventDetails(false); return true; }
+    return false;
+  }, [showGoalSelector, showEventDatePicker, showImagePickerModal, deleteConfirmation.visible, eventActionTarget, showModal, showEventDetails]);
+  useOverlayBackHandler(handleEventOverlayBack);
 
   const openCreateModal = useCallback(async () => {
     setEditingEvent(null);

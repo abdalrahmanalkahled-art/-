@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getItems, saveItems, STORAGE_KEYS } from "./storage";
 import type { Product, Store, SurveyCycle, SurveyResult, SurveyTemplate } from "./types/survey-types";
 import { sortSurveyCyclesNewestFirst } from "./survey-cycle-manager";
+import { synchronizeActiveCycleResultsWithTemplate } from "./survey-template-sync";
 
 export interface SurveyScreenData {
   templates: SurveyTemplate[];
@@ -20,6 +21,22 @@ export interface SurveyCascadeDeleteOutcome {
 }
 
 type ParallelSurveyNote = { id?: string; surveyId?: string };
+
+/** يحفظ القالب ويحدّث نتائج الدورة النشطة التابعة له فقط في عملية موحدة. */
+export async function saveSurveyTemplateWithActiveCycleSync(template: SurveyTemplate): Promise<{ templates: SurveyTemplate[]; results: SurveyResult[]; cycles: SurveyCycle[] }> {
+  const [allTemplates, allResults, allCycles] = await Promise.all([
+    getItems<SurveyTemplate>(STORAGE_KEYS.SURVEY_TEMPLATES),
+    getItems<SurveyResult>(STORAGE_KEYS.SURVEY_RESULTS),
+    getItems<SurveyCycle>(STORAGE_KEYS.SURVEY_CYCLES),
+  ]);
+  const templates = allTemplates.map((item) => item.id === template.id ? template : item);
+  const results = synchronizeActiveCycleResultsWithTemplate(template, allResults, allCycles);
+  await Promise.all([
+    saveItems(STORAGE_KEYS.SURVEY_TEMPLATES, templates),
+    saveItems(STORAGE_KEYS.SURVEY_RESULTS, results),
+  ]);
+  return { templates, results, cycles: allCycles };
+}
 
 /** يستبعد البيانات اليتيمة حتى لا تؤثر السجلات القديمة في الواجهة أو التحليلات. */
 export function pruneOrphanedSurveyData(templates: SurveyTemplate[], results: SurveyResult[], cycles: SurveyCycle[]) {

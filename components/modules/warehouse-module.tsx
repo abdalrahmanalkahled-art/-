@@ -8,8 +8,6 @@ import {
   TextInput,
   Modal,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -33,6 +31,7 @@ import { DEFAULT_WAREHOUSE_REPORT_SETTINGS, type WarehouseReportSettings } from 
 import type { WarehouseTool } from "@/lib/warehouse-tools";
 import { DESIGN } from "@/lib/design-system";
 import { WarehouseMaterialDetailsSheet } from "@/components/warehouse-detail-sheets";
+import { calculateMovementPieces, calculatePackagePieces, formatMovementQuantity, formatWarehouseQuantity, getPiecesPerPackage, type WarehouseMovementUnit } from "@/lib/warehouse-quantity";
 
 
 interface WarehouseItem {
@@ -42,6 +41,8 @@ interface WarehouseItem {
   unit: string;
   currentQuantity: number;
   minimumQuantity: number;
+  packageCount?: number;
+  piecesPerPackage?: number;
   description: string;
   isActive: boolean;
   createdAt: string;
@@ -53,6 +54,8 @@ interface Movement {
   itemName: string;
   movementType: "in" | "out";
   quantity: number;
+  movementUnit?: WarehouseMovementUnit;
+  enteredQuantity?: number;
   relatedEventId?: string;
   notes: string;
   movementDate: string;
@@ -77,8 +80,8 @@ export default function WarehouseModule() {
   const [showMovementDatePicker, setShowMovementDatePicker] = useState(false);
   const [editingItem, setEditingItem] = useState<WarehouseItem | null>(null);
   const [selectedItemForMovement, setSelectedItemForMovement] = useState<WarehouseItem | null>(null);
-  const [itemForm, setItemForm] = useState({ name: "", category: "gifts", unit: "قطعة", currentQuantity: "", minimumQuantity: "5", description: "" });
-  const [movementForm, setMovementForm] = useState({ movementType: "in" as "in" | "out", quantity: "", notes: "", movementDate: new Date().toISOString().split("T")[0] });
+  const [itemForm, setItemForm] = useState({ name: "", category: "gifts", packageCount: "", piecesPerPackage: "", minimumQuantity: "5", description: "" });
+  const [movementForm, setMovementForm] = useState({ movementType: "in" as "in" | "out", movementUnit: "package" as WarehouseMovementUnit, quantity: "", notes: "", movementDate: new Date().toISOString().split("T")[0] });
   const [successMessage, setSuccessMessage] = useState({ visible: false, message: "" });
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
@@ -113,12 +116,18 @@ export default function WarehouseModule() {
 
   const handleSaveItem = async () => {
     if (!itemForm.name.trim()) { showNotice("بيانات ناقصة", "أدخل اسم المادة قبل الحفظ.", "inventory"); return; }
+    if (!editingItem && (!Number.isInteger(Number(itemForm.packageCount)) || Number(itemForm.packageCount) <= 0 || !Number.isInteger(Number(itemForm.piecesPerPackage)) || Number(itemForm.piecesPerPackage) <= 0)) {
+      showNotice("بيانات ناقصة", "أدخل عدد الطرود وعدد القطع في الطرد كأرقام صحيحة أكبر من صفر.", "inventory");
+      return;
+    }
     const allItems = await getItems<WarehouseItem>(STORAGE_KEYS.WAREHOUSE_ITEMS);
     if (editingItem) {
-      const updated = allItems.map((i) => i.id === editingItem.id ? { ...i, ...itemForm, currentQuantity: parseInt(itemForm.currentQuantity) || 0, minimumQuantity: parseInt(itemForm.minimumQuantity) || 5 } : i);
+      const updated = allItems.map((i) => i.id === editingItem.id ? { ...i, name: itemForm.name.trim(), category: itemForm.category, unit: "طرد", piecesPerPackage: parseInt(itemForm.piecesPerPackage) || getPiecesPerPackage(i), packageCount: Math.floor(i.currentQuantity / (parseInt(itemForm.piecesPerPackage) || getPiecesPerPackage(i))), minimumQuantity: parseInt(itemForm.minimumQuantity) || 5, description: itemForm.description } : i);
       await saveItems(STORAGE_KEYS.WAREHOUSE_ITEMS, updated);
     } else {
-      const newItem: WarehouseItem = { id: Date.now().toString(), ...itemForm, currentQuantity: parseInt(itemForm.currentQuantity) || 0, minimumQuantity: parseInt(itemForm.minimumQuantity) || 5, isActive: true, createdAt: new Date().toISOString() };
+      const packageCount = parseInt(itemForm.packageCount);
+      const piecesPerPackage = parseInt(itemForm.piecesPerPackage);
+      const newItem: WarehouseItem = { id: Date.now().toString(), name: itemForm.name.trim(), category: itemForm.category, unit: "طرد", packageCount, piecesPerPackage, currentQuantity: calculatePackagePieces(packageCount, piecesPerPackage), minimumQuantity: parseInt(itemForm.minimumQuantity) || 5, description: itemForm.description, isActive: true, createdAt: new Date().toISOString() };
       await saveItems(STORAGE_KEYS.WAREHOUSE_ITEMS, [...allItems, newItem]);
     }
     setShowItemModal(false);
@@ -128,7 +137,7 @@ export default function WarehouseModule() {
 
   const handleSaveMovement = async () => {
     if (!selectedItemForMovement || !movementForm.quantity) { showNotice("بيانات ناقصة", "اختر المادة وأدخل الكمية قبل الحفظ.", "swap-horiz"); return; }
-    const qty = parseInt(movementForm.quantity);
+    const qty = calculateMovementPieces(movementForm.quantity, movementForm.movementUnit, selectedItemForMovement);
     if (movementForm.movementType === "out" && qty > selectedItemForMovement.currentQuantity) {
       showNotice("كمية غير متاحة", "الكمية المطلوبة أكبر من المخزون المتاح لهذه المادة.", "warning");
       return;
@@ -138,7 +147,7 @@ export default function WarehouseModule() {
     const updatedItems = allItems.map((i) => {
       if (i.id === selectedItemForMovement.id) {
         const newQty = movementForm.movementType === "in" ? i.currentQuantity + qty : i.currentQuantity - qty;
-        return { ...i, currentQuantity: newQty };
+        return { ...i, currentQuantity: newQty, packageCount: Math.floor(newQty / getPiecesPerPackage(i)) };
       }
       return i;
     });
@@ -148,6 +157,8 @@ export default function WarehouseModule() {
       itemName: selectedItemForMovement.name,
       movementType: movementForm.movementType,
       quantity: qty,
+      movementUnit: movementForm.movementUnit,
+      enteredQuantity: parseInt(movementForm.quantity),
       notes: movementForm.notes,
       movementDate: movementForm.movementDate,
       createdAt: new Date().toISOString(),
@@ -163,11 +174,13 @@ export default function WarehouseModule() {
   };
 
   const requestSaveMovement = () => {
-    if (!selectedItemForMovement || !movementForm.quantity || Number(movementForm.quantity) <= 0) {
+    const enteredQuantity = Number(movementForm.quantity);
+    const quantityInPieces = selectedItemForMovement ? calculateMovementPieces(enteredQuantity, movementForm.movementUnit, selectedItemForMovement) : 0;
+    if (!selectedItemForMovement || !Number.isInteger(enteredQuantity) || enteredQuantity <= 0 || quantityInPieces <= 0) {
       showNotice("بيانات ناقصة", "اختر المادة وأدخل كمية صحيحة قبل التأكيد.", "swap-horiz");
       return;
     }
-    if (movementForm.movementType === "out" && Number(movementForm.quantity) > selectedItemForMovement.currentQuantity) {
+    if (movementForm.movementType === "out" && quantityInPieces > selectedItemForMovement.currentQuantity) {
       showNotice("كمية غير متاحة", "الكمية المطلوبة أكبر من المخزون المتاح لهذه المادة.", "warning");
       return;
     }
@@ -206,7 +219,7 @@ export default function WarehouseModule() {
   const handleDeleteItem = (item: WarehouseItem) => setItemPendingDelete(item);
   const beginEditItem = (item: WarehouseItem) => {
     setEditingItem(item);
-    setItemForm({ name: item.name, category: item.category, unit: item.unit, currentQuantity: item.currentQuantity.toString(), minimumQuantity: item.minimumQuantity.toString(), description: item.description || "" });
+    setItemForm({ name: item.name, category: item.category, packageCount: String(item.packageCount ?? Math.floor(item.currentQuantity / getPiecesPerPackage(item))), piecesPerPackage: String(getPiecesPerPackage(item)), minimumQuantity: item.minimumQuantity.toString(), description: item.description || "" });
     setShowCategoryMenu(false);
     setItemActionTarget(null);
     setShowItemModal(true);
@@ -296,7 +309,7 @@ export default function WarehouseModule() {
                 </View>
                 <View style={[styles.stockRow, { backgroundColor: isLow ? colors.warning + "12" : colors.background }]}>
                   <View style={styles.stockLabelRow}>{isLow ? <MaterialIcons name="warning" size={16} color={colors.warning} /> : <MaterialIcons name="inventory-2" size={16} color={colors.muted} />}<Text style={[styles.stockLabel, { color: colors.muted }]}>{isLow ? "مخزون منخفض" : "المخزون المتاح"}</Text></View>
-                  <Text style={[styles.itemQty, { color: isLow ? colors.warning : colors.foreground }]}>{item.currentQuantity} <Text style={[styles.itemUnit, { color: colors.muted }]}>{item.unit}</Text></Text>
+                  <Text style={[styles.itemQty, { color: isLow ? colors.warning : colors.foreground }]}>{formatWarehouseQuantity(item.currentQuantity, item)}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -322,7 +335,7 @@ export default function WarehouseModule() {
               </View>
               <View style={styles.movementLeft}>
                 <Text style={[styles.movementQty, { color: item.movementType === "in" ? colors.success : colors.error }]}>
-                  {item.movementType === "in" ? "+" : "-"}{item.quantity}
+                  {item.movementType === "in" ? "+" : "-"}{formatMovementQuantity(item, items.find((material) => material.id === item.itemId))}
                 </Text>
                 <Text style={[styles.movementType, { color: item.movementType === "in" ? colors.success : colors.error }]}>
                   {item.movementType === "in" ? "إدخال" : "إخراج"}
@@ -344,10 +357,6 @@ export default function WarehouseModule() {
       {/* Item Modal */}
       <FloatingFormModal visible={showItemModal} onClose={() => setShowItemModal(false)} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1, backgroundColor: colors.background }}
-        >
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowItemModal(false)}>
@@ -359,9 +368,9 @@ export default function WarehouseModule() {
           <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
             {[
               { key: "name", label: "اسم المادة *", placeholder: "أدخل اسم المادة" },
-              { key: "unit", label: "وحدة القياس", placeholder: "قطعة" },
-              { key: "currentQuantity", label: "الكمية الحالية", placeholder: "0", keyboardType: "numeric" as const },
-              { key: "minimumQuantity", label: "الحد الأدنى للتنبيه", placeholder: "5", keyboardType: "numeric" as const },
+              ...(!editingItem ? [{ key: "packageCount", label: "عدد الطرود *", placeholder: "مثال: 10", keyboardType: "numeric" as const }] : []),
+              { key: "piecesPerPackage", label: "عدد القطع في الطرد الواحد *", placeholder: "مثال: 24", keyboardType: "numeric" as const },
+              { key: "minimumQuantity", label: "الحد الأدنى للتنبيه (بالقطع)", placeholder: "5", keyboardType: "numeric" as const },
             ].map((field) => (
               <View key={field.key} style={styles.formGroup}>
                 <Text style={[styles.formLabel, { color: colors.foreground }]}>{field.label}</Text>
@@ -376,6 +385,10 @@ export default function WarehouseModule() {
                 />
               </View>
             ))}
+            <View style={[styles.packageHint, { backgroundColor: colors.primary + "0D", borderColor: colors.primary + "26" }]}>
+              <MaterialIcons name="inventory-2" size={18} color={colors.primary} />
+              <Text style={[styles.packageHintText, { color: colors.primary }]}>تعتمد المادة على الطرد دائماً، ويُحتسب المخزون داخلياً بإجمالي القطع لضمان دقة الإدخال والإخراج.</Text>
+            </View>
             <View style={styles.formGroup}>
               <View style={styles.categoryLabelRow}>
                 <TouchableOpacity onPress={() => setShowCategoryManager(true)}><Text style={[styles.manageCategoriesText, { color: colors.primary }]}>إدارة الفئات</Text></TouchableOpacity>
@@ -408,17 +421,12 @@ export default function WarehouseModule() {
             </TouchableOpacity>
           </View>
         </View>
-        </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
 
       {/* Movement Modal */}
       <FloatingFormModal visible={showMovementModal} onClose={() => setShowMovementModal(false)} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={{ flex: 1, backgroundColor: colors.background }}
-        >
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowMovementModal(false)}>
@@ -455,15 +463,27 @@ export default function WarehouseModule() {
                     style={[styles.itemSelectorOption, selectedItemForMovement?.id === item.id && { backgroundColor: colors.primary + "20" }, { borderBottomColor: colors.border }]}
                     onPress={() => setSelectedItemForMovement(item)}
                   >
-                    <Text style={[styles.itemSelectorQty, { color: colors.muted }]}>{item.currentQuantity} {item.unit}</Text>
+                    <Text style={[styles.itemSelectorQty, { color: colors.muted }]}>{formatWarehouseQuantity(item.currentQuantity, item)}</Text>
                     <Text style={[styles.itemSelectorName, { color: colors.foreground }]}>{item.name}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             </View>
+            <View style={styles.formGroup}>
+              <Text style={[styles.formLabel, { color: colors.foreground }]}>وحدة الحركة</Text>
+              <View style={styles.movTypeRow}>
+                <TouchableOpacity style={[styles.movTypeBtn, movementForm.movementUnit === "piece" && { backgroundColor: colors.primary }]} onPress={() => setMovementForm((form) => ({ ...form, movementUnit: "piece" }))}>
+                  <Text style={[styles.movTypeBtnText, { color: movementForm.movementUnit === "piece" ? "#fff" : colors.muted }]}>قطعة</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.movTypeBtn, movementForm.movementUnit === "package" && { backgroundColor: colors.primary }]} onPress={() => setMovementForm((form) => ({ ...form, movementUnit: "package" }))}>
+                  <Text style={[styles.movTypeBtnText, { color: movementForm.movementUnit === "package" ? "#fff" : colors.muted }]}>طرد</Text>
+                </TouchableOpacity>
+              </View>
+              {selectedItemForMovement ? <Text style={[styles.unitHelperText, { color: colors.muted }]}>الطرد الواحد = {getPiecesPerPackage(selectedItemForMovement)} قطعة.</Text> : null}
+            </View>
 
             {[
-              { key: "quantity", label: "الكمية *", placeholder: "0", keyboardType: "numeric" as const },
+              { key: "quantity", label: `الكمية (${movementForm.movementUnit === "package" ? "طرود" : "قطع"}) *`, placeholder: "0", keyboardType: "numeric" as const },
               { key: "notes", label: "ملاحظات", placeholder: "سبب الحركة..." },
             ].map((field) => (
               <View key={field.key} style={styles.formGroup}>
@@ -503,7 +523,6 @@ export default function WarehouseModule() {
             </TouchableOpacity>
           </View>
         </View>
-        </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
       <DateRangePickerModal visible={showMovementDatePicker} startDate={fromIsoDate(movementForm.movementDate)} endDate={fromIsoDate(movementForm.movementDate)} selectionMode="single" title="تاريخ حركة المخزون" onCancel={() => setShowMovementDatePicker(false)} onConfirm={(date) => { setMovementForm((current) => ({ ...current, movementDate: toIsoDate(date) })); setShowMovementDatePicker(false); }} />
@@ -535,7 +554,7 @@ export default function WarehouseModule() {
       <ConfirmDialog
         visible={movementSavePending}
         title="تأكيد حركة المخزون"
-        message={selectedItemForMovement ? `سيتم ${movementForm.movementType === "in" ? "إدخال" : "إخراج"} ${movementForm.quantity} ${selectedItemForMovement.unit} من مادة «${selectedItemForMovement.name}».` : ""}
+        message={selectedItemForMovement ? `سيتم ${movementForm.movementType === "in" ? "إدخال" : "إخراج"} ${movementForm.quantity} ${movementForm.movementUnit === "package" ? "طرد" : "قطعة"} من مادة «${selectedItemForMovement.name}».` : ""}
         confirmText="تأكيد الحركة"
         icon="swap-horiz"
         onCancel={() => setMovementSavePending(false)}
@@ -571,8 +590,8 @@ export default function WarehouseModule() {
         addLabel={activeTab === "tools" ? "أداة جديدة" : activeTab === "items" ? "إضافة مادة" : "حركة مخزون"}
         onAdd={canCreate ? () => {
           if (activeTab === "tools") { setToolOpenSignal((value) => value + 1); return; }
-          if (activeTab === "movements") { setMovementForm({ movementType: "in", quantity: "", notes: "", movementDate: new Date().toISOString().split("T")[0] }); setShowMovementModal(true); return; }
-          setEditingItem(null); setItemForm({ name: "", category: categories[0]?.id || "gifts", unit: "قطعة", currentQuantity: "", minimumQuantity: "5", description: "" }); setShowItemModal(true);
+          if (activeTab === "movements") { setMovementForm({ movementType: "in", movementUnit: "package", quantity: "", notes: "", movementDate: new Date().toISOString().split("T")[0] }); setShowMovementModal(true); return; }
+          setEditingItem(null); setItemForm({ name: "", category: categories[0]?.id || "gifts", packageCount: "", piecesPerPackage: "", minimumQuantity: "5", description: "" }); setShowItemModal(true);
         } : undefined}
         onSettings={() => setReportSettingsOpen(true)}
         onExport={(format) => void exportUnifiedWarehouseReport(format)}
@@ -624,6 +643,8 @@ const styles = StyleSheet.create({
   modalContent: { flex: 1, padding: DESIGN.spacing.lg },
   formGroup: { marginBottom: DESIGN.spacing.lg },
   formLabel: { fontSize: 14, fontWeight: "600" as any, marginBottom: DESIGN.spacing.sm, textAlign: "right" },
+  packageHint: { borderWidth: 1, borderRadius: DESIGN.radius.sm, minHeight: 58, padding: DESIGN.spacing.md, marginBottom: DESIGN.spacing.lg, flexDirection: "row", alignItems: "center", gap: 9 },
+  packageHintText: { flex: 1, fontSize: 11, fontWeight: "600" as any, textAlign: "right", lineHeight: 17 },
   formInput: { borderWidth: 1, borderRadius: DESIGN.radius.sm, padding: DESIGN.spacing.md, minHeight: DESIGN.control.standard, fontSize: 15 },
   datePickerButton: { minHeight: DESIGN.control.standard, borderRadius: DESIGN.radius.sm, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   datePickerText: { fontSize: 15, fontWeight: "600" as any },
@@ -639,6 +660,7 @@ const styles = StyleSheet.create({
   movTypeRow: { flexDirection: "row", gap: 10 },
   movTypeBtn: { flex: 1, minHeight: DESIGN.control.standard, borderRadius: DESIGN.radius.sm, backgroundColor: "#E5E7EB", alignItems: "center", justifyContent: "center" },
   movTypeBtnText: { fontSize: 14, fontWeight: "600" as any },
+  unitHelperText: { marginTop: 7, fontSize: 11, textAlign: "right" },
   itemSelector: { maxHeight: 150, borderWidth: 1, borderRadius: DESIGN.radius.sm, borderColor: "#E5E7EB" },
   itemSelectorOption: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 10, borderBottomWidth: 0.5 },
   itemSelectorName: { fontSize: 14, fontWeight: "500" as any },

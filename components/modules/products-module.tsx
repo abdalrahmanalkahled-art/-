@@ -8,8 +8,6 @@ import {
   Modal,
   ScrollView,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -469,11 +467,7 @@ export function ProductsModule() {
       {/* Add Product Modal */}
       <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1, backgroundColor: colors.background }}
-          >
-            <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setShowModal(false)}>
                   <MaterialIcons name="close" size={24} color={colors.foreground} />
@@ -584,18 +578,13 @@ export function ProductsModule() {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
 
       {/* Add Category Modal */}
       <FloatingFormModal visible={showCategoryModal} onClose={() => { setShowCategoryModal(false); setEditingCategory(null); setCategoryForm({ name: "" }); }} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1, backgroundColor: colors.background }}
-          >
-            <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity
                   onPress={() => {
@@ -681,18 +670,13 @@ export function ProductsModule() {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
 
       {/* Add Competitor Modal */}
       <FloatingFormModal visible={showCompetitorModal} onClose={() => setShowCompetitorModal(false)} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{ flex: 1, backgroundColor: colors.background }}
-          >
-            <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setShowCompetitorModal(false)}>
                   <MaterialIcons name="close" size={24} color={colors.foreground} />
@@ -722,7 +706,6 @@ export function ProductsModule() {
                 </TouchableOpacity>
               </View>
             </View>
-          </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
 
