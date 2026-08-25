@@ -12,9 +12,14 @@ function positiveWholeNumber(value: unknown, fallback: number): number {
 }
 
 function positiveDecimal(value: unknown, fallback: number): number {
-  const normalized = typeof value === "string" ? value.replace(",", ".") : value;
+  return parsePositiveWarehouseDecimal(value) ?? fallback;
+}
+
+/** تقبل الإدخال المحلي بالفاصلة أو النقطة وتعيد قيمة موجبة فقط. */
+export function parsePositiveWarehouseDecimal(value: unknown): number | undefined {
+  const normalized = typeof value === "string" ? value.trim().replace(",", ".") : value;
   const parsed = Number(normalized);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 function formatDecimal(value: number): string {
@@ -28,7 +33,7 @@ export function getPiecesPerPackage(item: Pick<WarehousePackageQuantity, "pieces
 
 /** تحتفظ currentQuantity دائماً بإجمالي القطع كي لا تتعطل السجلات القديمة. */
 export function calculatePackagePieces(packageCount: unknown, piecesPerPackage: unknown): number {
-  return positiveWholeNumber(packageCount, 0) * positiveWholeNumber(piecesPerPackage, 0);
+  return positiveDecimal(packageCount, 0) * positiveWholeNumber(piecesPerPackage, 0);
 }
 
 export function calculateMovementPieces(quantity: unknown, unit: WarehouseMovementUnit, item: Pick<WarehousePackageQuantity, "piecesPerPackage">): number {

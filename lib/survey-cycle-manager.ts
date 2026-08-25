@@ -31,10 +31,16 @@ function sortResultsByDate(results: SurveyResult[]): SurveyResult[] {
 /** يرتب الدورات الأحدث أولاً مع أولوية لوقت الإغلاق الفعلي. */
 export function sortSurveyCyclesNewestFirst(cycles: SurveyCycle[]): SurveyCycle[] {
   return [...cycles].sort((left, right) => {
-    const leftDate = left.closedAt || left.endDate || left.startDate || left.createdAt;
-    const rightDate = right.closedAt || right.endDate || right.startDate || right.createdAt;
-    return rightDate.localeCompare(leftDate);
+    const byClosedAt = cycleRecencyTimestamp(right) - cycleRecencyTimestamp(left);
+    return byClosedAt || right.createdAt.localeCompare(left.createdAt) || right.id.localeCompare(left.id);
   });
+}
+
+function cycleRecencyTimestamp(cycle: SurveyCycle): number {
+  const preferredDate = cycle.closedAt || cycle.endDate || cycle.startDate || cycle.createdAt;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(preferredDate) ? `${preferredDate}T23:59:59.999` : preferredDate;
+  const timestamp = new Date(normalized).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function makeCycleId(): string {

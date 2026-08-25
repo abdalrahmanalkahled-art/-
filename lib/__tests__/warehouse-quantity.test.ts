@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateMovementPieces, calculatePackagePieces, formatMovementQuantity, formatWarehouseQuantity } from "../warehouse-quantity";
+import { calculateMovementPieces, calculatePackagePieces, formatMovementQuantity, formatWarehouseQuantity, parsePositiveWarehouseDecimal } from "../warehouse-quantity";
 
 describe("كميات المستودع بالطرود والقطع", () => {
   it("يخزن المخزون كإجمالي قطع ويعرضه كطرود مع القطع المتبقية", () => {
@@ -17,6 +17,13 @@ describe("كميات المستودع بالطرود والقطع", () => {
     expect(formatMovementQuantity({ quantity: 48, movementUnit: "package", enteredQuantity: 2 }, item)).toBe("2 طرد");
     expect(calculateMovementPieces("0.5", "package", item)).toBe(12);
     expect(formatMovementQuantity({ quantity: 12, movementUnit: "package", enteredQuantity: 0.5 }, item)).toBe("0.5 طرد");
+  });
+
+  it("يقبل الطرد العشري بالفاصلة أو النقطة إذا أنتج عدداً كاملاً من القطع", () => {
+    expect(parsePositiveWarehouseDecimal("0,5")).toBe(0.5);
+    expect(calculatePackagePieces("0,5", 24)).toBe(12);
+    expect(calculatePackagePieces("0.5", 24)).toBe(12);
+    expect(calculatePackagePieces("0.5", 25)).toBe(12.5);
   });
 
   it("يعرض سجل المادة القديم المحفوظ بالقطعة من دون تعطيل", () => {

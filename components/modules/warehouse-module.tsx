@@ -31,7 +31,7 @@ import { DEFAULT_WAREHOUSE_REPORT_SETTINGS, type WarehouseReportSettings } from 
 import type { WarehouseTool } from "@/lib/warehouse-tools";
 import { DESIGN } from "@/lib/design-system";
 import { WarehouseMaterialDetailsSheet } from "@/components/warehouse-detail-sheets";
-import { calculateMovementPieces, calculatePackagePieces, formatMovementQuantity, formatWarehouseQuantity, getPiecesPerPackage, type WarehouseMovementUnit } from "@/lib/warehouse-quantity";
+import { calculateMovementPieces, calculatePackagePieces, formatMovementQuantity, formatWarehouseQuantity, getPiecesPerPackage, parsePositiveWarehouseDecimal, type WarehouseMovementUnit } from "@/lib/warehouse-quantity";
 
 
 interface WarehouseItem {
@@ -116,18 +116,19 @@ export default function WarehouseModule() {
 
   const handleSaveItem = async () => {
     if (!itemForm.name.trim()) { showNotice("بيانات ناقصة", "أدخل اسم المادة قبل الحفظ.", "inventory"); return; }
-    if (!editingItem && (!Number.isInteger(Number(itemForm.packageCount)) || Number(itemForm.packageCount) <= 0 || !Number.isInteger(Number(itemForm.piecesPerPackage)) || Number(itemForm.piecesPerPackage) <= 0)) {
-      showNotice("بيانات ناقصة", "أدخل عدد الطرود وعدد القطع في الطرد كأرقام صحيحة أكبر من صفر.", "inventory");
+    const packageCount = parsePositiveWarehouseDecimal(itemForm.packageCount);
+    const piecesPerPackage = Number(itemForm.piecesPerPackage);
+    const initialPieces = calculatePackagePieces(packageCount, piecesPerPackage);
+    if (!editingItem && (!packageCount || !Number.isInteger(piecesPerPackage) || piecesPerPackage <= 0 || !Number.isInteger(initialPieces))) {
+      showNotice("كمية غير قابلة للتحويل", "أدخل عدداً موجباً للطرود وعدداً صحيحاً للقطع في الطرد. يُقبل 0.5 طرد عندما ينتج عنه عدد كامل من القطع.", "inventory");
       return;
     }
     const allItems = await getItems<WarehouseItem>(STORAGE_KEYS.WAREHOUSE_ITEMS);
     if (editingItem) {
-      const updated = allItems.map((i) => i.id === editingItem.id ? { ...i, name: itemForm.name.trim(), category: itemForm.category, unit: "طرد", piecesPerPackage: parseInt(itemForm.piecesPerPackage) || getPiecesPerPackage(i), packageCount: Math.floor(i.currentQuantity / (parseInt(itemForm.piecesPerPackage) || getPiecesPerPackage(i))), minimumQuantity: parseInt(itemForm.minimumQuantity) || 5, description: itemForm.description } : i);
+      const updated = allItems.map((i) => i.id === editingItem.id ? { ...i, name: itemForm.name.trim(), category: itemForm.category, unit: "طرد", piecesPerPackage: Number.isInteger(piecesPerPackage) && piecesPerPackage > 0 ? piecesPerPackage : getPiecesPerPackage(i), packageCount: i.currentQuantity / (Number.isInteger(piecesPerPackage) && piecesPerPackage > 0 ? piecesPerPackage : getPiecesPerPackage(i)), minimumQuantity: parseInt(itemForm.minimumQuantity) || 5, description: itemForm.description } : i);
       await saveItems(STORAGE_KEYS.WAREHOUSE_ITEMS, updated);
     } else {
-      const packageCount = parseInt(itemForm.packageCount);
-      const piecesPerPackage = parseInt(itemForm.piecesPerPackage);
-      const newItem: WarehouseItem = { id: Date.now().toString(), name: itemForm.name.trim(), category: itemForm.category, unit: "طرد", packageCount, piecesPerPackage, currentQuantity: calculatePackagePieces(packageCount, piecesPerPackage), minimumQuantity: parseInt(itemForm.minimumQuantity) || 5, description: itemForm.description, isActive: true, createdAt: new Date().toISOString() };
+      const newItem: WarehouseItem = { id: Date.now().toString(), name: itemForm.name.trim(), category: itemForm.category, unit: "طرد", packageCount: packageCount!, piecesPerPackage, currentQuantity: initialPieces, minimumQuantity: parseInt(itemForm.minimumQuantity) || 5, description: itemForm.description, isActive: true, createdAt: new Date().toISOString() };
       await saveItems(STORAGE_KEYS.WAREHOUSE_ITEMS, [...allItems, newItem]);
     }
     setShowItemModal(false);
@@ -148,7 +149,7 @@ export default function WarehouseModule() {
     const updatedItems = allItems.map((i) => {
       if (i.id === selectedItemForMovement.id) {
         const newQty = movementForm.movementType === "in" ? i.currentQuantity + qty : i.currentQuantity - qty;
-        return { ...i, currentQuantity: newQty, packageCount: Math.floor(newQty / getPiecesPerPackage(i)) };
+        return { ...i, currentQuantity: newQty, packageCount: newQty / getPiecesPerPackage(i) };
       }
       return i;
     });
@@ -175,7 +176,7 @@ export default function WarehouseModule() {
   };
 
   const requestSaveMovement = () => {
-    const enteredQuantity = Number(movementForm.quantity.replace(",", "."));
+    const enteredQuantity = parsePositiveWarehouseDecimal(movementForm.quantity) ?? 0;
     const quantityInPieces = selectedItemForMovement ? calculateMovementPieces(enteredQuantity, movementForm.movementUnit, selectedItemForMovement) : 0;
     if (!selectedItemForMovement || !Number.isFinite(enteredQuantity) || enteredQuantity <= 0 || !Number.isInteger(quantityInPieces) || quantityInPieces <= 0) {
       showNotice("بيانات ناقصة", "أدخل كمية موجبة، ويجب أن تنتج عن الطرود الجزئية عدداً كاملاً من القطع.", "swap-horiz");
@@ -369,7 +370,7 @@ export default function WarehouseModule() {
           <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
             {[
               { key: "name", label: "اسم المادة *", placeholder: "أدخل اسم المادة" },
-              ...(!editingItem ? [{ key: "packageCount", label: "عدد الطرود *", placeholder: "مثال: 10", keyboardType: "numeric" as const }] : []),
+              ...(!editingItem ? [{ key: "packageCount", label: "عدد الطرود *", placeholder: "مثال: 0.5 أو 10", keyboardType: "decimal-pad" as const }] : []),
               { key: "piecesPerPackage", label: "عدد القطع في الطرد الواحد *", placeholder: "مثال: 24", keyboardType: "numeric" as const },
               { key: "minimumQuantity", label: "الحد الأدنى للتنبيه (بالقطع)", placeholder: "5", keyboardType: "numeric" as const },
             ].map((field) => (

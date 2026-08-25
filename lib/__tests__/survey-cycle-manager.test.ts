@@ -41,6 +41,15 @@ describe("دورات الاستبيان الزمنية", () => {
     expect(sorted.map((cycle) => cycle.id)).toEqual(["new", "old"]);
   });
 
+  it("يستخدم وقت الإغلاق الفعلي عند تطابق تاريخ نهاية دورتين في سجل الاستبيانات", () => {
+    const sorted = sortSurveyCyclesNewestFirst([
+      { id: "closed-morning", templateId: "template-1", templateName: "دراسة مسحوق", name: "صباحية", startDate: "2026-08-01", endDate: "2026-08-03", createdAt: "2026-08-01T10:00:00.000Z", closedAt: "2026-08-04T08:00:00.000Z", resultIds: [] },
+      { id: "closed-evening", templateId: "template-1", templateName: "دراسة مسحوق", name: "مسائية", startDate: "2026-08-01", endDate: "2026-08-03", createdAt: "2026-08-01T10:00:00.000Z", closedAt: "2026-08-04T18:00:00.000Z", resultIds: [] },
+    ]);
+
+    expect(sorted.map((cycle) => cycle.id)).toEqual(["closed-evening", "closed-morning"]);
+  });
+
   it("يعتبر النتائج القديمة غير الموسومة دورة نشطة واحدة ويمنع تكرار المحل فيها", () => {
     const results = [makeResult("result-1", "store-1", "2026-03-18")];
 
