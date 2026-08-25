@@ -11,6 +11,7 @@ type Palette = ReturnType<typeof useColors>;
 
 const CHART_LABELS: Record<ChartType, string> = { line: "خطي", bar: "أعمدة", pie: "دائري", area: "مساحي", scatter: "نقاط", radar: "رادار", candlestick: "شمعدان" };
 const LABEL_FONT_SIZES: Record<ChartLabelSize, number> = { small: 6, medium: 7, large: 9 };
+export const MAX_BARS_BEFORE_HORIZONTAL_SCROLL = 8;
 
 export function AnalyticsTrackingChart({ analytics, scopeLabel, chartType = "line", chartOrientation = "vertical", selectedSingleCycle = false, showValues = false, showProductNames = false, labelSize = "medium", rotateProductNames = false }: { analytics: AdvancedSurveyAnalytics; scopeLabel: string; chartType?: ChartType; chartOrientation?: ChartOrientation; selectedSingleCycle?: boolean; showValues?: boolean; showProductNames?: boolean; labelSize?: ChartLabelSize; rotateProductNames?: boolean }) {
   const colors = useColors();
@@ -22,9 +23,9 @@ export function AnalyticsTrackingChart({ analytics, scopeLabel, chartType = "lin
   const effectiveOrientation: ChartOrientation = usesProductAxis ? "vertical" : chartOrientation;
   const productLabelDepth = (showProductNames || usesProductAxis) ? (rotateProductNames ? 54 : 20) : 0;
   const isHorizontalBar = chartType === "bar" && effectiveOrientation === "horizontal";
-  const showNativeProductLabels = showProductNames && chartType === "bar" && !isHorizontalBar;
+  const showNativeProductLabels = false;
   const totalBars = analytics.points.length * products.length;
-  const shouldScrollBars = ((chartType === "bar" && effectiveOrientation === "vertical") || usesProductAxis) && totalBars > 10;
+  const shouldScrollBars = ((chartType === "bar" && effectiveOrientation === "vertical") || usesProductAxis) && totalBars > MAX_BARS_BEFORE_HORIZONTAL_SCROLL;
   const minimumScrollableWidth = 48 + totalBars * 16 + (totalBars + 1) * 8;
   const width = shouldScrollBars ? Math.max(baseWidth, minimumScrollableWidth) : baseWidth;
   const chartHeight = isHorizontalBar ? Math.max(208, products.length * 34 + 54) : 208 + (showValues ? 18 : 0) + productLabelDepth;
@@ -77,8 +78,8 @@ function BarChart({ products, count, getValue, colors, width, padding, yAt, show
   const { gap: dynamicGap, barWidth } = getDynamicBarLayout(width - padding.left - padding.right, count, products.length);
   const baseY = yAt(0);
   return products.flatMap((product, productIndex) => Array.from({ length: count }).map((_, index) => {
-    const value = getValue(product.productId, index); const height = baseY - yAt(value); const flatIndex = index * products.length + productIndex; const x = padding.left + dynamicGap + flatIndex * (barWidth + dynamicGap); const renderedWidth = Math.max(1.5, barWidth); const center = x + renderedWidth / 2; const valueY = baseY + (showProductNames ? (rotateProductNames ? 52 : 27) : 13);
-    return <G key={`${product.productId}-${index}`}><Rect x={x} y={yAt(value)} width={renderedWidth} height={height} rx={3} fill={product.color} />{showValues ? <SvgText x={center} y={valueY} textAnchor="middle" fill={product.color} fontSize={labelFontSize + 1} fontWeight="700">{value}%</SvgText> : null}</G>;
+    const value = getValue(product.productId, index); const height = baseY - yAt(value); const flatIndex = index * products.length + productIndex; const x = padding.left + dynamicGap + flatIndex * (barWidth + dynamicGap); const renderedWidth = Math.max(1.5, barWidth); const center = x + renderedWidth / 2; const valueY = Math.max(padding.top + labelFontSize + 2, yAt(value) - 5); const nameY = baseY + (rotateProductNames ? 48 : 17);
+    return <G key={`${product.productId}-${index}`}><Rect x={x} y={yAt(value)} width={renderedWidth} height={height} rx={3} fill={product.color} />{showValues ? <SvgText x={center} y={valueY} textAnchor="middle" fill={product.color} fontSize={labelFontSize + 1} fontWeight="700">{value}%</SvgText> : null}{showProductNames ? <SvgText x={center} y={nameY} textAnchor={rotateProductNames ? "end" : "middle"} transform={rotateProductNames ? `rotate(-45 ${center} ${nameY})` : undefined} fill={colors.foreground} fontSize={labelFontSize} fontWeight="700">{toWesternDigits(product.productName)}</SvgText> : null}</G>;
   }));
 }
 

@@ -2,7 +2,7 @@ import { Alert, Platform } from "react-native";
 
 import type { AnalyticsReportData } from "@/lib/advanced-analytics-report";
 import { beginOperationProgress } from "@/lib/operation-progress";
-import { addBarChartSlide, addCoverSlide, addListSlide, addMetricsSlide, addPagedMediaSlides, chunkPptxItems, createPptxPresentation, PPTX_COLORS, preparePptxReportMedia, saveAndSharePptx, type PptxBar, type PptxListItem, type PptxMediaCandidate, writePptxBase64 } from "@/lib/pptx-report-kit";
+import { addBarChartSlide, addCoverSlide, addGroupedStoreMediaSlides, addListSlide, addMetricsSlide, chunkPptxItems, createPptxPresentation, PPTX_COLORS, preparePptxReportMedia, saveAndSharePptx, type PptxBar, type PptxListItem, type PptxMediaCandidate, writePptxBase64 } from "@/lib/pptx-report-kit";
 import type { PptxReportSectionOption, PptxReportSettings } from "@/lib/pptx-report-settings";
 
 export const ADVANCED_ANALYTICS_PPTX_SETTINGS_KEY = "madar_advanced_analytics_pptx_settings";
@@ -57,7 +57,7 @@ export function buildAdvancedAnalyticsPptx(report: AnalyticsReportData, settings
   }
   if (settings.sections.productDetails !== false) addCategoryProductDetailSlides(pptx, report);
   if (settings.sections.details !== false && (report.marketingSignages.length || report.marketingStands.length)) addListSlide(pptx, "تفاصيل الأصول التسويقية", "لوحات وستاندات مرتبطة ضمن النطاق، من دون إدراج قائمة المحلات.", detailsForReport(report), PPTX_COLORS.blue);
-  if (settings.includeMedia) addPagedMediaSlides(pptx, "وسائط توثيق مختارة", "صور الدورات أو الأصول وفق الإعدادات، موزعة تلقائياً على شرائح مريحة.", preparedMedia, PPTX_COLORS.violet);
+  if (settings.includeMedia) addGroupedStoreMediaSlides(pptx, "وسائط توثيق المحلات", "صور كل محل مجمعة في بطاقة واسعة، وتوزع تلقائياً على شرائح مريحة.", preparedMedia, PPTX_COLORS.violet);
   addListSlide(pptx, "خلاصة التقرير", report.dataWarnings.length ? "تنبيهات جودة البيانات التي يجب أخذها في الاعتبار عند قراءة المؤشرات." : "العرض جاهز للمراجعة والمشاركة ويعكس نطاق المرشحات المختارة.", report.dataWarnings.length ? report.dataWarnings.map((warning) => ({ title: warning, accent: PPTX_COLORS.amber })) : [{ title: "تم إنشاء العرض محلياً", detail: "يتضمن الشرائح التي فُعّلت في إعدادات PowerPoint، مع تلاشي تلقائي اختياري بين الشرائح.", badge: "جاهز", accent: PPTX_COLORS.green }], PPTX_COLORS.violet);
   return pptx;
 }

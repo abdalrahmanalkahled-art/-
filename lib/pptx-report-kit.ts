@@ -13,7 +13,7 @@ export const PPTX_PAGE = { width: 13.333, height: 7.5 };
 export const PPTX_COLORS = { navy: "0F2B5B", blue: "1A56DB", violet: "7C3AED", green: "059669", amber: "D97706", red: "DC2626", ink: "172033", muted: "64748B", pale: "F6F8FC", line: "DCE3F0", white: "FFFFFF" } as const;
 
 export type PptxSlide = ReturnType<PptxGenJS["addSlide"]>;
-export type PptxMediaCandidate = { uri?: string; title: string; subtitle?: string; metadata?: Partial<Record<PptxMediaCardField, string>> };
+export type PptxMediaCandidate = { uri?: string; title: string; subtitle?: string; groupKey?: string; metadata?: Partial<Record<PptxMediaCardField, string>> };
 export type PreparedPptxMedia = Omit<PptxMediaCandidate, "uri"> & { data: string };
 export type PptxMetric = { label: string; value: string; accent?: string; description?: string };
 export type PptxListItem = { title: string; detail?: string; badge?: string; accent?: string };
@@ -136,7 +136,7 @@ export function addMediaSlide(pptx: PptxGenJS, title: string, description: strin
     const metadata = mediaCaption(entry);
     const captionHeight = metadata.length > 2 ? 0.71 : metadata.length > 1 ? 0.61 : 0.5;
     slide.addShape(pptx.ShapeType.roundRect, { x, y, w: frameWidth, h: frameHeight, rectRadius: 0.06, fill: { color: "E9EEF7" }, line: { color: PPTX_COLORS.line, width: 0.6 } });
-    slide.addImage({ data: entry.data, x: x + 0.04, y: y + 0.04, w: frameWidth - 0.08, h: frameHeight - captionHeight - 0.08, rounding: true });
+    slide.addImage({ data: entry.data, x: x + 0.04, y: y + 0.04, w: frameWidth - 0.08, h: frameHeight - captionHeight - 0.08 });
     slide.addShape(pptx.ShapeType.rect, { x: x + 0.04, y: y + frameHeight - captionHeight - 0.04, w: frameWidth - 0.08, h: captionHeight, fill: { color: PPTX_COLORS.navy, transparency: 7 }, line: { color: PPTX_COLORS.navy, transparency: 100 } });
     slide.addText(entry.title, { x: x + 0.14, y: y + frameHeight - captionHeight + 0.07, w: frameWidth - 0.27, h: 0.1, fontFace: "Arial", fontSize: 7.8, bold: true, color: PPTX_COLORS.white, align: "right", rtlMode: true, margin: 0, fit: "shrink" });
     if (metadata.length) slide.addText(metadata.join(" · "), { x: x + 0.14, y: y + frameHeight - captionHeight + 0.24, w: frameWidth - 0.27, h: captionHeight - 0.28, fontFace: "Arial", fontSize: 6.8, color: "D8E4FB", align: "right", rtlMode: true, margin: 0, fit: "shrink" });
@@ -151,6 +151,54 @@ export function addPagedMediaSlides(pptx: PptxGenJS, title: string, description:
   return chunkPptxItems(media, perSlide).map((page, index) => addMediaSlide(pptx, totalPages > 1 ? `${title} (${index + 1}/${totalPages})` : title, description, page, accent));
 }
 
+/** يجمع صور المحل في بطاقة واسعة تعادل بطاقتين، وبحد أربع صور حتى تبقى التفاصيل مقروءة. */
+export function groupPptxMediaForCards(media: PreparedPptxMedia[]): PreparedPptxMedia[][] {
+  const groups = new Map<string, PreparedPptxMedia[]>();
+  media.forEach((entry) => {
+    const key = entry.groupKey || `${entry.title}::${entry.metadata?.storeName || ""}`;
+    groups.set(key, [...(groups.get(key) || []), entry]);
+  });
+  return Array.from(groups.values()).flatMap((entries) => chunkPptxItems(entries, 4));
+}
+
+export function addGroupedStoreMediaSlides(pptx: PptxGenJS, title: string, description: string, media: PreparedPptxMedia[], accent = PPTX_COLORS.violet) {
+  const cards = groupPptxMediaForCards(media);
+  if (!cards.length) return [addMediaSlide(pptx, title, description, [], accent)];
+  const pages = chunkPptxItems(cards, 2);
+  return pages.map((page, index) => {
+    const slide = addStandardSlide(pptx, pages.length > 1 ? `${title} (${index + 1}/${pages.length})` : title, description, accent);
+    page.forEach((entries, row) => addGroupedStoreMediaCard(slide, pptx, entries, 2 + row * 2.35));
+    return slide;
+  });
+}
+
+function addGroupedStoreMediaCard(slide: PptxSlide, pptx: PptxGenJS, entries: PreparedPptxMedia[], y: number) {
+  const first = entries[0];
+  if (!first) return;
+  const x = 2.8;
+  const width = 7.74;
+  const height = 2.12;
+  const captionHeight = 0.42;
+  const metadata = mediaCaption(first);
+  const imageGap = 0.08;
+  const imageAreaHeight = height - captionHeight - 0.16;
+  const columns = entries.length === 1 ? 1 : 2;
+  const rows = Math.ceil(entries.length / columns);
+  const imageWidth = (width - 0.16 - imageGap * (columns - 1)) / columns;
+  const imageHeight = (imageAreaHeight - imageGap * (rows - 1)) / rows;
+  slide.addShape(pptx.ShapeType.roundRect, { x, y, w: width, h: height, rectRadius: 0.06, fill: { color: PPTX_COLORS.white }, line: { color: PPTX_COLORS.line, width: 0.7 } });
+  entries.forEach((entry, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const imageX = x + 0.08 + (columns - 1 - col) * (imageWidth + imageGap);
+    const imageY = y + 0.08 + row * (imageHeight + imageGap);
+    slide.addImage({ data: entry.data, x: imageX, y: imageY, w: imageWidth, h: imageHeight });
+  });
+  slide.addShape(pptx.ShapeType.rect, { x: x + 0.06, y: y + height - captionHeight - 0.05, w: width - 0.12, h: captionHeight, fill: { color: PPTX_COLORS.navy, transparency: 5 }, line: { color: PPTX_COLORS.navy, transparency: 100 } });
+  slide.addText(first.title, { x: x + 0.18, y: y + height - captionHeight + 0.02, w: width - 0.36, h: 0.12, fontFace: "Arial", fontSize: 8.5, bold: true, color: PPTX_COLORS.white, align: "right", rtlMode: true, margin: 0, fit: "shrink" });
+  if (metadata.length) slide.addText(metadata.join(" · "), { x: x + 0.18, y: y + height - captionHeight + 0.18, w: width - 0.36, h: 0.12, fontFace: "Arial", fontSize: 6.7, color: "D8E4FB", align: "right", rtlMode: true, margin: 0, fit: "shrink" });
+}
+
 export function limitPptxMediaCandidates(candidates: PptxMediaCandidate[], mediaLimit: PptxReportSettings["mediaLimit"]): PptxMediaCandidate[] {
   const unique = Array.from(new Map(candidates.filter((candidate) => Boolean(candidate.uri)).map((candidate) => [candidate.uri!, candidate])).values());
   return mediaLimit === "all" ? unique : unique.slice(0, mediaLimit);
@@ -163,7 +211,7 @@ export async function preparePptxReportMedia(candidates: PptxMediaCandidate[], s
   const profile = mediaProfile(settings.mediaCompression);
   for (const [index, candidate] of unique.entries()) {
     const data = await preparePdfImageDataUri(candidate.uri, profile).catch(() => undefined);
-    if (data) output.push({ title: candidate.title, ...(candidate.subtitle ? { subtitle: candidate.subtitle } : {}), ...(candidate.metadata ? { metadata: orderedMediaMetadata(candidate.metadata, settings) } : {}), data });
+    if (data) output.push({ title: candidate.title, ...(candidate.subtitle ? { subtitle: candidate.subtitle } : {}), ...(candidate.groupKey ? { groupKey: candidate.groupKey } : {}), ...(candidate.metadata ? { metadata: orderedMediaMetadata(candidate.metadata, settings) } : {}), data });
     onProgress?.(index + 1, unique.length);
   }
   return output;

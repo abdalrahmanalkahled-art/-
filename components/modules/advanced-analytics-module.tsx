@@ -185,7 +185,7 @@ export function AdvancedAnalyticsModule({ externalPackageId, combinedExternal, o
       const storeName = store?.name || result.storeName || "محل غير محدد";
       const region = store?.region || result.storeRegion || "غير محددة";
       const category = store?.category || "غير مصنف";
-      return [result.storePhotoUri, ...(result.storePhotoUris || [])].filter((uri): uri is string => Boolean(uri)).map((uri) => ({ uri, title: storeName, metadata: { storeName, region, category } }));
+      return [result.storePhotoUri, ...(result.storePhotoUris || [])].filter((uri): uri is string => Boolean(uri)).map((uri) => ({ uri, title: storeName, groupKey: result.storeId || storeName, metadata: { storeName, region, category } }));
     });
     const source = tab === "tracking" ? trackingMarketing : tab === "marketing" ? marketing : undefined;
     if (!source) return [];

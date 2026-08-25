@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { buildAdvancedAnalyticsPptx } from "@/lib/advanced-analytics-pptx-exporter";
 import type { AnalyticsReportData } from "@/lib/advanced-analytics-report";
 import { buildMarketingPlanPptx } from "@/lib/marketing-plan-pptx-exporter";
-import { limitPptxMediaCandidates, writePptxBase64 } from "@/lib/pptx-report-kit";
+import { groupPptxMediaForCards, limitPptxMediaCandidates, writePptxBase64 } from "@/lib/pptx-report-kit";
 import { createDefaultPptxReportSettings } from "@/lib/pptx-report-settings";
 
 const ANALYTICS_SECTIONS = ["overview", "presence", "categories", "decisions", "marketing", "productDetails", "details"].map((key) => ({ key, label: key, description: key }));
@@ -77,5 +77,15 @@ describe("تصدير PowerPoint المحلي", () => {
     const media = Array.from({ length: 12 }, (_, index) => ({ uri: `file:///photo-${index}.jpg`, title: `محل ${index}` }));
     expect(limitPptxMediaCandidates(media, "all")).toHaveLength(12);
     expect(limitPptxMediaCandidates(media, 6)).toHaveLength(6);
+  });
+
+  it("يجمع صور المحل الواحد في بطاقة عريضة ويقسم فقط ما يزيد على أربع صور", () => {
+    const grouped = groupPptxMediaForCards([
+      ...Array.from({ length: 5 }, (_, index) => ({ title: "محل أ", groupKey: "store-a", data: `data:image/jpeg;base64,${index}` })),
+      { title: "محل ب", groupKey: "store-b", data: "data:image/jpeg;base64,b" },
+    ]);
+
+    expect(grouped.map((card) => card.length)).toEqual([4, 1, 1]);
+    expect(grouped[0]?.every((image) => image.title === "محل أ")).toBe(true);
   });
 });
