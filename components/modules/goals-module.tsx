@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Modal, ScrollView, Alert,
+  TextInput, ScrollView, Alert,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,6 +21,9 @@ import { ReportFab } from "@/components/report-fab";
 import { exportTabReportExcel, exportTabReportPdf } from "@/lib/tab-report-exporter";
 import { getGoalImpactMetrics } from "@/lib/goal-impact-metrics";
 import { deriveGoalPeriod, getEffectiveGoalStatus, goalPeriodLabel, type GoalPeriod, type StoredGoalStatus } from "@/lib/goal-lifecycle";
+import { PptxReportSettingsModal } from "@/components/pptx-report-settings-modal";
+import { MARKETING_PLAN_PPTX_SECTIONS, MARKETING_PLAN_PPTX_SETTINGS_KEY, exportMarketingPlanPptx, type MarketingPlanPptxEvent } from "@/lib/marketing-plan-pptx-exporter";
+import { createDefaultPptxReportSettings, loadPptxReportSettings, savePptxReportSettings, type PptxReportSettings } from "@/lib/pptx-report-settings";
 
 interface MarketingTask {
   id: string;
@@ -75,6 +78,7 @@ const TASK_STATUS = [
 const GOAL_REPORT_SETTINGS_KEY = "madar_marketing_goals_report_settings";
 type GoalReportSettings = { includeProgress: boolean; includeEvents: boolean; includeBeneficiaries: boolean; includeGifts: boolean; includeRegions: boolean; };
 const DEFAULT_GOAL_REPORT_SETTINGS: GoalReportSettings = { includeProgress: true, includeEvents: true, includeBeneficiaries: true, includeGifts: true, includeRegions: true };
+const DEFAULT_MARKETING_PLAN_PPTX_SETTINGS = createDefaultPptxReportSettings("عرض الخطة التسويقية", MARKETING_PLAN_PPTX_SECTIONS);
 
 const toIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const fromIsoDate = (value: string) => value ? new Date(`${value}T12:00:00`) : null;
@@ -96,9 +100,11 @@ export default function GoalsModule() {
   const [showBrandOptions, setShowBrandOptions] = useState(false);
   const [showGoalDateRange, setShowGoalDateRange] = useState(false);
   const [showTaskDatePicker, setShowTaskDatePicker] = useState(false);
-  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+  const [exporting, setExporting] = useState<"pdf" | "excel" | "pptx" | null>(null);
   const [showReportSettings, setShowReportSettings] = useState(false);
+  const [showPptxSettings, setShowPptxSettings] = useState(false);
   const [reportSettings, setReportSettings] = useState<GoalReportSettings>(DEFAULT_GOAL_REPORT_SETTINGS);
+  const [pptxSettings, setPptxSettings] = useState<PptxReportSettings>(DEFAULT_MARKETING_PLAN_PPTX_SETTINGS);
   const [goalForm, setGoalForm] = useState({
     title: "", brandName: "", description: "", period: "monthly" as MarketingGoal["period"],
     startDate: new Date().toISOString().split("T")[0],
@@ -128,6 +134,7 @@ export default function GoalsModule() {
 
   useEffect(() => { void loadBrandOptions(); }, [loadBrandOptions]);
   useEffect(() => { void getItems<GoalReportSettings>(GOAL_REPORT_SETTINGS_KEY).then((saved) => setReportSettings({ ...DEFAULT_GOAL_REPORT_SETTINGS, ...(saved[0] || {}) })); }, []);
+  useEffect(() => { void loadPptxReportSettings(MARKETING_PLAN_PPTX_SETTINGS_KEY, DEFAULT_MARKETING_PLAN_PPTX_SETTINGS).then(setPptxSettings); }, []);
 
   const filtered = filterPeriod === "all" ? goals : goals.filter((g) => g.period === filterPeriod);
 
@@ -248,13 +255,14 @@ export default function GoalsModule() {
     await saveItems(GOAL_REPORT_SETTINGS_KEY, [next]);
   };
 
-  const handleExportGoals = async (format: "pdf" | "excel") => {
+  const handleExportGoals = async (format: "pdf" | "excel" | "pptx") => {
     setExporting(format);
     try {
       const events = await getItems<any>(STORAGE_KEYS.EVENTS);
       const scope = filtered;
       const allScopedEvents = events.filter((event) => scope.some((goal) => goal.id === event.goalId));
       const totalImpact = getGoalImpactMetrics(allScopedEvents);
+      if (format === "pptx") { await exportMarketingPlanPptx(scope, events as MarketingPlanPptxEvent[], pptxSettings); return; }
       const columns = ["الهدف", "الماركة", "الفترة", "الحالة", ...(reportSettings.includeProgress ? ["الإنجاز"] : []), ...(reportSettings.includeEvents ? ["فعاليات مرتبطة"] : []), ...(reportSettings.includeBeneficiaries ? ["المستفيدون"] : []), ...(reportSettings.includeGifts ? ["الهدايا"] : []), ...(reportSettings.includeRegions ? ["المناطق المغطاة"] : [])];
       const summary: Record<string, unknown> = { الهدف: "إجمالي الخطة ضمن النطاق", الماركة: "—", الفترة: "—", الحالة: "ملخص" };
       if (reportSettings.includeProgress) summary.الإنجاز = "—";
@@ -660,7 +668,8 @@ export default function GoalsModule() {
           </View>
         </SafeAreaView>
       </FloatingFormModal>
-      <ReportFab module="goals" addLabel="إضافة هدف" onAdd={openCreateGoal} onSettings={() => setShowReportSettings(true)} onExport={(format) => void handleExportGoals(format)} exporting={exporting} />
+      <PptxReportSettingsModal visible={showPptxSettings} title="إعدادات PowerPoint للخطة" description="تتحكم في العرض التقديمي للخطة فقط، ولا تغير إعدادات PDF أو Excel." sectionOptions={MARKETING_PLAN_PPTX_SECTIONS} settings={pptxSettings} onSave={async (nextSettings) => { await savePptxReportSettings(MARKETING_PLAN_PPTX_SETTINGS_KEY, nextSettings); setPptxSettings(nextSettings); setShowPptxSettings(false); }} onClose={() => setShowPptxSettings(false)} />
+      <ReportFab module="goals" addLabel="إضافة هدف" onAdd={openCreateGoal} onSettings={() => setShowReportSettings(true)} onPptxSettings={() => setShowPptxSettings(true)} onPptxExport={() => void handleExportGoals("pptx")} pptxExporting={exporting === "pptx"} onExport={(format) => void handleExportGoals(format)} exporting={exporting === "pptx" ? null : exporting} />
       <SuccessModal visible={goalSuccess.visible} message={goalSuccess.message} onClose={() => setGoalSuccess({ visible: false, message: "" })} />
     </View>
   );

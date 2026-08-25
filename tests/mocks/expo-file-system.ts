@@ -1,0 +1,10 @@
+export const documentDirectory = "file:///tmp/";
+export const cacheDirectory = "file:///tmp/";
+export const EncodingType = { Base64: "base64" };
+export const StorageAccessFramework = { readAsStringAsync: async () => "" };
+export const getInfoAsync = async () => ({ exists: false, isDirectory: false, size: 0 });
+export const readAsStringAsync = async () => "";
+export const writeAsStringAsync = async () => undefined;
+export const copyAsync = async () => undefined;
+export const deleteAsync = async () => undefined;
+export const makeDirectoryAsync = async () => undefined;
