@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 
@@ -35,6 +35,7 @@ const fromIsoDate = (value: string) => value ? new Date(`${value}T12:00:00`) : n
 export default function ExpensesModule() {
   const colors = useColors();
   const canCreate = useHasPermission("expenses", "create");
+  const canEdit = useHasPermission("expenses", "edit");
   const canDelete = useHasPermission("expenses", "delete");
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ManagedCategory[]>(DEFAULT_EXPENSE_CATEGORIES);
@@ -44,6 +45,7 @@ export default function ExpensesModule() {
   const [showExpenseDatePicker, setShowExpenseDatePicker] = useState(false);
   const [filterCat, setFilterCat] = useState("all");
   const [form, setForm] = useState({ title: "", amount: "", category: "other", expenseDate: new Date().toISOString().split("T")[0], notes: "" });
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expensePendingDelete, setExpensePendingDelete] = useState<string | null>(null);
   const [expenseActionTarget, setExpenseActionTarget] = useState<Expense | null>(null);
   const [reportSettings, setReportSettings] = useState<ExpenseReportSettings>(DEFAULT_EXPENSE_REPORT_SETTINGS);
@@ -70,7 +72,27 @@ export default function ExpensesModule() {
   const totalAmount = filtered.reduce((sum, expense) => sum + expense.amount, 0);
 
   const openNewExpense = () => {
+    setEditingExpense(null);
     setForm({ title: "", amount: "", category: categories.find((category) => category.id === "other")?.id ?? categories[0]?.id ?? "other", expenseDate: new Date().toISOString().split("T")[0], notes: "" });
+    setShowCategoryMenu(false);
+    setShowModal(true);
+  };
+
+  const closeExpenseForm = () => {
+    setShowModal(false);
+    setShowCategoryMenu(false);
+    setEditingExpense(null);
+  };
+
+  const openExpenseEdit = (expense: Expense) => {
+    setEditingExpense(expense);
+    setForm({
+      title: expense.title,
+      amount: String(expense.amount),
+      category: expense.category,
+      expenseDate: expense.expenseDate,
+      notes: expense.notes,
+    });
     setShowCategoryMenu(false);
     setShowModal(true);
   };
@@ -86,17 +108,22 @@ export default function ExpensesModule() {
       return;
     }
     const allExpenses = await getItems<Expense>(STORAGE_KEYS.EXPENSES);
-    const newExpense: Expense = {
-      id: Date.now().toString(),
+    const savedExpense: Expense = {
+      id: editingExpense?.id ?? Date.now().toString(),
       title: form.title.trim(),
       amount,
       category: form.category,
       expenseDate: form.expenseDate,
       notes: form.notes,
-      createdAt: new Date().toISOString(),
+      createdAt: editingExpense?.createdAt ?? new Date().toISOString(),
     };
-    await saveItems(STORAGE_KEYS.EXPENSES, [...allExpenses, newExpense]);
-    setShowModal(false);
+    await saveItems(
+      STORAGE_KEYS.EXPENSES,
+      editingExpense
+        ? allExpenses.map((expense) => expense.id === editingExpense.id ? savedExpense : expense)
+        : [...allExpenses, savedExpense],
+    );
+    closeExpenseForm();
     await loadData();
   };
 
@@ -187,12 +214,12 @@ export default function ExpensesModule() {
         ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="receipt" size={40} color={colors.muted} /><Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد صرفيات</Text></View>}
       />
 
-      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
+      <FloatingFormModal visible={showModal} onClose={closeExpenseForm} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
             <View style={[styles.modal, { backgroundColor: colors.background }]}> 
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => setShowModal(false)}><MaterialIcons name="close" size={24} color={colors.foreground} /></TouchableOpacity>
-                <Text style={[styles.modalTitle, { color: colors.foreground }]}>صرفية جديدة</Text>
+                <TouchableOpacity onPress={closeExpenseForm}><MaterialIcons name="close" size={24} color={colors.foreground} /></TouchableOpacity>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editingExpense ? "تعديل الصرفية" : "صرفية جديدة"}</Text>
                 <View style={{ width: 24 }} />
               </View>
               <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
@@ -233,8 +260,8 @@ export default function ExpensesModule() {
                 </View>
               </ScrollView>
               <View style={[styles.modalFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-                <TouchableOpacity style={[styles.footerBtn, { backgroundColor: colors.muted + "20" }]} onPress={() => setShowModal(false)}><Text style={[styles.cancelText, { color: colors.foreground }]}>إلغاء</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.footerBtn, { backgroundColor: colors.primary }]} onPress={() => void handleSave()}><Text style={styles.saveText}>حفظ</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.footerBtn, { backgroundColor: colors.muted + "20" }]} onPress={closeExpenseForm}><Text style={[styles.cancelText, { color: colors.foreground }]}>إلغاء</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.footerBtn, { backgroundColor: colors.primary }]} onPress={() => void handleSave()}><Text style={styles.saveText}>{editingExpense ? "حفظ التعديلات" : "حفظ"}</Text></TouchableOpacity>
               </View>
             </View>
         </SafeAreaView>
@@ -254,7 +281,10 @@ export default function ExpensesModule() {
         onCancel={() => setExpensePendingDelete(null)}
         onConfirm={() => void confirmDeleteExpense()}
       />
-      <CardActionModal visible={Boolean(expenseActionTarget)} title={expenseActionTarget?.title || "إجراءات الصرفية"} onClose={() => setExpenseActionTarget(null)} actions={canDelete ? [{ id: "delete", label: "حذف الصرفية", icon: "delete-outline", tone: "danger", onPress: () => { const target = expenseActionTarget; setExpenseActionTarget(null); if (target) handleDeleteExpense(target.id); } }] : []} />
+      <CardActionModal visible={Boolean(expenseActionTarget)} title={expenseActionTarget?.title || "إجراءات الصرفية"} onClose={() => setExpenseActionTarget(null)} actions={[
+        ...(canEdit ? [{ id: "edit", label: "تعديل الصرفية", icon: "edit", tone: "primary" as const, onPress: () => { const target = expenseActionTarget; setExpenseActionTarget(null); if (target) openExpenseEdit(target); } }] : []),
+        ...(canDelete ? [{ id: "delete", label: "حذف الصرفية", icon: "delete-outline", tone: "danger" as const, onPress: () => { const target = expenseActionTarget; setExpenseActionTarget(null); if (target) handleDeleteExpense(target.id); } }] : []),
+      ]} />
     </View>
   );
 }

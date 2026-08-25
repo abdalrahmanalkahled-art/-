@@ -31,6 +31,8 @@ describe("إجراءات البطاقات بالضغط المطوّل", () => {
     expect(expenses).toContain("onLongPress={() => setExpenseActionTarget(item)}");
     expect(events).toContain("<CardActionModal");
     expect(expenses).toContain("<CardActionModal");
+    expect(expenses).toContain('id: "edit", label: "تعديل الصرفية"');
+    expect(expenses).toContain("openExpenseEdit(target)");
   });
 
   it("يعمم النمط على بطاقات الماركات والمناطق والتقييمات", () => {
