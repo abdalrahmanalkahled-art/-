@@ -54,8 +54,8 @@ vi.mock("expo-file-system/next", () => ({
     }
   },
 }));
-vi.mock("../full-backup", () => ({ BACKUP_DATA_KEYS: ["madar_events"] }));
-vi.mock("../backup-merge", () => ({ BACKUP_KEY_LABELS: { madar_events: "الفعاليات" }, LOCAL_SETTINGS_KEYS: new Set(), mergeBackupData: vi.fn() }));
+vi.mock("../full-backup", () => ({ BACKUP_DATA_KEYS: ["madar_survey_results"] }));
+vi.mock("../backup-merge", () => ({ BACKUP_KEY_LABELS: { madar_survey_results: "نتائج الاستبيانات" }, LOCAL_SETTINGS_KEYS: new Set(), mergeBackupData: vi.fn() }));
 vi.mock("../backup-restore-history", () => ({ createLastRestoreHistory: vi.fn(() => ({})), saveLastRestoreHistory: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("../marketing-manager-storage", () => ({ restoreMarketingManagerFile: vi.fn(), restoreMarketingManagerFileFromUri: vi.fn() }));
 
@@ -63,21 +63,24 @@ import { readLargeBackupHeader, restoreFullBackup } from "../backup-restore";
 
 describe("استعادة الوسائط من النسخ الكبيرة المتدرجة", () => {
   it("يكتب الملف الداخلي في المسار النهائي ويعيد ربط سجل البيانات به", async () => {
-    const sourceUri = "file:///old-app/event_documentation/photo.jpg";
+    const sourceUri = "file:///data/user/0/old.app/files/survey-store-photos/store_1.jpg";
     mocks.sourceText = JSON.stringify({
       schemaVersion: 1,
       type: "madar-full-backup",
       createdAt: "2026-08-25T00:00:00.000Z",
-      data: { madar_events: JSON.stringify([{ id: "event-1", imageUri: sourceUri }]) },
-      media: [{ relativePath: "event_documentation/photo.jpg", sourceUri, size: 4, base64: "AQIDBA==" }],
+      data: { madar_survey_results: JSON.stringify([{ id: "survey-1", storePhotoUri: sourceUri, storePhotoUris: [sourceUri] }]) },
+      // هذا هو ترتيب النسخة القديمة الفعلي: مراجع المصدر والحجم تأتي بعد Base64 الكبير.
+      media: [{ relativePath: "survey-store-photos/store_1.jpg", base64: "AQIDBA==", size: 4, sourceUri }],
       skippedMediaPaths: [],
     });
 
     const payload = await readLargeBackupHeader("file:///backup.json");
+    expect(payload.media[0].sourceUri).toBe(sourceUri);
     await restoreFullBackup(payload);
 
-    expect(Array.from(mocks.files.get("file:///app/documents/event_documentation/photo.jpg") || [])).toEqual([1, 2, 3, 4]);
-    const writtenEvents = JSON.parse(mocks.multiSet.mock.calls[0][0][0][1]);
-    expect(writtenEvents[0].imageUri).toBe("file:///app/documents/event_documentation/photo.jpg");
+    expect(Array.from(mocks.files.get("file:///app/documents/survey-store-photos/store_1.jpg") || [])).toEqual([1, 2, 3, 4]);
+    const writtenResults = JSON.parse(mocks.multiSet.mock.calls[0][0][0][1]);
+    expect(writtenResults[0].storePhotoUri).toBe("file:///app/documents/survey-store-photos/store_1.jpg");
+    expect(writtenResults[0].storePhotoUris).toEqual(["file:///app/documents/survey-store-photos/store_1.jpg"]);
   });
 });

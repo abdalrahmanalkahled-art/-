@@ -141,7 +141,8 @@ export async function readLargeBackupHeader(sourceUri: string): Promise<FullBack
       const text = decoder.decode(byteArrayFromBase64(encoded), { stream: position < info.size });
       for (const event of parser.feed(text, position >= info.size)) {
         if (event.type === "header") header = event.header;
-        if (event.type === "media-start") media.push(event.media);
+        // في النسخ القديمة يأتي sourceUri وحجم الملف بعد سلسلة Base64؛ لذلك لا تصلح بيانات بداية الوسيط لإعادة الربط.
+        if (event.type === "media-end") media.push(event.media);
       }
     }
     if (!header) throw new Error("تعذر قراءة رأس النسخة الاحتياطية.");
@@ -197,7 +198,8 @@ async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirec
         if (event.type === "media-end" && current) {
           if (current.pending) current.handle.writeBytes(byteArrayFromBase64(current.pending));
           current.handle.close();
-          const saved = current;
+          // بيانات نهاية الوسيط تحمل sourceUri في النسخ القديمة، لأنه يقع بعد base64 داخل JSON.
+          const saved = { ...current, media: event.media };
           current = null;
           const localInfo = await FileSystem.getInfoAsync(saved.temporaryUri);
           if (!localInfo.exists || localInfo.isDirectory || !localInfo.size) throw new Error(`تعذر استعادة ملف الوسائط: ${saved.media.relativePath}`);
