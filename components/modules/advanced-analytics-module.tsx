@@ -180,6 +180,13 @@ export function AdvancedAnalyticsModule({ externalPackageId, combinedExternal, o
     comparisonReference: settings.comparisonReference === "none" ? "بدون مقارنة" : settings.comparisonReference === "firstInRange" ? "أول دورة في النطاق" : "الدورة السابقة",
   }, tab === "surveys" ? undefined : tab === "tracking" ? trackingMarketing : marketing, { stores, results, filters }, { settings, decisionMetrics: tab === "surveys" || tab === "tracking" ? decisionMetrics : undefined, ...(tab === "surveys" ? settings.regionMatrix.categoryMatricesEnabled ? { categoryMatrices: categoryMatrices.map((item) => ({ category: item.category, matrix: item.matrix })) } : { regionMatrix } : {}) }), [activeBrandLabel, activeRegionLabel, categoryMatrices, cycleId, decisionMetrics, displayAnalytics, filters, marketing, regionMatrix, results, selectedCycle?.name, settings, storeId, stores, tab, template?.name, trackingMarketing, trackingMode]);
   const pptxMediaCandidates = useMemo(() => {
+    if (tab === "surveys") return filteredSurveyResults.flatMap((result) => {
+      const store = stores.find((item) => item.id === result.storeId);
+      const storeName = store?.name || result.storeName || "محل غير محدد";
+      const region = store?.region || result.storeRegion || "غير محددة";
+      const category = store?.category || "غير مصنف";
+      return [result.storePhotoUri, ...(result.storePhotoUris || [])].filter((uri): uri is string => Boolean(uri)).map((uri) => ({ uri, title: storeName, metadata: { storeName, region, category } }));
+    });
     const source = tab === "tracking" ? trackingMarketing : tab === "marketing" ? marketing : undefined;
     if (!source) return [];
     const eventMedia = source.events.flatMap((event) => {
@@ -195,7 +202,7 @@ export function AdvancedAnalyticsModule({ externalPackageId, combinedExternal, o
       return record.imageUri ? [{ uri: record.imageUri, title: record.storeName || record.brand || "ستاند ترويجي", subtitle: record.brand }] : [];
     });
     return [...eventMedia, ...signageMedia, ...standMedia];
-  }, [marketing, tab, trackingMarketing]);
+  }, [filteredSurveyResults, marketing, stores, tab, trackingMarketing]);
 
   const resetTemplate = (id: string) => { setTemplateId(id); setCycleId("all"); setBrand(""); setRegion(""); setStoreId(""); setProductIds([]); setFilter(null); };
   const resetRegion = (value: string) => { setRegion(value); setStoreId(""); setFilter(null); };
@@ -260,7 +267,7 @@ export function AdvancedAnalyticsModule({ externalPackageId, combinedExternal, o
     <AnalyticsProductScopeModal visible={showProductScope} products={allProductOptions} selectedIds={productIds} onToggleProduct={toggleProduct} onSetCategory={toggleProductCategory} onClear={() => setProductIds([])} onClose={() => setShowProductScope(false)} />
     <CenteredSelectionModal filter={filter} colors={colors} templates={templates} cycles={templateCycles} brands={brands} regions={regions} stores={availableStores} selected={{ templateId, cycleId, brand, region, storeId, marketingBrands, marketingRegions }} isMarketing={tab === "marketing"} onTemplate={resetTemplate} onCycle={(value) => { setCycleId(value); setFilter(null); }} onBrand={(value) => { setBrand(value); setProductIds([]); setFilter(null); }} onRegion={resetRegion} onStore={(value) => { setStoreId(value); setFilter(null); }} onMarketingBrand={toggleMarketingBrand} onMarketingRegion={toggleMarketingRegion} onClearMarketingBrands={clearMarketingBrands} onClearMarketingRegions={clearMarketingRegions} onClose={() => setFilter(null)} />
     <AnalyticsSettingsSheet visible={showSettings} settings={settings} matrixCategoryOptions={matrixCategoryOptions} onSave={updateSettings} onClose={() => setShowSettings(false)} />
-    <PptxReportSettingsModal visible={showPptxSettings} title="إعدادات PowerPoint للتحليلات" description="تتحكم في شرائح التحليلات فقط، ولا تغير إعدادات PDF أو Excel." sectionOptions={ADVANCED_ANALYTICS_PPTX_SECTIONS} settings={pptxSettings} onSave={updatePptxSettings} onClose={() => setShowPptxSettings(false)} />
+    <PptxReportSettingsModal visible={showPptxSettings} title="إعدادات PowerPoint للتحليلات" description="تتحكم في شرائح التحليلات فقط، ولا تغير إعدادات PDF أو Excel." sectionOptions={ADVANCED_ANALYTICS_PPTX_SECTIONS} settings={pptxSettings} showMediaCardOptions onSave={updatePptxSettings} onClose={() => setShowPptxSettings(false)} />
     <AnalyticsImportModal visible={showExternalImport} colors={colors} packageName={externalPackageName} fileName={externalFileName} hasPayload={Boolean(externalPayload)} isSaving={importingExternal} onClose={() => !importingExternal && setShowExternalImport(false)} onOpenSaved={() => { setShowExternalImport(false); void openExternalPackages(); }} onPickFile={() => void chooseExternalFile()} onChangeName={setExternalPackageName} onSave={() => void importExternalResults()} />
     <ExternalPackagesModal visible={showExternalPackages} colors={colors} items={externalPackages} onClose={() => setShowExternalPackages(false)} onOpen={openExternalPackage} onAnalyzeAll={openCombinedExternalPackages} onLongPress={canDelete ? setPackageToDelete : undefined} />
     <ConfirmDialog visible={Boolean(packageToDelete)} title="حذف تحليل محفوظ" message={packageToDelete ? `سيُحذف «${packageToDelete.name}» وملفه المحلي نهائياً. لا يمكن استعادته.` : ""} confirmText="حذف نهائياً" isDangerous icon="delete-outline" onCancel={() => setPackageToDelete(null)} onConfirm={() => void removeExternalPackage()} />

@@ -5,7 +5,7 @@ import PptxGenJS from "pptxgenjs";
 
 import { ensureDirectoryExists, sanitizeFilename } from "@/lib/export-sanitizer";
 import { preparePdfImageDataUri } from "@/lib/pdf-media";
-import type { PptxMediaCompression, PptxReportSettings } from "@/lib/pptx-report-settings";
+import type { PptxMediaCardField, PptxMediaCompression, PptxReportSettings } from "@/lib/pptx-report-settings";
 import { recordGeneratedReport } from "@/lib/report-history";
 
 export const PPTX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -13,7 +13,7 @@ export const PPTX_PAGE = { width: 13.333, height: 7.5 };
 export const PPTX_COLORS = { navy: "0F2B5B", blue: "1A56DB", violet: "7C3AED", green: "059669", amber: "D97706", red: "DC2626", ink: "172033", muted: "64748B", pale: "F6F8FC", line: "DCE3F0", white: "FFFFFF" } as const;
 
 export type PptxSlide = ReturnType<PptxGenJS["addSlide"]>;
-export type PptxMediaCandidate = { uri?: string; title: string; subtitle?: string };
+export type PptxMediaCandidate = { uri?: string; title: string; subtitle?: string; metadata?: Partial<Record<PptxMediaCardField, string>> };
 export type PreparedPptxMedia = Omit<PptxMediaCandidate, "uri"> & { data: string };
 export type PptxMetric = { label: string; value: string; accent?: string; description?: string };
 export type PptxListItem = { title: string; detail?: string; badge?: string; accent?: string };
@@ -133,25 +133,56 @@ export function addMediaSlide(pptx: PptxGenJS, title: string, description: strin
     const row = Math.floor(index / columns);
     const x = 0.8 + (columns - 1 - col) * (frameWidth + gap);
     const y = 1.65 + row * (frameHeight + gap);
+    const metadata = mediaCaption(entry);
+    const captionHeight = metadata.length > 2 ? 0.71 : metadata.length > 1 ? 0.61 : 0.5;
     slide.addShape(pptx.ShapeType.roundRect, { x, y, w: frameWidth, h: frameHeight, rectRadius: 0.06, fill: { color: "E9EEF7" }, line: { color: PPTX_COLORS.line, width: 0.6 } });
-    slide.addImage({ data: entry.data, x: x + 0.04, y: y + 0.04, w: frameWidth - 0.08, h: frameHeight - 0.52, rounding: true });
-    slide.addShape(pptx.ShapeType.rect, { x: x + 0.04, y: y + frameHeight - 0.47, w: frameWidth - 0.08, h: 0.43, fill: { color: PPTX_COLORS.navy, transparency: 7 }, line: { color: PPTX_COLORS.navy, transparency: 100 } });
-    slide.addText(entry.title, { x: x + 0.14, y: y + frameHeight - 0.35, w: frameWidth - 0.27, h: 0.11, fontFace: "Arial", fontSize: 7.6, bold: true, color: PPTX_COLORS.white, align: "right", rtlMode: true, margin: 0, fit: "shrink" });
+    slide.addImage({ data: entry.data, x: x + 0.04, y: y + 0.04, w: frameWidth - 0.08, h: frameHeight - captionHeight - 0.08, rounding: true });
+    slide.addShape(pptx.ShapeType.rect, { x: x + 0.04, y: y + frameHeight - captionHeight - 0.04, w: frameWidth - 0.08, h: captionHeight, fill: { color: PPTX_COLORS.navy, transparency: 7 }, line: { color: PPTX_COLORS.navy, transparency: 100 } });
+    slide.addText(entry.title, { x: x + 0.14, y: y + frameHeight - captionHeight + 0.07, w: frameWidth - 0.27, h: 0.1, fontFace: "Arial", fontSize: 7.8, bold: true, color: PPTX_COLORS.white, align: "right", rtlMode: true, margin: 0, fit: "shrink" });
+    if (metadata.length) slide.addText(metadata.join(" · "), { x: x + 0.14, y: y + frameHeight - captionHeight + 0.24, w: frameWidth - 0.27, h: captionHeight - 0.28, fontFace: "Arial", fontSize: 6.8, color: "D8E4FB", align: "right", rtlMode: true, margin: 0, fit: "shrink" });
   });
   return slide;
 }
 
-export async function preparePptxReportMedia(candidates: PptxMediaCandidate[], settings: Pick<PptxReportSettings, "includeMedia" | "mediaLimit" | "mediaCompression">, onProgress?: (completed: number, total: number) => void): Promise<PreparedPptxMedia[]> {
+/** يوزع بطاقات الوسائط على شرائح متتابعة كي لا يتحول العرض إلى شبكة مزدحمة. */
+export function addPagedMediaSlides(pptx: PptxGenJS, title: string, description: string, media: PreparedPptxMedia[], accent = PPTX_COLORS.violet, perSlide = 6) {
+  if (!media.length) return [addMediaSlide(pptx, title, description, [], accent)];
+  const totalPages = Math.ceil(media.length / perSlide);
+  return chunkPptxItems(media, perSlide).map((page, index) => addMediaSlide(pptx, totalPages > 1 ? `${title} (${index + 1}/${totalPages})` : title, description, page, accent));
+}
+
+export function limitPptxMediaCandidates(candidates: PptxMediaCandidate[], mediaLimit: PptxReportSettings["mediaLimit"]): PptxMediaCandidate[] {
+  const unique = Array.from(new Map(candidates.filter((candidate) => Boolean(candidate.uri)).map((candidate) => [candidate.uri!, candidate])).values());
+  return mediaLimit === "all" ? unique : unique.slice(0, mediaLimit);
+}
+
+export async function preparePptxReportMedia(candidates: PptxMediaCandidate[], settings: Pick<PptxReportSettings, "includeMedia" | "mediaLimit" | "mediaCompression" | "mediaCardFields" | "mediaCardOrder">, onProgress?: (completed: number, total: number) => void): Promise<PreparedPptxMedia[]> {
   if (!settings.includeMedia) return [];
-  const unique = Array.from(new Map(candidates.filter((candidate) => Boolean(candidate.uri)).map((candidate) => [candidate.uri!, candidate])).values()).slice(0, settings.mediaLimit);
+  const unique = limitPptxMediaCandidates(candidates, settings.mediaLimit);
   const output: PreparedPptxMedia[] = [];
   const profile = mediaProfile(settings.mediaCompression);
   for (const [index, candidate] of unique.entries()) {
     const data = await preparePdfImageDataUri(candidate.uri, profile).catch(() => undefined);
-    if (data) output.push({ title: candidate.title, ...(candidate.subtitle ? { subtitle: candidate.subtitle } : {}), data });
+    if (data) output.push({ title: candidate.title, ...(candidate.subtitle ? { subtitle: candidate.subtitle } : {}), ...(candidate.metadata ? { metadata: orderedMediaMetadata(candidate.metadata, settings) } : {}), data });
     onProgress?.(index + 1, unique.length);
   }
   return output;
+}
+
+export function chunkPptxItems<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+  return chunks;
+}
+
+function orderedMediaMetadata(metadata: Partial<Record<PptxMediaCardField, string>>, settings: Pick<PptxReportSettings, "mediaCardFields" | "mediaCardOrder">): Partial<Record<PptxMediaCardField, string>> {
+  return Object.fromEntries(settings.mediaCardOrder.filter((field) => settings.mediaCardFields[field] && Boolean(metadata[field])).map((field) => [field, metadata[field]!]));
+}
+
+function mediaCaption(entry: PreparedPptxMedia): string[] {
+  const labels: Record<PptxMediaCardField, string> = { storeName: "المحل", region: "المنطقة", category: "التصنيف" };
+  const orderedMetadata = entry.metadata ? (Object.entries(entry.metadata) as [PptxMediaCardField, string][]).filter(([, value]) => Boolean(value)).map(([field, value]) => `${labels[field]}: ${value}`) : [];
+  return orderedMetadata.length ? orderedMetadata : entry.subtitle ? [entry.subtitle] : [];
 }
 
 export async function writePptxBase64(pptx: PptxGenJS, autoAdvance: boolean, seconds: number): Promise<string> {

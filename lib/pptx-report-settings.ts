@@ -1,8 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type PptxMediaLimit = 3 | 6 | 9;
+export type PptxMediaLimit = 3 | 6 | 9 | "all";
 export type PptxMediaCompression = "compact" | "balanced";
 export type PptxAutoAdvanceSeconds = 5 | 8 | 12;
+export type PptxMediaCardField = "storeName" | "region" | "category";
 
 export interface PptxReportSettings {
   reportTitle: string;
@@ -11,6 +12,8 @@ export interface PptxReportSettings {
   mediaCompression: PptxMediaCompression;
   autoAdvance: boolean;
   autoAdvanceSeconds: PptxAutoAdvanceSeconds;
+  mediaCardFields: Record<PptxMediaCardField, boolean>;
+  mediaCardOrder: PptxMediaCardField[];
   sections: Record<string, boolean>;
 }
 
@@ -28,6 +31,8 @@ export function createDefaultPptxReportSettings(title: string, sections: PptxRep
     mediaCompression: "balanced",
     autoAdvance: true,
     autoAdvanceSeconds: 8,
+    mediaCardFields: { storeName: true, region: true, category: true },
+    mediaCardOrder: ["storeName", "region", "category"],
     sections: Object.fromEntries(sections.map((section) => [section.key, true])),
   };
 }
@@ -35,8 +40,11 @@ export function createDefaultPptxReportSettings(title: string, sections: PptxRep
 export function normalizePptxReportSettings(value: unknown, fallback: PptxReportSettings): PptxReportSettings {
   const saved = value && typeof value === "object" ? value as Partial<PptxReportSettings> : {};
   const sectionValues = saved.sections && typeof saved.sections === "object" ? saved.sections : {};
-  const mediaLimit = saved.mediaLimit === 3 || saved.mediaLimit === 6 || saved.mediaLimit === 9 ? saved.mediaLimit : fallback.mediaLimit;
+  const mediaLimit = saved.mediaLimit === 3 || saved.mediaLimit === 6 || saved.mediaLimit === 9 || saved.mediaLimit === "all" ? saved.mediaLimit : fallback.mediaLimit;
   const autoAdvanceSeconds = saved.autoAdvanceSeconds === 5 || saved.autoAdvanceSeconds === 8 || saved.autoAdvanceSeconds === 12 ? saved.autoAdvanceSeconds : fallback.autoAdvanceSeconds;
+  const savedMediaCardFields = saved.mediaCardFields && typeof saved.mediaCardFields === "object" ? saved.mediaCardFields as Partial<Record<PptxMediaCardField, boolean>> : {};
+  const validOrder = Array.isArray(saved.mediaCardOrder) ? saved.mediaCardOrder.filter((field): field is PptxMediaCardField => field === "storeName" || field === "region" || field === "category") : [];
+  const mediaCardOrder = Array.from(new Set([...validOrder, ...fallback.mediaCardOrder]));
   return {
     reportTitle: typeof saved.reportTitle === "string" && saved.reportTitle.trim() ? saved.reportTitle.trim() : fallback.reportTitle,
     includeMedia: typeof saved.includeMedia === "boolean" ? saved.includeMedia : fallback.includeMedia,
@@ -44,6 +52,12 @@ export function normalizePptxReportSettings(value: unknown, fallback: PptxReport
     mediaCompression: saved.mediaCompression === "compact" || saved.mediaCompression === "balanced" ? saved.mediaCompression : fallback.mediaCompression,
     autoAdvance: typeof saved.autoAdvance === "boolean" ? saved.autoAdvance : fallback.autoAdvance,
     autoAdvanceSeconds,
+    mediaCardFields: {
+      storeName: typeof savedMediaCardFields.storeName === "boolean" ? savedMediaCardFields.storeName : fallback.mediaCardFields.storeName,
+      region: typeof savedMediaCardFields.region === "boolean" ? savedMediaCardFields.region : fallback.mediaCardFields.region,
+      category: typeof savedMediaCardFields.category === "boolean" ? savedMediaCardFields.category : fallback.mediaCardFields.category,
+    },
+    mediaCardOrder,
     sections: Object.fromEntries(Object.keys(fallback.sections).map((key) => [key, typeof (sectionValues as Record<string, unknown>)[key] === "boolean" ? (sectionValues as Record<string, boolean>)[key] : fallback.sections[key]])),
   };
 }

@@ -9,10 +9,10 @@ import { describe, expect, it } from "vitest";
 import { buildAdvancedAnalyticsPptx } from "@/lib/advanced-analytics-pptx-exporter";
 import type { AnalyticsReportData } from "@/lib/advanced-analytics-report";
 import { buildMarketingPlanPptx } from "@/lib/marketing-plan-pptx-exporter";
-import { writePptxBase64 } from "@/lib/pptx-report-kit";
+import { limitPptxMediaCandidates, writePptxBase64 } from "@/lib/pptx-report-kit";
 import { createDefaultPptxReportSettings } from "@/lib/pptx-report-settings";
 
-const ANALYTICS_SECTIONS = ["overview", "presence", "categories", "decisions", "marketing", "details"].map((key) => ({ key, label: key, description: key }));
+const ANALYTICS_SECTIONS = ["overview", "presence", "categories", "decisions", "marketing", "productDetails", "details"].map((key) => ({ key, label: key, description: key }));
 const PLAN_SECTIONS = ["overview", "progress", "events", "impact", "details"].map((key) => ({ key, label: key, description: key }));
 
 const analyticsReport: AnalyticsReportData = {
@@ -59,4 +59,23 @@ describe("تصدير PowerPoint المحلي", () => {
     expect(content.join("\n")).toContain("فعالية تجريبية");
     expect(content.some((slide) => slide?.includes('<p:transition'))).toBe(true);
   }, 30000);
+
+  it("يقسم تفاصيل صنف يضم عشرين منتجاً إلى شرائح متتابعة من دون إدراج المحلات", async () => {
+    const report: AnalyticsReportData = { ...analyticsReport, marketingRows: [], marketingEvents: [], marketingGoals: [], cycleRows: Array.from({ length: 20 }, (_, index) => ({ الدورة: "دورة 1", "تاريخ البداية": "2026-08-01", "تاريخ النهاية": "2026-08-05", الصنف: "المشروبات", المنتج: `منتج ${index + 1}`, "نسبة التواجد": `${40 + index}%`, "عدد مرات التواجد": 4 + index, "إجمالي الرصد": 20 })) };
+    const settings = createDefaultPptxReportSettings("تفاصيل الأصناف", ANALYTICS_SECTIONS);
+    const base64 = await writePptxBase64(buildAdvancedAnalyticsPptx(report, settings), false, 8);
+    const zip = await JSZip.loadAsync(base64, { base64: true });
+    const slides = await Promise.all(Object.keys(zip.files).filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path)).map((path) => zip.file(path)?.async("string")));
+    const content = slides.join("\n");
+    expect(slides.length).toBeGreaterThanOrEqual(9);
+    expect(content).toContain("منتج 1");
+    expect(content).toContain("منتج 20");
+    expect(content).not.toContain("محل تجريبي");
+  }, 30000);
+
+  it("يحافظ خيار جميع الصور على كل الوسائط الفريدة بدلاً من قصها إلى حد ثابت", () => {
+    const media = Array.from({ length: 12 }, (_, index) => ({ uri: `file:///photo-${index}.jpg`, title: `محل ${index}` }));
+    expect(limitPptxMediaCandidates(media, "all")).toHaveLength(12);
+    expect(limitPptxMediaCandidates(media, 6)).toHaveLength(6);
+  });
 });

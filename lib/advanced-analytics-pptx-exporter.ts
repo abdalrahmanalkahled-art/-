@@ -2,7 +2,7 @@ import { Alert, Platform } from "react-native";
 
 import type { AnalyticsReportData } from "@/lib/advanced-analytics-report";
 import { beginOperationProgress } from "@/lib/operation-progress";
-import { addBarChartSlide, addCoverSlide, addListSlide, addMediaSlide, addMetricsSlide, createPptxPresentation, PPTX_COLORS, preparePptxReportMedia, saveAndSharePptx, type PptxBar, type PptxMediaCandidate, writePptxBase64 } from "@/lib/pptx-report-kit";
+import { addBarChartSlide, addCoverSlide, addListSlide, addMetricsSlide, addPagedMediaSlides, chunkPptxItems, createPptxPresentation, PPTX_COLORS, preparePptxReportMedia, saveAndSharePptx, type PptxBar, type PptxListItem, type PptxMediaCandidate, writePptxBase64 } from "@/lib/pptx-report-kit";
 import type { PptxReportSectionOption, PptxReportSettings } from "@/lib/pptx-report-settings";
 
 export const ADVANCED_ANALYTICS_PPTX_SETTINGS_KEY = "madar_advanced_analytics_pptx_settings";
@@ -12,7 +12,8 @@ export const ADVANCED_ANALYTICS_PPTX_SECTIONS: PptxReportSectionOption[] = [
   { key: "categories", label: "مقارنة الأصناف", description: "مقارنة متوسط منتجاتنا والمنافسين حسب الصنف." },
   { key: "decisions", label: "مؤشرات القرار", description: "الفرص والتنبيهات والمؤشرات المستخرجة من البيانات." },
   { key: "marketing", label: "الأثر التسويقي", description: "الفعاليات والأهداف واللوحات والستاندات ضمن النطاق." },
-  { key: "details", label: "قائمة التفاصيل", description: "قوائم مختصرة بأهم الفعاليات والأهداف أو المحلات المدروسة." },
+  { key: "productDetails", label: "تفاصيل الأصناف والمنتجات", description: "تقسيم المنتجات إلى شرائح متتابعة لكل صنف من دون سرد المحلات." },
+  { key: "details", label: "تفاصيل الأصول التسويقية", description: "قوائم مختصرة باللوحات والستاندات عند وجودها ضمن النطاق." },
 ];
 
 export async function exportAdvancedAnalyticsPptx(report: AnalyticsReportData, settings: PptxReportSettings, mediaCandidates: PptxMediaCandidate[] = []): Promise<void> {
@@ -54,8 +55,9 @@ export function buildAdvancedAnalyticsPptx(report: AnalyticsReportData, settings
     addMetricsSlide(pptx, "الأثر التسويقي ضمن النطاق", "مؤشرات الفعاليات والأهداف والأصول الإعلانية المرتبطة.", report.marketingRows.slice(0, 6).map((item, index) => ({ label: item.البند, value: item.الإجمالي, accent: [PPTX_COLORS.green, PPTX_COLORS.amber, PPTX_COLORS.violet, PPTX_COLORS.blue][index % 4] })), PPTX_COLORS.green);
     addListSlide(pptx, "الفعاليات والأهداف المرتبطة", "أهم العناصر التسويقية التي تشكل الأثر ضمن التقرير.", [...report.marketingEvents.map((event) => ({ title: event.الفعالية, detail: `${event.التاريخ} · ${event.المنطقة} · ${event.المستفيدون} مستفيد · ${event.الهدايا} هدية`, badge: event.الحالة, accent: event.الحالة === "مكتملة" ? PPTX_COLORS.green : event.الحالة === "ملغاة" ? PPTX_COLORS.red : PPTX_COLORS.blue })), ...report.marketingGoals.map((goal) => ({ title: goal.الهدف, detail: `${goal.الماركة} · ${goal.الفترة} · ${goal.المؤشر} · ${goal["عدد الفعاليات المرتبطة"]} فعاليات مرتبطة`, badge: goal.الإنجاز, accent: PPTX_COLORS.violet }))], PPTX_COLORS.green);
   }
-  if (settings.sections.details !== false) addListSlide(pptx, "تفاصيل ميدانية مختارة", "محلات أو أصول ذات صلة بحسب التبويب والنطاق المحددين.", detailsForReport(report), PPTX_COLORS.blue);
-  if (settings.includeMedia) addMediaSlide(pptx, "وسائط توثيق مختارة", "صور محلية جرى ضغطها تدريجياً قبل إدراجها في العرض.", preparedMedia, PPTX_COLORS.violet);
+  if (settings.sections.productDetails !== false) addCategoryProductDetailSlides(pptx, report);
+  if (settings.sections.details !== false && (report.marketingSignages.length || report.marketingStands.length)) addListSlide(pptx, "تفاصيل الأصول التسويقية", "لوحات وستاندات مرتبطة ضمن النطاق، من دون إدراج قائمة المحلات.", detailsForReport(report), PPTX_COLORS.blue);
+  if (settings.includeMedia) addPagedMediaSlides(pptx, "وسائط توثيق مختارة", "صور الدورات أو الأصول وفق الإعدادات، موزعة تلقائياً على شرائح مريحة.", preparedMedia, PPTX_COLORS.violet);
   addListSlide(pptx, "خلاصة التقرير", report.dataWarnings.length ? "تنبيهات جودة البيانات التي يجب أخذها في الاعتبار عند قراءة المؤشرات." : "العرض جاهز للمراجعة والمشاركة ويعكس نطاق المرشحات المختارة.", report.dataWarnings.length ? report.dataWarnings.map((warning) => ({ title: warning, accent: PPTX_COLORS.amber })) : [{ title: "تم إنشاء العرض محلياً", detail: "يتضمن الشرائح التي فُعّلت في إعدادات PowerPoint، مع تلاشي تلقائي اختياري بين الشرائح.", badge: "جاهز", accent: PPTX_COLORS.green }], PPTX_COLORS.violet);
   return pptx;
 }
@@ -82,7 +84,36 @@ function detailsForReport(report: AnalyticsReportData) {
     ...report.marketingSignages.map((item) => ({ title: item.اللوحة, detail: `${item.النوع} · ${item.الماركة} · ${item.المنطقة} · نهاية العقد: ${item["نهاية العقد"]}`, badge: item.الحالة, accent: item.الحالة === "نشطة" ? PPTX_COLORS.green : PPTX_COLORS.muted })),
     ...report.marketingStands.map((item) => ({ title: item.الستاند, detail: `${item.الماركة} · ${item.المحل} · تركيب: ${item["تاريخ التركيب"]} · سجلات صيانة: ${item["سجل الصيانة"]}`, badge: item.الحالة, accent: item.الحالة === "بحالة جيدة" ? PPTX_COLORS.green : PPTX_COLORS.amber })),
   ];
-  return report.studiedStores.map((store) => ({ title: store["اسم المحل"], detail: `${store.المنطقة} · ${store.التصنيف} · ${store["تاريخ الزيارة"]} · ${store["المواد المدروسة"]}`, badge: store["موضع الزيارة"] || "زيارة", accent: PPTX_COLORS.blue }));
+  return [];
+}
+
+function addCategoryProductDetailSlides(pptx: ReturnType<typeof createPptxPresentation>, report: AnalyticsReportData) {
+  const categories = new Map<string, AnalyticsReportData["cycleRows"]>();
+  report.cycleRows.forEach((row) => categories.set(row.الصنف, [...(categories.get(row.الصنف) || []), row]));
+  Array.from(categories.entries()).forEach(([category, rows]) => {
+    const products = aggregateCategoryProducts(rows);
+    const pages = chunkPptxItems(products, 6);
+    pages.forEach((page, index) => addListSlide(pptx, `الصنف: ${category}${pages.length > 1 ? ` (${index + 1}/${pages.length})` : ""}`, "تفاصيل المنتجات ضمن الصنف. قُسمت القائمة تلقائياً للحفاظ على وضوح القراءة.", page, PPTX_COLORS.violet));
+  });
+}
+
+function aggregateCategoryProducts(rows: AnalyticsReportData["cycleRows"]): PptxListItem[] {
+  const products = new Map<string, { present: number; sample: number; shelf: number[]; prices: number[] }>();
+  rows.forEach((row) => {
+    const current = products.get(row.المنتج) || { present: 0, sample: 0, shelf: [], prices: [] };
+    current.present += Number(row["عدد مرات التواجد"]) || 0;
+    current.sample += Number(row["إجمالي الرصد"]) || 0;
+    if (row["متوسط نسبة الظهور"]) current.shelf.push(percentage(row["متوسط نسبة الظهور"]));
+    if (row["متوسط السعر"]) current.prices.push(Number(String(row["متوسط السعر"]).replace(/[^0-9.-]/g, "")) || 0);
+    products.set(row.المنتج, current);
+  });
+  return Array.from(products.entries()).map(([title, value]) => {
+    const presence = value.sample ? Math.round((value.present / value.sample) * 100) : 0;
+    const details = [`التواجد: ${presence}%`, `الرصد: ${value.present}/${value.sample}`];
+    if (value.shelf.length) details.push(`الظهور: ${Math.round(value.shelf.reduce((sum, item) => sum + item, 0) / value.shelf.length)}%`);
+    if (value.prices.length) details.push(`متوسط السعر: ${Math.round(value.prices.reduce((sum, item) => sum + item, 0) / value.prices.length).toLocaleString("en-US")}`);
+    return { title, detail: details.join(" · "), badge: `${presence}%`, accent: presence >= 70 ? PPTX_COLORS.green : presence >= 40 ? PPTX_COLORS.amber : PPTX_COLORS.red };
+  }).sort((first, second) => percentage(second.badge || "0") - percentage(first.badge || "0") || first.title.localeCompare(second.title, "ar"));
 }
 
 function percentage(value: string): number {
