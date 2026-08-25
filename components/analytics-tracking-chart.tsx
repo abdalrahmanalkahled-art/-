@@ -1,4 +1,5 @@
-import { Platform, ScrollView, StyleSheet, Text, useState, useWindowDimensions, View } from "react-native";
+import { useState } from "react";
+import { Platform, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Circle, G, Line, Polygon, Polyline, Rect, Text as SvgText } from "react-native-svg";
 
 import { useColors } from "@/hooks/use-colors";

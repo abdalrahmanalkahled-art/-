@@ -27,6 +27,8 @@ describe("تفاصيل مخطط الأعمدة في إعدادات التحلي�
   });
 
   it("يعرض تلميحاً للقيمة الدقيقة عند لمس العمود أو المرور فوقه", () => {
+    expect(chartSource).toContain('import { useState } from "react";');
+    expect(chartSource).not.toContain('Text, useState, useWindowDimensions');
     expect(chartSource).toContain("onBarInteraction: setTooltip");
     expect(chartSource).toContain("onMouseEnter");
     expect(chartSource).toContain("onPress={() => onBarInteraction(tooltip)}");
