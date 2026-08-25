@@ -14,6 +14,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
+import { MoreModuleEmptyState, MoreModuleTabs } from "@/components/more-module-ui";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { SuccessModal } from "@/components/success-modal";
 import { CategoryManagerModal } from "@/components/category-manager-modal";
@@ -266,26 +267,7 @@ export default function WarehouseModule() {
         </View>
       )}
 
-      <View style={[styles.tabBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "movements" && { borderBottomColor: colors.primary }]}
-          onPress={() => setActiveTab("movements")}
-        >
-          <Text style={[styles.tabText, { color: activeTab === "movements" ? colors.primary : colors.muted }]}>سجل الحركة</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "items" && { borderBottomColor: colors.primary }]}
-          onPress={() => setActiveTab("items")}
-        >
-          <Text style={[styles.tabText, { color: activeTab === "items" ? colors.primary : colors.muted }]}>المواد</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "tools" && { borderBottomColor: colors.primary }]}
-          onPress={() => setActiveTab("tools")}
-        >
-          <Text style={[styles.tabText, { color: activeTab === "tools" ? colors.primary : colors.muted }]}>الأدوات</Text>
-        </TouchableOpacity>
-      </View>
+      <MoreModuleTabs items={[{ id: "tools", label: "الأدوات" }, { id: "items", label: "المواد" }, { id: "movements", label: "سجل الحركة" }]} selectedId={activeTab} onSelect={(id) => setActiveTab(id as typeof activeTab)} />
 
       {activeTab === "tools" ? <WarehouseToolsTab openSignal={toolOpenSignal} /> : activeTab === "items" ? (
         <FlatList
@@ -315,12 +297,7 @@ export default function WarehouseModule() {
               </TouchableOpacity>
             );
           }}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <MaterialIcons name="inventory" size={40} color={colors.muted} />
-              <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد مواد</Text>
-            </View>
-          }
+          ListEmptyComponent={<MoreModuleEmptyState icon="inventory" title="لا توجد مواد" description="أضف مادة جديدة لتبدأ متابعة المخزون." />}
         />
       ) : (
         <FlatList
@@ -344,12 +321,7 @@ export default function WarehouseModule() {
               </View>
             </View>
           )}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <MaterialIcons name="swap-horiz" size={40} color={colors.muted} />
-              <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد حركات</Text>
-            </View>
-          }
+          ListEmptyComponent={<MoreModuleEmptyState icon="swap-horiz" title="لا توجد حركات" description="ستظهر عمليات الإدخال والإخراج هنا." />}
         />
       )}
 

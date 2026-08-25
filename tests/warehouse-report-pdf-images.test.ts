@@ -41,9 +41,9 @@ describe("إعداد تقرير المستودع", () => {
     expect(exporter).toContain("toolImageCompression");
   });
 
-  it("يوحد رأس وحدات المزيد مع نمط مختصر للمنتجات", () => {
+  it("يوحد رأس وحدات المزيد بالنمط الكامل نفسه بما فيها المنتجات", () => {
     expect(moreScreen).toContain("<MoreModuleShell");
-    expect(moreScreen).toContain('compact={activeModule === "products"}');
+    expect(moreScreen).not.toContain('compact={activeModule === "products"}');
     expect(moreShell).toContain("accessibilityLabel=\"العودة إلى المزيد\"");
     expect(moreShell).toContain("subtitle");
   });

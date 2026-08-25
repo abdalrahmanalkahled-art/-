@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SuccessModal } from "@/components/success-modal";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { FloatingFormModal } from "@/components/floating-form-modal";
+import { MoreModuleEmptyState, MoreModuleFilterChips } from "@/components/more-module-ui";
 import { AnimatedCard } from "@/components/animated-card";
 import { useColors } from "@/hooks/use-colors";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
@@ -288,17 +289,7 @@ export default function GoalsModule() {
 
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
-        {[{ value: "all", label: "الكل" }, ...PERIOD_OPTIONS.map((p) => ({ value: p.value, label: p.label }))].map((opt) => (
-          <TouchableOpacity
-            key={opt.value}
-            style={[styles.filterChip, filterPeriod === opt.value && { backgroundColor: colors.primary }]}
-            onPress={() => setFilterPeriod(opt.value)}
-          >
-            <Text style={[styles.filterChipText, { color: filterPeriod === opt.value ? "#fff" : colors.muted }]}>{opt.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <MoreModuleFilterChips items={[{ id: "all", label: "الكل" }, ...PERIOD_OPTIONS.map((period) => ({ id: period.value, label: period.label }))]} selectedId={filterPeriod} onSelect={(id) => setFilterPeriod(id as typeof filterPeriod)} />
 
       <FlatList
         data={filtered}
@@ -378,12 +369,7 @@ export default function GoalsModule() {
             </AnimatedCard>
           );
         }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <MaterialIcons name="flag" size={40} color={colors.muted} />
-            <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد أهداف</Text>
-          </View>
-        }
+        ListEmptyComponent={<MoreModuleEmptyState icon="flag" title="لا توجد أهداف" description="أضف هدفاً من الزر العائم لتبدأ الخطة التسويقية." />}
       />
 
       {/* Goal Modal */}

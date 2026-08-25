@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { FloatingFormModal } from "@/components/floating-form-modal";
+import { MoreModuleEmptyState, MoreModuleFilterChips, MoreModuleTabs } from "@/components/more-module-ui";
 import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
@@ -332,57 +333,12 @@ export function ProductsModule() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>إدارة المنتجات</Text>
-      </View>
-
       {/* Tabs */}
-      <View style={[styles.tabsContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "company" && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-          onPress={() => {
-            setActiveTab("company");
-            setSelectedCompetitor("");
-          }}
-        >
-          <Text style={[styles.tabText, { color: activeTab === "company" ? colors.primary : colors.muted }]}>
-            منتجات الشركة
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === "competitor" && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
-          onPress={() => setActiveTab("competitor")}
-        >
-          <Text style={[styles.tabText, { color: activeTab === "competitor" ? colors.primary : colors.muted }]}>
-            منتجات المنافسين
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <MoreModuleTabs items={[{ id: "company", label: "منتجات الشركة" }, { id: "competitor", label: "منتجات المنافسين" }]} selectedId={activeTab} onSelect={(id) => { setActiveTab(id as typeof activeTab); if (id === "company") setSelectedCompetitor(""); }} />
 
       {/* Competitor Filter */}
       {activeTab === "competitor" && competitors.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.competitorFilter} contentContainerStyle={styles.competitorFilterContent}>
-          <TouchableOpacity
-            style={[styles.filterChip, selectedCompetitor === "" && { backgroundColor: colors.primary }]}
-            onPress={() => setSelectedCompetitor("")}
-          >
-            <Text style={[styles.filterChipText, { color: selectedCompetitor === "" ? "#fff" : colors.foreground }]}>
-              الكل
-            </Text>
-          </TouchableOpacity>
-          {competitors.map((comp) => (
-            <TouchableOpacity
-              key={comp}
-              style={[styles.filterChip, selectedCompetitor === comp && { backgroundColor: colors.primary }]}
-              onPress={() => setSelectedCompetitor(comp)}
-            >
-              <Text style={[styles.filterChipText, { color: selectedCompetitor === comp ? "#fff" : colors.foreground }]}>
-                {comp}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <MoreModuleFilterChips items={[{ id: "", label: "الكل" }, ...competitors.map((competitor) => ({ id: competitor, label: competitor }))]} selectedId={selectedCompetitor} onSelect={setSelectedCompetitor} />
       )}
 
       {/* Search */}
@@ -404,12 +360,7 @@ export function ProductsModule() {
         keyExtractor={(item) => item.category.id}
         renderItem={renderCategorySection}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <MaterialIcons name="inventory-2" size={48} color={colors.muted} />
-            <Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد منتجات</Text>
-          </View>
-        }
+        ListEmptyComponent={<MoreModuleEmptyState icon="inventory-2" title="لا توجد منتجات" description="أضف منتجاً أو تصنيفاً لتبدأ التنظيم." />}
       />
 
       {/* FAB Menu */}
@@ -788,7 +739,7 @@ const styles = StyleSheet.create({
   modalContent: { flex: 1, padding: 16 },
   productsModalList: { padding: 16, gap: 10, paddingBottom: 32 },
   productModalItem: { minHeight: 66, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 10 },
-  modalFooter: { flexDirection: "row", gap: 12, padding: 16, borderTopWidth: 1, justifyContent: "space-between" },
+  modalFooter: { flexDirection: "row", gap: 12, padding: 16, borderTopWidth: 0.5, justifyContent: "space-between" },
   cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center", borderWidth: 1 },
   cancelBtnText: { fontWeight: "600" as any, fontSize: 16 },
   saveBtnBottom: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center", justifyContent: "center" },

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CardActionModal } from "@/components/card-action-modal";
 import { FABMenu } from "@/components/fab-menu";
 import { FloatingFormModal } from "@/components/floating-form-modal";
+import { MoreModuleEmptyState, MoreModuleTabs } from "@/components/more-module-ui";
 import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
 import {
@@ -100,13 +101,7 @@ export function BrandsRegionsModule() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.tabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {([{ id: "brands", label: "الماركات" }, { id: "regions", label: "المناطق" }, { id: "ratings", label: "التقييمات" }] as { id: Tab; label: string }[]).map((item) => (
-          <TouchableOpacity key={item.id} onPress={() => setTab(item.id)} style={[styles.tab, tab === item.id && { backgroundColor: colors.primary }]}>
-            <Text style={[styles.tabText, { color: tab === item.id ? "#fff" : colors.muted }]}>{item.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <MoreModuleTabs items={[{ id: "brands", label: "الماركات" }, { id: "regions", label: "المناطق" }, { id: "ratings", label: "التقييمات" }]} selectedId={tab} onSelect={(id) => setTab(id as Tab)} />
       <FlatList<ReferenceRow>
         data={rows}
         keyExtractor={(item) => item.id}
@@ -122,7 +117,7 @@ export function BrandsRegionsModule() {
             </View>
           </TouchableOpacity>;
         }}
-        ListEmptyComponent={<View style={styles.empty}><MaterialIcons name={tab === "brands" ? "branding-watermark" : tab === "regions" ? "location-on" : "grade"} size={44} color={colors.muted} /><Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد بيانات بعد</Text></View>}
+        ListEmptyComponent={<MoreModuleEmptyState icon={tab === "brands" ? "branding-watermark" : tab === "regions" ? "location-on" : "grade"} title="لا توجد بيانات بعد" description="أضف سجلاً جديداً من الزر العائم للبدء." />}
       />
       <FABMenu items={canCreate ? [{ id: "add-reference", icon: "add", label: tab === "brands" ? "ماركة جديدة" : tab === "regions" ? "منطقة جديدة" : "تقييم جديد", onPress: openCreate }] : []} />
       <FloatingFormModal visible={showEditor} onClose={() => setShowEditor(false)} backgroundColor={colors.background}>
@@ -146,5 +141,5 @@ export function BrandsRegionsModule() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 }, tabs: { flexDirection: "row", gap: 8, margin: 12, padding: 5, borderWidth: 1, borderRadius: 16 }, tab: { flex: 1, alignItems: "center", borderRadius: 12, paddingVertical: 10 }, tabText: { fontWeight: "700" as any, fontSize: 13 }, list: { paddingHorizontal: 12, paddingBottom: 100, gap: 10 }, card: { minHeight: 72, borderRadius: 16, borderWidth: 1, padding: 14, flexDirection: "row", alignItems: "center" }, actions: { flexDirection: "row", gap: 4 }, iconButton: { padding: 7 }, cardText: { flex: 1, alignItems: "flex-end", gap: 6 }, cardTitle: { fontSize: 16, fontWeight: "800" as any }, ratingBadge: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3 }, colorDot: { width: 12, height: 12, borderRadius: 6 }, empty: { paddingVertical: 70, alignItems: "center", gap: 10 }, emptyText: { fontSize: 14 }, modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 0.5 }, modalTitle: { fontSize: 17, fontWeight: "800" as any }, form: { padding: 16 }, label: { fontSize: 14, fontWeight: "700" as any, textAlign: "right", marginBottom: 8, marginTop: 6 }, input: { borderWidth: 1, borderRadius: 12, padding: 13, fontSize: 16 }, choices: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 9 }, choice: { minWidth: 50, alignItems: "center", borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 14 }, colorChoice: { width: 38, height: 38, borderRadius: 19 }, selectedColor: { borderWidth: 3, borderColor: "#111827" }, footer: { flexDirection: "row", gap: 12, padding: 16, borderTopWidth: 0.5 }, footerButton: { flex: 1, alignItems: "center", borderRadius: 12, borderWidth: 1, paddingVertical: 13 },
+  container: { flex: 1 }, list: { paddingHorizontal: 12, paddingBottom: 100, gap: 10 }, card: { minHeight: 72, borderRadius: 16, borderWidth: 1, padding: 14, flexDirection: "row", alignItems: "center" }, actions: { flexDirection: "row", gap: 4 }, iconButton: { padding: 7 }, cardText: { flex: 1, alignItems: "flex-end", gap: 6 }, cardTitle: { fontSize: 16, fontWeight: "800" as any }, ratingBadge: { borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3 }, colorDot: { width: 12, height: 12, borderRadius: 6 }, modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 0.5 }, modalTitle: { fontSize: 17, fontWeight: "700" as any }, form: { padding: 16 }, label: { fontSize: 14, fontWeight: "600" as any, textAlign: "right", marginBottom: 8, marginTop: 6 }, input: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15 }, choices: { flexDirection: "row", flexWrap: "wrap", justifyContent: "flex-end", gap: 9 }, choice: { minWidth: 50, alignItems: "center", borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 14 }, colorChoice: { width: 38, height: 38, borderRadius: 19 }, selectedColor: { borderWidth: 3, borderColor: "#111827" }, footer: { flexDirection: "row", gap: 12, padding: 16, borderTopWidth: 0.5 }, footerButton: { flex: 1, alignItems: "center", borderRadius: 10, borderWidth: 1, paddingVertical: 12 },
 });

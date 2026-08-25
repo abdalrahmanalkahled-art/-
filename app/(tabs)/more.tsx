@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import {
   Animated,
   Easing,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -11,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { Image } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -202,7 +202,7 @@ export default function MoreScreen() {
             </View> : null}
 
             {moduleOpened && activeModule ? <SafeAreaView edges={["top", "bottom", "left", "right"]} style={[styles.expandedPage, { backgroundColor: colors.background }]}> 
-              <MoreModuleShell title={activeModuleInfo.title} subtitle={activeModuleInfo.subtitle} icon={activeModuleInfo.icon} accent={activeModuleInfo.color} compact={activeModule === "products"} onClose={closeModule} />
+              <MoreModuleShell title={activeModuleInfo.title} subtitle={activeModuleInfo.subtitle} icon={activeModuleInfo.icon} accent={activeModuleInfo.color} onClose={closeModule} />
               <Animated.View style={[styles.moduleContent, { transform: [{ translateY: contentReveal }] }]}> 
                 <MoreModuleContent moduleId={activeModule} />
               </Animated.View>
