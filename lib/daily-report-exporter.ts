@@ -12,6 +12,7 @@ import { pdfExportErrorMessage, preparePdfImageDataUri } from "./pdf-media";
 import { recordGeneratedReport } from "./report-history";
 import { getItems, STORAGE_KEYS } from "./storage";
 import { formatArabicDate } from "./analytics-number-format";
+import { beginOperationProgress } from "./operation-progress";
 import type { SurveyResult } from "./types/survey-types";
 
 export interface DailyReportData {
@@ -89,12 +90,13 @@ function productsHtml(result: SurveyResult): string {
   return `<table><thead><tr><th>المنتج</th><th>الحالة</th><th>التواجد</th>${result.hasProductPrice ? "<th>السعر</th>" : ""}</tr></thead><tbody>${products.map((product) => `<tr><td>${escapeHtml(product.productName)}</td><td><span class=\"${product.present ? "present" : "missing"}\">${product.present ? "موجود" : "غير موجود"}</span></td><td>${result.hasShelfPercentage ? `${Math.round(product.shelfPercentage || 0)}%` : "—"}</td>${result.hasProductPrice ? `<td>${product.price ?? "—"}</td>` : ""}</tr>`).join("")}</tbody></table>`;
 }
 
-async function storeDetailHtml(result: SurveyResult, index: number, includeMedia: boolean): Promise<string> {
+async function storeDetailHtml(result: SurveyResult, index: number, includeMedia: boolean, onMediaPrepared?: () => void): Promise<string> {
   const photos: string[] = [];
   if (includeMedia) {
     for (const uri of surveyPhotoUris(result)) {
       const photo = await imageDataUri(uri);
       if (photo) photos.push(photo);
+      onMediaPrepared?.();
     }
   }
   const answers = result.questions?.length ? `<div class=\"notes\"><strong>إجابات الأسئلة</strong>${result.questions.map((question) => `<p><b>${escapeHtml(question.question)}:</b> ${escapeHtml(question.answer)}</p>`).join("")}</div>` : "";
@@ -103,11 +105,12 @@ async function storeDetailHtml(result: SurveyResult, index: number, includeMedia
   return `<section class="store"><div class="store-heading"><div><span class="store-number">${index + 1}</span><h2>${escapeHtml(result.storeName)}</h2></div><p>${escapeHtml(result.storeRegion || "بدون منطقة")} • ${formatDate(result.surveyDate)}</p></div>${photosHtml}<div class="survey-meta"><span>الاستبيان: ${escapeHtml(result.templateName)}</span>${result.cycleName ? `<span>الدورة: ${escapeHtml(result.cycleName)}</span>` : ""}${result.totalShelves ? `<span>رفوف المحل: ${result.totalShelves}</span>` : ""}</div>${productsHtml(result)}${answers}${notes}</section>`;
 }
 
-async function buildDailyReportHtml(report: DailyReportData, options: DailyReportExportOptions = {}): Promise<string> {
+async function buildDailyReportHtml(report: DailyReportData, options: DailyReportExportOptions = {}, onMediaPrepared?: (completed: number) => void): Promise<string> {
   const includeMedia = options.includeMedia !== false;
   const logoMarkup = pdfLogoMarkup(await loadSharedPdfReportLogo());
   const details: string[] = [];
-  for (const [index, result] of report.surveyResults.entries()) details.push(await storeDetailHtml(result, index, includeMedia));
+  let preparedMedia = 0;
+  for (const [index, result] of report.surveyResults.entries()) details.push(await storeDetailHtml(result, index, includeMedia, () => { preparedMedia += 1; onMediaPrepared?.(preparedMedia); }));
   const eventHtml = report.events.length ? `<section class=\"events\"><h2>الفعاليات المنفذة</h2>${report.events.map((event) => `<div class=\"event\"><b>${escapeHtml(event.title || "فعالية")}</b><span>${formatDate(event.eventDate || event.createdAt)}${event.region ? ` • ${escapeHtml(event.region)}` : ""}</span>${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}</div>`).join("")}</section>` : "";
   const summary = report.summary;
   const executive = `<section class=\"executive\"><h2>الملخص التنفيذي</h2><p>خلال الفترة المحددة، شملت الأعمال الميدانية زيارة <b>${summary.storesVisited}</b> محل${summary.storesVisited === 1 ? "" : "اً"} عبر <b>${summary.regionsVisited.length}</b> منطقة، وتنفيذ <b>${summary.surveyResults}</b> استبيان${summary.surveyResults === 1 ? "" : "اً"}${summary.eventsCount ? ` وتنفيذ <b>${summary.eventsCount}</b> فعالية` : ""}. ${summary.regionsVisited.length ? `المناطق المغطاة: ${escapeHtml(summary.regionsVisited.join("، "))}.` : "لا توجد زيارات ميدانية ضمن هذه الفترة."}</p></section>`;
@@ -139,17 +142,24 @@ export async function loadDailyReport(range: DailyReportDateRange): Promise<Dail
 export async function exportDailyReportPdf(report: DailyReportData, options: DailyReportExportOptions = {}): Promise<void> {
   if (!report.surveyResults.length && !report.events.length) { Alert.alert("تنبيه", "لا توجد زيارات أو فعاليات ضمن الفترة المحددة."); return; }
   if (Platform.OS === "web") { Alert.alert("التصدير من الويب", "تصدير PDF التفصيلي متاح من تطبيق الهاتف."); return; }
+  const progress = beginOperationProgress({ kind: "export", title: "تصدير التقرير اليومي PDF", steps: ["تحضير بيانات التقرير", "تجهيز الصور والقالب", "إنشاء ملف PDF", "حفظ التقرير والتحقق منه", "فتح المشاركة"] });
   try {
-    const html = await buildDailyReportHtml(report, options);
+    progress.update({ stepIndex: 0, message: "جارٍ تحضير بيانات التقرير اليومي" });
+    const html = await buildDailyReportHtml(report, options, (completed) => progress.update({ stepIndex: 1, message: `جارٍ تجهيز الصورة ${completed} من ${report.summary.photosCount}`, completedItems: completed, totalItems: report.summary.photosCount }));
+    progress.update({ stepIndex: 2, message: "جارٍ إنشاء ملف PDF" });
     const generated = await Print.printToFileAsync({ html });
+    progress.update({ stepIndex: 3, message: "جارٍ حفظ التقرير والتحقق من الملف" });
     const { uri, safeFilename } = await destination();
     await FileSystem.copyAsync({ from: generated.uri, to: uri });
     const info = await FileSystem.getInfoAsync(uri);
     if (!info.exists || info.isDirectory || !info.size) throw new Error("تعذر إنشاء ملف PDF صالح");
     await recordGeneratedReport({ title: safeFilename, type: "PDF", uri, size: info.size });
+    progress.update({ stepIndex: 4, message: "جارٍ فتح خيارات مشاركة التقرير" });
     if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: "مشاركة التقرير اليومي" });
     else Alert.alert("تم الحفظ", `حُفظ التقرير داخل مجلد التقارير بالتطبيق:\n${safeFilename}`);
   } catch (error) {
     Alert.alert("فشل تصدير التقرير", pdfExportErrorMessage(error));
+  } finally {
+    progress.complete();
   }
 }

@@ -8,6 +8,7 @@ import type { BackupMediaFile, BackupSectionId, FullBackupPayload } from "./full
 import { restoreMarketingManagerFile, restoreMarketingManagerFileFromUri } from "./marketing-manager-storage";
 import { describeBackupRestoreSpaceError, estimateBackupRestoreSpace, hasEnoughBackupRestoreSpace } from "./backup-storage-capacity";
 import { LegacyBackupStreamParser, type LegacyBackupHeader, type LegacyBackupMediaMeta } from "./legacy-backup-stream";
+import { beginOperationProgress } from "./operation-progress";
 
 export interface BackupPreviewGroup {
   key: string;
@@ -160,7 +161,7 @@ export function streamingRestoreTargetUri(documentDirectory: string, relativePat
     : `${documentDirectory}${relativePath}`;
 }
 
-async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirectory: string): Promise<Map<string, string>> {
+async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirectory: string, onMediaRestored?: (completed: number) => void): Promise<Map<string, string>> {
   const source = streamingBackupSources.get(payload);
   if (!source) return new Map<string, string>();
   const parser = new LegacyBackupStreamParser();
@@ -168,6 +169,7 @@ async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirec
   const uriMap = new Map<string, string>();
   let current: { media: LegacyBackupMediaMeta; temporaryUri: string; handle: { writeBytes: (bytes: Uint8Array) => void; close: () => void }; pending: string } | null = null;
   let position = 0;
+  let restoredCount = 0;
   try {
     const info = await FileSystem.getInfoAsync(source.uri);
     if (!info.exists || info.isDirectory || !info.size) throw new Error("تعذر الوصول إلى ملف النسخة الكبيرة.");
@@ -204,6 +206,8 @@ async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirec
             if (saved.media.sourceUri) uriMap.set(saved.media.sourceUri, target);
             await FileSystem.deleteAsync(saved.temporaryUri, { idempotent: true }).catch(() => undefined);
           } else if (saved.media.sourceUri) uriMap.set(saved.media.sourceUri, saved.temporaryUri);
+          restoredCount += 1;
+          onMediaRestored?.(restoredCount);
         }
       }
     }
@@ -226,9 +230,9 @@ async function clearStaleRestoreStagingDirectories(): Promise<void> {
   }));
 }
 
-async function writeLocalMediaDirectly(media: BackupMediaFile[], documentDirectory: string): Promise<Map<string, string>> {
+async function writeLocalMediaDirectly(media: BackupMediaFile[], documentDirectory: string, onMediaRestored?: (completed: number) => void): Promise<Map<string, string>> {
   const restored = new Map<string, string>();
-  for (const file of media) {
+  for (const [index, file] of media.entries()) {
     const uri = `${documentDirectory}${file.relativePath}`;
     const parent = uri.slice(0, uri.lastIndexOf("/") + 1);
     const parentInfo = await FileSystem.getInfoAsync(parent);
@@ -237,6 +241,7 @@ async function writeLocalMediaDirectly(media: BackupMediaFile[], documentDirecto
     const info = await FileSystem.getInfoAsync(uri);
     if (!info.exists || info.isDirectory || !info.size) throw new Error(`تعذر استعادة ملف الوسائط: ${file.relativePath}`);
     if (file.sourceUri) restored.set(file.sourceUri, uri);
+    onMediaRestored?.(index + 1);
   }
   return restored;
 }
@@ -300,28 +305,42 @@ export async function createMergePreview(payload: FullBackupPayload): Promise<Ba
 export async function restoreFullBackup(payload: FullBackupPayload, mode: RestoreMode = "replace", sourceLabel = "نسخة احتياطية"): Promise<RestoreResult> {
   const documentDirectory = FileSystem.documentDirectory;
   if (!documentDirectory) throw new Error("تعذر الوصول إلى مساحة المستندات المحلية");
-  await clearStaleRestoreStagingDirectories();
-  const availableBytes = await FileSystem.getFreeDiskStorageAsync().catch(() => null);
-  if (!hasEnoughBackupRestoreSpace(payload, availableBytes)) {
-    throw new Error(describeBackupRestoreSpaceError(estimateBackupRestoreSpace(payload).requiredBytes, availableBytes!));
+  const progress = beginOperationProgress({ kind: "restore", title: "استعادة النسخة الاحتياطية", steps: ["فحص النسخة ومساحة التخزين", "تحضير موقع الملفات", "استعادة الوسائط", "تحديث البيانات والمراجع", "تسجيل نتيجة الاستعادة"] });
+  try {
+    progress.update({ stepIndex: 0, message: "جارٍ فحص محتوى النسخة والمساحة المتاحة" });
+    await clearStaleRestoreStagingDirectories();
+    const availableBytes = await FileSystem.getFreeDiskStorageAsync().catch(() => null);
+    if (!hasEnoughBackupRestoreSpace(payload, availableBytes)) {
+      throw new Error(describeBackupRestoreSpaceError(estimateBackupRestoreSpace(payload).requiredBytes, availableBytes!));
+    }
+    progress.update({ stepIndex: 1, message: "جارٍ تحضير وجهات الملفات الآمنة" });
+    const reportMedia = (completed: number) => progress.update({ stepIndex: 2, message: `جارٍ استعادة ملف الوسائط ${completed} من ${payload.media.length}`, completedItems: completed, totalItems: payload.media.length });
+    progress.update({ stepIndex: 2, message: payload.media.length ? "جارٍ استعادة الوسائط" : "لا توجد وسائط ضمن النسخة", completedItems: 0, totalItems: payload.media.length });
+    const uriMap = streamingBackupSources.has(payload)
+      ? await streamLegacyBackupMedia(payload, documentDirectory, reportMedia)
+      : await (async () => {
+        const marketingManagerMedia = payload.media.filter((media) => media.relativePath.startsWith("marketing-manager/"));
+        const localMedia = payload.media.filter((media) => !media.relativePath.startsWith("marketing-manager/"));
+        const restored = await writeLocalMediaDirectly(localMedia, documentDirectory, reportMedia);
+        let restoredCount = localMedia.length;
+        for (const media of marketingManagerMedia) {
+          const target = await restoreMarketingManagerFile(media.relativePath.replace(/^marketing-manager\//, ""), media.base64);
+          if (media.sourceUri) restored.set(media.sourceUri, target);
+          restoredCount += 1;
+          reportMedia(restoredCount);
+        }
+        return restored;
+      })();
+    progress.update({ stepIndex: 3, message: mode === "merge" ? "جارٍ دمج البيانات وإعادة ربط الوسائط" : "جارٍ تحديث البيانات وإعادة ربط الوسائط" });
+    const restoredPayload = rebasePayloadMediaReferences(payload, uriMap);
+    const mergePreview = mode === "merge" ? await mergeDataWithRollback(restoredPayload) : undefined;
+    if (mode === "replace") await restoreDataWithRollback(restoredPayload);
+    progress.update({ stepIndex: 4, message: "جارٍ حفظ سجل الاستعادة" });
+    const preview = createBackupPreview(payload);
+    const history = createLastRestoreHistory(payload, preview, mode, sourceLabel, mergePreview);
+    await saveLastRestoreHistory(history);
+    return { dataGroupCount: Object.keys(payload.data).filter((key) => !LOCAL_SETTINGS_KEYS.has(key)).length, mediaCount: payload.media.length, mode, mergePreview };
+  } finally {
+    progress.complete();
   }
-  const uriMap = streamingBackupSources.has(payload)
-    ? await streamLegacyBackupMedia(payload, documentDirectory)
-    : await (async () => {
-      const marketingManagerMedia = payload.media.filter((media) => media.relativePath.startsWith("marketing-manager/"));
-      const localMedia = payload.media.filter((media) => !media.relativePath.startsWith("marketing-manager/"));
-      const restored = await writeLocalMediaDirectly(localMedia, documentDirectory);
-      for (const media of marketingManagerMedia) {
-        const target = await restoreMarketingManagerFile(media.relativePath.replace(/^marketing-manager\//, ""), media.base64);
-        if (media.sourceUri) restored.set(media.sourceUri, target);
-      }
-      return restored;
-    })();
-  const restoredPayload = rebasePayloadMediaReferences(payload, uriMap);
-  const mergePreview = mode === "merge" ? await mergeDataWithRollback(restoredPayload) : undefined;
-  if (mode === "replace") await restoreDataWithRollback(restoredPayload);
-  const preview = createBackupPreview(payload);
-  const history = createLastRestoreHistory(payload, preview, mode, sourceLabel, mergePreview);
-  await saveLastRestoreHistory(history);
-  return { dataGroupCount: Object.keys(payload.data).filter((key) => !LOCAL_SETTINGS_KEYS.has(key)).length, mediaCount: payload.media.length, mode, mergePreview };
 }

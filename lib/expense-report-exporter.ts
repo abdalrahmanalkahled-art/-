@@ -9,6 +9,7 @@ import type { ExpenseReportData } from "./expense-report-data";
 import { ensureDirectoryExists, sanitizeFilename } from "./export-sanitizer";
 import { recordGeneratedReport } from "./report-history";
 import { loadSharedPdfReportLogo, pdfLogoMarkup } from "./pdf-report-logo";
+import { beginOperationProgress } from "./operation-progress";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "—").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] || character);
@@ -103,18 +104,29 @@ export async function exportExpenseReport(format: "pdf" | "excel", data: Expense
     Alert.alert("التصدير من الويب", "تصدير تقارير الصرفيات متاح في تطبيق الهاتف.");
     return;
   }
+  const progress = beginOperationProgress({ kind: "export", title: `تصدير تقرير الصرفيات ${format === "pdf" ? "PDF" : "Excel"}`, steps: ["تجهيز بيانات التقرير", format === "pdf" ? "إنشاء ملف PDF" : "بناء مصنف Excel", "حفظ التقرير والتحقق منه", "فتح المشاركة"] });
   try {
+    progress.update({ stepIndex: 0, message: "جارٍ تجهيز بيانات الصرفيات" });
     if (format === "pdf") {
+      progress.update({ stepIndex: 1, message: "جارٍ إنشاء ملف PDF" });
       const generated = await Print.printToFileAsync({ html: reportHtml(data, settings, pdfLogoMarkup(await loadSharedPdfReportLogo())) });
+      progress.update({ stepIndex: 2, message: "جارٍ حفظ التقرير والتحقق من الملف" });
       const { uri, filename } = await destination("pdf");
       await FileSystem.copyAsync({ from: generated.uri, to: uri });
+      progress.update({ stepIndex: 3, message: "جارٍ فتح خيارات مشاركة التقرير" });
       await shareAndRecord(uri, filename, "PDF");
       return;
     }
+    progress.update({ stepIndex: 1, message: "جارٍ بناء مصنف Excel" });
     const { uri, filename } = await destination("xlsx");
-    await FileSystem.writeAsStringAsync(uri, workbookBase64(data, settings), { encoding: FileSystem.EncodingType.Base64 });
+    const base64 = workbookBase64(data, settings);
+    progress.update({ stepIndex: 2, message: "جارٍ حفظ التقرير والتحقق من الملف" });
+    await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
+    progress.update({ stepIndex: 3, message: "جارٍ فتح خيارات مشاركة التقرير" });
     await shareAndRecord(uri, filename, "XLSX");
   } catch (error) {
     Alert.alert(`فشل تصدير ${format === "pdf" ? "PDF" : "Excel"}`, error instanceof Error ? error.message : "خطأ غير معروف");
+  } finally {
+    progress.complete();
   }
 }

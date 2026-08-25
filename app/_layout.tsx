@@ -13,6 +13,7 @@ import { AppCustomizationProvider } from "@/lib/app-customization-context";
 import { LoadingScreen } from "@/components/loading-screen";
 import { AppAlertProvider } from "@/components/app-alert-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { OperationProgressOverlay } from "@/components/operation-progress-overlay";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -153,6 +154,7 @@ export default function RootLayout() {
                       <Stack.Screen name="login" />
                       <Stack.Screen name="oauth/callback" />
                     </Stack>
+                    <OperationProgressOverlay />
                   </AuthGuard>
                 </AppAlertProvider>
               </ErrorBoundary>
