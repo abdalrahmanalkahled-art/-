@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   readAsStringAsync: vi.fn(),
-  writeAsStringAsync: vi.fn(),
+  copyAsync: vi.fn(),
+  getInfoAsync: vi.fn(),
   deleteAsync: vi.fn(),
   manipulateAsync: vi.fn(),
 }));
@@ -10,9 +11,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
   EncodingType: { Base64: "base64" },
-  StorageAccessFramework: { readAsStringAsync: mocks.readAsStringAsync },
   readAsStringAsync: mocks.readAsStringAsync,
-  writeAsStringAsync: mocks.writeAsStringAsync,
+  copyAsync: mocks.copyAsync,
+  getInfoAsync: mocks.getInfoAsync,
   deleteAsync: mocks.deleteAsync,
 }));
 vi.mock("expo-image-manipulator", () => ({
@@ -25,15 +26,17 @@ import { pdfExportErrorMessage, preparePdfImageDataUri } from "../pdf-media";
 describe("وسائط تقارير PDF", () => {
   afterEach(() => vi.clearAllMocks());
 
-  it("يقرأ content:// عبر SAF ويضغطه ثم ينظف نسخه المؤقتة", async () => {
-    mocks.readAsStringAsync.mockResolvedValueOnce("source-base64").mockResolvedValueOnce("compressed-base64");
+  it("ينسخ content:// محلياً ثم يضغطه وينظف نسخه المؤقتة دون قراءة الأصل Base64", async () => {
+    mocks.getInfoAsync.mockImplementation(async (uri: string) => uri.includes("resized") ? { exists: true, isDirectory: false, size: 1500 } : { exists: true, isDirectory: false, size: 4000 });
+    mocks.readAsStringAsync.mockResolvedValue("compressed-base64");
     mocks.manipulateAsync.mockResolvedValue({ uri: "file:///cache/resized.jpg" });
+    mocks.copyAsync.mockResolvedValue(undefined);
     mocks.deleteAsync.mockResolvedValue(undefined);
 
     await expect(preparePdfImageDataUri("content://provider/image", { width: 720, quality: 0.55, prefix: "report" }))
       .resolves.toBe("data:image/jpeg;base64,compressed-base64");
 
-    expect(mocks.writeAsStringAsync).toHaveBeenCalledWith(expect.stringContaining("report-"), "source-base64", { encoding: "base64" });
+    expect(mocks.copyAsync).toHaveBeenCalledWith({ from: "content://provider/image", to: expect.stringContaining("report-") });
     expect(mocks.manipulateAsync).toHaveBeenCalledWith(expect.stringContaining("report-"), [{ resize: { width: 720 } }], { compress: 0.55, format: "jpeg" });
     expect(mocks.deleteAsync).toHaveBeenCalledWith(expect.stringContaining("report-"), { idempotent: true });
     expect(mocks.deleteAsync).toHaveBeenCalledWith("file:///cache/resized.jpg", { idempotent: true });
@@ -41,5 +44,9 @@ describe("وسائط تقارير PDF", () => {
 
   it("لا يعرض خطأ المساحة كمساحة فعلية عندما يكون عطل الطباعة مع وسائط", () => {
     expect(pdfExportErrorMessage(new Error("No space left on device"))).toContain("محرك الطباعة");
+  });
+
+  it("يشرح خطأ نفاد الذاكرة بوضوح بدلاً من اعتباره نقص مساحة", () => {
+    expect(pdfExportErrorMessage(new Error("java.lang.OutOfMemoryError: Failed to allocate"))).toContain("ذاكرة التطبيق");
   });
 });

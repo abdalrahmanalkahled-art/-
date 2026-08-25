@@ -48,12 +48,11 @@ describe("إعداد تقرير المستودع", () => {
     expect(moreShell).toContain("subtitle");
   });
 
-  it("يحوّل صورة الأداة إلى JPEG مضغوط وData URI داخل PDF", () => {
-    expect(exporter).toContain("ImageManipulator.manipulateAsync");
-    expect(exporter).toContain("StorageAccessFramework.readAsStringAsync");
-    expect(exporter).toContain("localToolImageUri");
-    expect(exporter).toContain("FileSystem.readAsStringAsync");
-    expect(exporter).toContain("data:image/jpeg;base64,");
+  it("يحوّل صورة الأداة عبر طبقة PDF مشتركة محدودة الذاكرة", () => {
+    expect(exporter).toContain("preparePdfImageDataUri");
+    expect(exporter).toContain('prefix: "warehouse-report"');
+    expect(exporter).not.toContain("StorageAccessFramework.readAsStringAsync");
+    expect(exporter).not.toContain("localToolImageUri");
     expect(exporter).toContain("await embeddedToolImage(tool.imageUri, settings)");
   });
 });

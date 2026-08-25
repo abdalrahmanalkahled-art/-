@@ -5,8 +5,9 @@ import { BACKUP_KEY_LABELS, LOCAL_SETTINGS_KEYS, mergeBackupData, type BackupMer
 import { createLastRestoreHistory, saveLastRestoreHistory } from "./backup-restore-history";
 import { BACKUP_DATA_KEYS } from "./full-backup";
 import type { BackupMediaFile, BackupSectionId, FullBackupPayload } from "./full-backup";
-import { restoreMarketingManagerFile } from "./marketing-manager-storage";
+import { persistMarketingManagerFile, restoreMarketingManagerFile } from "./marketing-manager-storage";
 import { describeBackupRestoreSpaceError, estimateBackupRestoreSpace, hasEnoughBackupRestoreSpace } from "./backup-storage-capacity";
+import { LegacyBackupStreamParser, type LegacyBackupHeader, type LegacyBackupMediaMeta } from "./legacy-backup-stream";
 
 export interface BackupPreviewGroup {
   key: string;
@@ -35,6 +36,9 @@ export interface RestoreResult {
 }
 
 const ALLOWED_KEYS = new Set(BACKUP_DATA_KEYS);
+const STREAMING_BACKUP_THRESHOLD_BYTES = 6 * 1024 * 1024;
+const STREAM_READ_CHUNK_BYTES = 192 * 1024;
+const streamingBackupSources = new WeakMap<FullBackupPayload, { uri: string; temporaryUri?: string }>();
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -92,8 +96,122 @@ export function createBackupPreview(payload: FullBackupPayload): BackupPreview {
 }
 
 export async function readBackupFromUri(uri: string): Promise<FullBackupPayload> {
+  const info = await FileSystem.getInfoAsync(uri).catch(() => null);
+  if (info?.exists && !info.isDirectory && typeof info.size === "number" && info.size > STREAMING_BACKUP_THRESHOLD_BYTES) return readLargeBackupHeader(uri);
   const content = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 });
   return parseFullBackup(content);
+}
+
+function byteArrayFromBase64(value: string): Uint8Array {
+  const binary = globalThis.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+async function localStreamingSource(uri: string): Promise<{ uri: string; temporaryUri?: string }> {
+  if (!uri.startsWith("content://") || !FileSystem.cacheDirectory) return { uri };
+  const temporaryUri = `${FileSystem.cacheDirectory}madar-large-backup-${Date.now()}.json`;
+  await FileSystem.copyAsync({ from: uri, to: temporaryUri });
+  return { uri: temporaryUri, temporaryUri };
+}
+
+function payloadFromLegacyHeader(header: LegacyBackupHeader, media: LegacyBackupMediaMeta[]): FullBackupPayload {
+  if (header.type !== "madar-full-backup" || header.schemaVersion !== 1 || !header.createdAt || !header.data || typeof header.data !== "object") throw new Error("هذا الملف لا يحمل بنية نسخة احتياطية متوافقة مع مساعد التسويق الميداني.");
+  Object.keys(header.data).forEach((key) => { if (!ALLOWED_KEYS.has(key)) throw new Error(`تحتوي النسخة على مفتاح غير مدعوم: ${key}`); });
+  media.forEach((item) => { if (!isSafeRelativePath(item.relativePath)) throw new Error("تحتوي النسخة على مسار وسيط غير آمن."); });
+  return { schemaVersion: 1, type: "madar-full-backup", backupKind: header.backupKind === "partial" ? "partial" : "full", ...(header.backupKind === "partial" ? { sections: (header.sections || []).filter((section): section is BackupSectionId => typeof section === "string") } : {}), createdAt: header.createdAt, data: header.data, media: media.map((item) => ({ ...item, base64: "" })), skippedMediaPaths: [] };
+}
+
+async function readLargeBackupHeader(sourceUri: string): Promise<FullBackupPayload> {
+  const source = await localStreamingSource(sourceUri);
+  const parser = new LegacyBackupStreamParser();
+  const decoder = new TextDecoder();
+  let header: LegacyBackupHeader | null = null;
+  const media: LegacyBackupMediaMeta[] = [];
+  let position = 0;
+  try {
+    const info = await FileSystem.getInfoAsync(source.uri);
+    if (!info.exists || info.isDirectory || !info.size) throw new Error("تعذر قراءة ملف النسخة الاحتياطية.");
+    while (position < info.size) {
+      const length = Math.min(STREAM_READ_CHUNK_BYTES, info.size - position);
+      const encoded = await FileSystem.readAsStringAsync(source.uri, { encoding: FileSystem.EncodingType.Base64, position, length });
+      position += length;
+      const text = decoder.decode(byteArrayFromBase64(encoded), { stream: position < info.size });
+      for (const event of parser.feed(text, position >= info.size)) {
+        if (event.type === "header") header = event.header;
+        if (event.type === "media-start") media.push(event.media);
+      }
+    }
+    if (!header) throw new Error("تعذر قراءة رأس النسخة الاحتياطية.");
+    const payload = payloadFromLegacyHeader(header, media);
+    streamingBackupSources.set(payload, source);
+    return payload;
+  } catch (error) {
+    if (source.temporaryUri) await FileSystem.deleteAsync(source.temporaryUri, { idempotent: true }).catch(() => undefined);
+    throw error;
+  }
+}
+
+function mediaKindAndName(relativePath: string): { kind: "media" | "templates" | "branding" | "backups"; name: string } {
+  const [kindText, name] = relativePath.replace(/^marketing-manager\//, "").split("/", 2);
+  return { kind: ["media", "templates", "branding", "backups"].includes(kindText) ? kindText as "media" | "templates" | "branding" | "backups" : "media", name: name || "restored.bin" };
+}
+
+async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirectory: string): Promise<Map<string, string>> {
+  const source = streamingBackupSources.get(payload);
+  if (!source) return new Map<string, string>();
+  const parser = new LegacyBackupStreamParser();
+  const decoder = new TextDecoder();
+  const uriMap = new Map<string, string>();
+  let current: { media: LegacyBackupMediaMeta; temporaryUri: string; handle: { writeBytes: (bytes: Uint8Array) => void; close: () => void }; pending: string } | null = null;
+  let position = 0;
+  try {
+    const info = await FileSystem.getInfoAsync(source.uri);
+    if (!info.exists || info.isDirectory || !info.size) throw new Error("تعذر الوصول إلى ملف النسخة الكبيرة.");
+    while (position < info.size) {
+      const length = Math.min(STREAM_READ_CHUNK_BYTES, info.size - position);
+      const encoded = await FileSystem.readAsStringAsync(source.uri, { encoding: FileSystem.EncodingType.Base64, position, length });
+      position += length;
+      const text = decoder.decode(byteArrayFromBase64(encoded), { stream: position < info.size });
+      for (const event of parser.feed(text, position >= info.size)) {
+        if (event.type === "media-start") {
+          const temporaryUri = `${documentDirectory}madar-restore-stream/${event.media.relativePath}`;
+          const parent = temporaryUri.slice(0, temporaryUri.lastIndexOf("/") + 1);
+          await FileSystem.makeDirectoryAsync(parent, { intermediates: true });
+          const fileSystemNext = await import("expo-file-system/next");
+          const file = new fileSystemNext.File(temporaryUri);
+          file.create({ intermediates: true, overwrite: true });
+          current = { media: event.media, temporaryUri, handle: file.open(), pending: "" };
+        }
+        if (event.type === "media-base64" && current) {
+          const combined = current.pending + event.value;
+          const fullLength = combined.length - (combined.length % 4);
+          if (fullLength) current.handle.writeBytes(byteArrayFromBase64(combined.slice(0, fullLength)));
+          current.pending = combined.slice(fullLength);
+        }
+        if (event.type === "media-end" && current) {
+          if (current.pending) current.handle.writeBytes(byteArrayFromBase64(current.pending));
+          current.handle.close();
+          const saved = current;
+          current = null;
+          const localInfo = await FileSystem.getInfoAsync(saved.temporaryUri);
+          if (!localInfo.exists || localInfo.isDirectory || !localInfo.size) throw new Error(`تعذر استعادة ملف الوسائط: ${saved.media.relativePath}`);
+          if (saved.media.relativePath.startsWith("marketing-manager/")) {
+            const { kind, name } = mediaKindAndName(saved.media.relativePath);
+            const target = await persistMarketingManagerFile(saved.temporaryUri, kind, name);
+            if (saved.media.sourceUri) uriMap.set(saved.media.sourceUri, target);
+            await FileSystem.deleteAsync(saved.temporaryUri, { idempotent: true }).catch(() => undefined);
+          } else if (saved.media.sourceUri) uriMap.set(saved.media.sourceUri, saved.temporaryUri);
+        }
+      }
+    }
+    return uriMap;
+  } finally {
+    if (current) current.handle.close();
+    if (source.temporaryUri) await FileSystem.deleteAsync(source.temporaryUri, { idempotent: true }).catch(() => undefined);
+    streamingBackupSources.delete(payload);
+  }
 }
 
 /** يزيل فقط مجلدات المرحلية التي أنشأتها إصدارات أقدم من الاستعادة عند انقطاع محاولة سابقة. */
@@ -186,13 +304,18 @@ export async function restoreFullBackup(payload: FullBackupPayload, mode: Restor
   if (!hasEnoughBackupRestoreSpace(payload, availableBytes)) {
     throw new Error(describeBackupRestoreSpaceError(estimateBackupRestoreSpace(payload).requiredBytes, availableBytes!));
   }
-  const marketingManagerMedia = payload.media.filter((media) => media.relativePath.startsWith("marketing-manager/"));
-  const localMedia = payload.media.filter((media) => !media.relativePath.startsWith("marketing-manager/"));
-  const uriMap = await writeLocalMediaDirectly(localMedia, documentDirectory);
-  for (const media of marketingManagerMedia) {
-    const target = await restoreMarketingManagerFile(media.relativePath.replace(/^marketing-manager\//, ""), media.base64);
-    if (media.sourceUri) uriMap.set(media.sourceUri, target);
-  }
+  const uriMap = streamingBackupSources.has(payload)
+    ? await streamLegacyBackupMedia(payload, documentDirectory)
+    : await (async () => {
+      const marketingManagerMedia = payload.media.filter((media) => media.relativePath.startsWith("marketing-manager/"));
+      const localMedia = payload.media.filter((media) => !media.relativePath.startsWith("marketing-manager/"));
+      const restored = await writeLocalMediaDirectly(localMedia, documentDirectory);
+      for (const media of marketingManagerMedia) {
+        const target = await restoreMarketingManagerFile(media.relativePath.replace(/^marketing-manager\//, ""), media.base64);
+        if (media.sourceUri) restored.set(media.sourceUri, target);
+      }
+      return restored;
+    })();
   const restoredPayload = rebasePayloadMediaReferences(payload, uriMap);
   const mergePreview = mode === "merge" ? await mergeDataWithRollback(restoredPayload) : undefined;
   if (mode === "replace") await restoreDataWithRollback(restoredPayload);

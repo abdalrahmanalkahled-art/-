@@ -11,6 +11,8 @@ import { getMarketingManagerFiles } from "./marketing-manager-storage";
 
 const BACKUPS_DIRECTORY = "backups/";
 const BACKUP_SCHEMA_VERSION = 1;
+const MAX_SINGLE_EMBEDDED_MEDIA_BYTES = 6 * 1024 * 1024;
+const MAX_EMBEDDED_MEDIA_BYTES = 18 * 1024 * 1024;
 const GENERATED_FILE_DIRECTORIES = [
   BACKUPS_DIRECTORY,
   "reports/",
@@ -107,36 +109,42 @@ export function buildFullBackupPayload(
   return { schemaVersion: BACKUP_SCHEMA_VERSION, type: "madar-full-backup", backupKind, ...(backupKind === "partial" ? { sections } : {}), createdAt, data, media, skippedMediaPaths };
 }
 
-async function readManagedMedia(mediaUris: string[], documentDirectory: string): Promise<{ media: BackupMediaFile[]; skippedMediaPaths: string[] }> {
+async function readManagedMedia(mediaUris: string[], documentDirectory: string): Promise<{ media: BackupMediaFile[]; skippedMediaPaths: string[]; embeddedBytes: number }> {
   const media: BackupMediaFile[] = [];
   const skippedMediaPaths: string[] = [];
+  let embeddedBytes = 0;
   for (const uri of mediaUris) {
     try {
       const info = await FileSystem.getInfoAsync(uri);
       if (!info.exists || info.isDirectory || !info.size) { skippedMediaPaths.push(uri); continue; }
+      if (info.size > MAX_SINGLE_EMBEDDED_MEDIA_BYTES || embeddedBytes + info.size > MAX_EMBEDDED_MEDIA_BYTES) { skippedMediaPaths.push(uri); continue; }
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       if (!base64) { skippedMediaPaths.push(uri); continue; }
       media.push({ relativePath: uri.slice(documentDirectory.length), base64, size: info.size, sourceUri: uri });
+      embeddedBytes += info.size;
     } catch { skippedMediaPaths.push(uri); }
   }
-  return { media, skippedMediaPaths };
+  return { media, skippedMediaPaths, embeddedBytes };
 }
 
-async function readMarketingManagerMedia(data: Record<string, string>): Promise<{ media: BackupMediaFile[]; skippedMediaPaths: string[] }> {
+async function readMarketingManagerMedia(data: Record<string, string>, initialEmbeddedBytes = 0): Promise<{ media: BackupMediaFile[]; skippedMediaPaths: string[]; embeddedBytes: number }> {
   const registry = await getMarketingManagerFiles();
   const referenced = registry.filter((entry) => Object.values(data).some((raw) => raw.includes(entry.uri)));
   const media: BackupMediaFile[] = [];
   const skippedMediaPaths: string[] = [];
+  let embeddedBytes = initialEmbeddedBytes;
   for (const entry of referenced) {
     try {
       const info = await FileSystem.getInfoAsync(entry.uri);
       if (!info.exists || info.isDirectory || !info.size) { skippedMediaPaths.push(entry.uri); continue; }
+      if (info.size > MAX_SINGLE_EMBEDDED_MEDIA_BYTES || embeddedBytes + info.size > MAX_EMBEDDED_MEDIA_BYTES) { skippedMediaPaths.push(entry.uri); continue; }
       const base64 = await FileSystem.readAsStringAsync(entry.uri, { encoding: FileSystem.EncodingType.Base64 });
       if (!base64) { skippedMediaPaths.push(entry.uri); continue; }
       media.push({ relativePath: `marketing-manager/${entry.relativePath}`, base64, size: info.size, sourceUri: entry.uri });
+      embeddedBytes += info.size;
     } catch { skippedMediaPaths.push(entry.uri); }
   }
-  return { media, skippedMediaPaths };
+  return { media, skippedMediaPaths, embeddedBytes };
 }
 
 function downloadBackupOnWeb(filename: string, content: string): void {
@@ -173,8 +181,8 @@ async function createBackupForKeys(keys: string[], options: { filename: string; 
   const data = Object.fromEntries(entries.filter(([, value]) => value !== null) as [string, string][]);
   const documentDirectory = FileSystem.documentDirectory;
   const mediaUris = collectManagedMediaUris(data, documentDirectory);
-  const internal = documentDirectory ? await readManagedMedia(mediaUris, documentDirectory) : { media: [], skippedMediaPaths: mediaUris };
-  const external = await readMarketingManagerMedia(data);
+  const internal = documentDirectory ? await readManagedMedia(mediaUris, documentDirectory) : { media: [], skippedMediaPaths: mediaUris, embeddedBytes: 0 };
+  const external = await readMarketingManagerMedia(data, internal.embeddedBytes);
   const media = [...internal.media, ...external.media];
   const skippedMediaPaths = [...internal.skippedMediaPaths, ...external.skippedMediaPaths];
   const payload = buildFullBackupPayload(data, media, skippedMediaPaths, new Date().toISOString(), options.backupKind, options.sections || []);

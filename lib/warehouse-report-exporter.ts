@@ -2,7 +2,6 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import * as XLSX from "xlsx";
-import * as ImageManipulator from "expo-image-manipulator";
 import { Alert, Platform } from "react-native";
 
 import type { WarehouseReportData } from "./warehouse-report-data";
@@ -11,7 +10,7 @@ import { conditionMeta } from "./warehouse-tools";
 import { ensureDirectoryExists, sanitizeFilename } from "./export-sanitizer";
 import { recordGeneratedReport } from "./report-history";
 import { loadSharedPdfReportLogo, pdfLogoMarkup } from "./pdf-report-logo";
-import { pdfExportErrorMessage } from "./pdf-media";
+import { pdfExportErrorMessage, preparePdfImageDataUri } from "./pdf-media";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "—").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character] || character);
@@ -24,27 +23,6 @@ function imageCell(uri: string | undefined, includeImages: boolean, inlineStyle 
   return `<img src="${escapeHtml(uri)}" alt="صورة الأداة"${inlineStyle ? ` style="${inlineStyle}"` : ""} />`;
 }
 
-function imageMimeType(uri: string): string {
-  const extension = uri.split("?")[0]?.split(".").pop()?.toLowerCase();
-  if (extension === "png") return "image/png";
-  if (extension === "webp") return "image/webp";
-  return "image/jpeg";
-}
-
-async function readToolImageBase64(uri: string): Promise<string> {
-  const options = { encoding: FileSystem.EncodingType.Base64 };
-  return uri.startsWith("content://")
-    ? FileSystem.StorageAccessFramework.readAsStringAsync(uri, options)
-    : FileSystem.readAsStringAsync(uri, options);
-}
-
-async function localToolImageUri(uri: string): Promise<{ uri: string; temporaryUri?: string }> {
-  if (!uri.startsWith("content://") || !FileSystem.cacheDirectory) return { uri };
-  const temporaryUri = `${FileSystem.cacheDirectory}warehouse-report-image-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-  await FileSystem.writeAsStringAsync(temporaryUri, await readToolImageBase64(uri), { encoding: FileSystem.EncodingType.Base64 });
-  return { uri: temporaryUri, temporaryUri };
-}
-
 function toolImageProfile(settings: WarehouseReportSettings) {
   if (settings.toolDisplayMode !== "cards") return { width: settings.imageMaxWidth ?? 900, quality: settings.imageQuality ?? 0.72 };
   if (settings.toolImageCompression === "original") return { width: 1600, quality: 0.95 };
@@ -54,24 +32,11 @@ function toolImageProfile(settings: WarehouseReportSettings) {
 
 async function embeddedToolImage(uri: string | undefined, settings: WarehouseReportSettings, inlineStyle = ""): Promise<string> {
   if (!settings.includeImages || !uri) return "—";
-  let temporaryUri: string | undefined;
-  let resizedUri: string | undefined;
   try {
-    const localImage = await localToolImageUri(uri);
-    temporaryUri = localImage.temporaryUri;
     const profile = toolImageProfile(settings);
-    const resized = await ImageManipulator.manipulateAsync(localImage.uri, [{ resize: { width: profile.width } }], { compress: profile.quality, format: ImageManipulator.SaveFormat.JPEG });
-    resizedUri = resized.uri;
-    const base64 = await FileSystem.readAsStringAsync(resized.uri, { encoding: FileSystem.EncodingType.Base64 });
-    return imageCell(`data:image/jpeg;base64,${base64}`, true, inlineStyle);
+    return imageCell(await preparePdfImageDataUri(uri, { ...profile, prefix: "warehouse-report" }), true, inlineStyle);
   } catch {
-    try {
-      return imageCell(`data:${imageMimeType(uri)};base64,${await readToolImageBase64(uri)}`, true, inlineStyle);
-    } catch {
-      return "—";
-    }
-  } finally {
-    await Promise.all([temporaryUri, resizedUri].filter((entry): entry is string => Boolean(entry)).map((entry) => FileSystem.deleteAsync(entry, { idempotent: true }).catch(() => undefined)));
+    return "—";
   }
 }
 const MATERIAL_FIELDS = { name: "المادة", category: "الفئة", currentQuantity: "المتوفر", minimumQuantity: "الحد الأدنى", unit: "الوحدة", status: "الحالة", description: "الوصف" } as const;
@@ -88,13 +53,14 @@ function toolCardImageStyle(settings: WarehouseReportSettings): string {
 
 async function toolCards(data: WarehouseReportData, settings: WarehouseReportSettings): Promise<string> {
   const grid = settings.toolCardLayout === "full" ? "grid-template-columns:1fr;" : "grid-template-columns:repeat(2,1fr);";
-  const cards = await Promise.all(data.tools.map(async (tool, index) => {
+  const cards: string[] = [];
+  for (const [index, tool] of data.tools.entries()) {
     const condition = conditionMeta(tool.condition);
     const values: Record<string, string | number> = { name: tool.name, quantity: tool.quantity, brands: tool.brandNames.join("، ") || "—", condition: condition.label };
     const details = settings.toolColumns.map((column) => `<div style="padding:6px;background:#f7faff;border-radius:8px;min-width:0"><span style="display:block;font-size:8px;color:#64748b">${escapeHtml(TOOL_FIELDS[column])}</span><strong style="display:block;font-size:9px;color:#172033;margin-top:2px;word-break:break-word">${escapeHtml(values[column])}</strong></div>`).join("");
     const image = settings.includeImages ? await embeddedToolImage(tool.imageUri, settings, toolCardImageStyle(settings)) : "";
-    return `<article style="border:1px solid #dce7f8;border-radius:15px;padding:10px;background:#fff;break-inside:avoid"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><span style="display:flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:9px;background:#f7faff;color:#1A56DB;font-weight:bold">${index + 1}</span><div style="flex:1"><span style="font-size:8px;color:#1A56DB;font-weight:bold">أداة مستودع</span><h4 style="font-size:12px;color:#172033;margin:2px 0 0">${escapeHtml(tool.name)}</h4></div><span style="font-size:9px;font-weight:bold;color:${condition.color};background:${condition.color}18;padding:5px 7px;border-radius:999px">${escapeHtml(condition.label)}</span></div>${image === "—" ? "" : image}<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:5px">${details}</div></article>`;
-  }));
+    cards.push(`<article style="border:1px solid #dce7f8;border-radius:15px;padding:10px;background:#fff;break-inside:avoid"><div style="display:flex;gap:8px;align-items:center;margin-bottom:8px"><span style="display:flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:9px;background:#f7faff;color:#1A56DB;font-weight:bold">${index + 1}</span><div style="flex:1"><span style="font-size:8px;color:#1A56DB;font-weight:bold">أداة مستودع</span><h4 style="font-size:12px;color:#172033;margin:2px 0 0">${escapeHtml(tool.name)}</h4></div><span style="font-size:9px;font-weight:bold;color:${condition.color};background:${condition.color}18;padding:5px 7px;border-radius:999px">${escapeHtml(condition.label)}</span></div>${image === "—" ? "" : image}<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:5px">${details}</div></article>`);
+  }
   return `<div style="display:grid;${grid}gap:9px">${cards.join("")}</div>`;
 }
 

@@ -90,7 +90,13 @@ function productsHtml(result: SurveyResult): string {
 }
 
 async function storeDetailHtml(result: SurveyResult, index: number, includeMedia: boolean): Promise<string> {
-  const photos = includeMedia ? (await Promise.all(surveyPhotoUris(result).map((uri) => imageDataUri(uri)))).filter((photo): photo is string => Boolean(photo)) : [];
+  const photos: string[] = [];
+  if (includeMedia) {
+    for (const uri of surveyPhotoUris(result)) {
+      const photo = await imageDataUri(uri);
+      if (photo) photos.push(photo);
+    }
+  }
   const answers = result.questions?.length ? `<div class=\"notes\"><strong>إجابات الأسئلة</strong>${result.questions.map((question) => `<p><b>${escapeHtml(question.question)}:</b> ${escapeHtml(question.answer)}</p>`).join("")}</div>` : "";
   const notes = result.notes ? `<div class=\"notes\"><strong>${result.noteType || "ملاحظات"}</strong><p>${escapeHtml(result.notes)}</p></div>` : "";
   const photosHtml = photos.length ? `<div class="store-photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px">${photos.map((photo, photoIndex) => `<img class="store-photo" style="display:block;width:100%;height:180px;margin:0;object-fit:cover" src="${photo}" alt="صورة المحل ${photoIndex + 1}"/>`).join("")}</div>` : "";
@@ -100,7 +106,8 @@ async function storeDetailHtml(result: SurveyResult, index: number, includeMedia
 async function buildDailyReportHtml(report: DailyReportData, options: DailyReportExportOptions = {}): Promise<string> {
   const includeMedia = options.includeMedia !== false;
   const logoMarkup = pdfLogoMarkup(await loadSharedPdfReportLogo());
-  const details = await Promise.all(report.surveyResults.map((result, index) => storeDetailHtml(result, index, includeMedia)));
+  const details: string[] = [];
+  for (const [index, result] of report.surveyResults.entries()) details.push(await storeDetailHtml(result, index, includeMedia));
   const eventHtml = report.events.length ? `<section class=\"events\"><h2>الفعاليات المنفذة</h2>${report.events.map((event) => `<div class=\"event\"><b>${escapeHtml(event.title || "فعالية")}</b><span>${formatDate(event.eventDate || event.createdAt)}${event.region ? ` • ${escapeHtml(event.region)}` : ""}</span>${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}</div>`).join("")}</section>` : "";
   const summary = report.summary;
   const executive = `<section class=\"executive\"><h2>الملخص التنفيذي</h2><p>خلال الفترة المحددة، شملت الأعمال الميدانية زيارة <b>${summary.storesVisited}</b> محل${summary.storesVisited === 1 ? "" : "اً"} عبر <b>${summary.regionsVisited.length}</b> منطقة، وتنفيذ <b>${summary.surveyResults}</b> استبيان${summary.surveyResults === 1 ? "" : "اً"}${summary.eventsCount ? ` وتنفيذ <b>${summary.eventsCount}</b> فعالية` : ""}. ${summary.regionsVisited.length ? `المناطق المغطاة: ${escapeHtml(summary.regionsVisited.join("، "))}.` : "لا توجد زيارات ميدانية ضمن هذه الفترة."}</p></section>`;
