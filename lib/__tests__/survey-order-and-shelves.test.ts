@@ -7,6 +7,8 @@ describe("ترتيب الاستبيان وحساب الرفوف", () => {
     expect(calculateShelfPercentage(1, 10)).toBe(10);
     expect(calculateShelfPercentage(7, 10)).toBe(70);
     expect(calculateShelfPercentage(12, 10)).toBe(100);
+    expect(calculateShelfPercentage(0.5, 10)).toBe(5);
+    expect(calculateShelfPercentage(1, 8)).toBe(12.5);
     expect(calculateShelfPercentage(1, 0)).toBe(0);
   });
 
@@ -22,6 +24,8 @@ describe("ترتيب الاستبيان وحساب الرفوف", () => {
 
   it("ينظف قيم الرفوف السالبة وغير الرقمية", () => {
     expect(normalizeShelfValue("4")).toBe(4);
+    expect(normalizeShelfValue("0.5")).toBe(0.5);
+    expect(normalizeShelfValue("2,75")).toBe(2.75);
     expect(normalizeShelfValue("-2")).toBe(0);
     expect(normalizeShelfValue("abc")).toBe(0);
   });

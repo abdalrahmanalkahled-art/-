@@ -3,7 +3,7 @@ import type { SurveyTemplateProduct } from "./types/survey-types";
 export function calculateShelfPercentage(occupiedShelves: number, totalShelves: number): number {
   if (!Number.isFinite(totalShelves) || totalShelves <= 0) return 0;
   const safeOccupied = Math.max(0, Math.min(Number.isFinite(occupiedShelves) ? occupiedShelves : 0, totalShelves));
-  return Math.round((safeOccupied / totalShelves) * 100);
+  return Math.round((safeOccupied / totalShelves) * 1000) / 10;
 }
 
 /** يحافظ على ترتيب أول اختيار للمنتج، ويجمع الصنف في موضع أول منتج اختير منه. */
@@ -22,6 +22,6 @@ export function orderSurveyProducts(products: SurveyTemplateProduct[]): SurveyTe
 }
 
 export function normalizeShelfValue(value: string | number | undefined): number {
-  const parsed = typeof value === "number" ? value : Number.parseInt(value || "0", 10);
+  const parsed = typeof value === "number" ? value : Number.parseFloat((value || "0").replace(",", "."));
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }

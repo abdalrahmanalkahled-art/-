@@ -25,7 +25,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
-import { deleteSurveyResultCascade, deleteSurveyTemplateCascade, loadSurveyScreenData, saveSurveyTemplateWithActiveCycleSync } from "@/lib/survey-storage";
+import { deleteSurveyCycleMedia, deleteSurveyResultCascade, deleteSurveyTemplateCascade, loadSurveyScreenData, saveSurveyTemplateWithActiveCycleSync } from "@/lib/survey-storage";
 import { SurveyAnalyticsModule } from "@/components/modules/survey-analytics-module";
 import { ReportFab } from "@/components/report-fab";
 import { usePaginatedData } from "@/hooks/use-paginated-data";
@@ -41,6 +41,7 @@ import { SurveyTemplateProductSelector } from "@/components/surveys/survey-templ
 import { StorePhotosEditor } from "@/components/surveys/store-photos-editor";
 import { AddQuestionModal } from "@/components/surveys/add-question-modal";
 import { SurveyResultCard, SurveyTemplateCard } from "@/components/surveys/survey-list-cards";
+import { SurveyCycleDetailScreen, SurveyCycleHistoryCard } from "@/components/surveys/survey-cycle-history";
 import { deleteUnreferencedSurveyStorePhotos } from "@/lib/survey-store-photos";
 import { createSurveyTemplateExport, createSurveyTemplateImportPlan, applySurveyTemplateImport, reconcileProductCategories, type SurveyTemplateImportPlan } from "@/lib/survey-template-transfer";
 import { exportSurveyTemplateFile, readSurveyTemplateFile } from "@/lib/survey-template-transfer-service";
@@ -82,7 +83,7 @@ export default function SurveysScreen() {
   const canCreate = useHasPermission("surveys", "create");
   const canEdit = useHasPermission("surveys", "edit");
   const canDelete = useHasPermission("surveys", "delete");
-  const [activeTab, setActiveTab] = useState<"templates" | "results" | "analytics">("templates");
+  const [activeTab, setActiveTab] = useState<"templates" | "results" | "history" | "analytics">("templates");
   const [templates, setTemplates] = useState<SurveyTemplate[]>([]);
   const [results, setResults] = useState<SurveyResult[]>([]);
   const [cycles, setCycles] = useState<SurveyCycle[]>([]);
@@ -113,6 +114,7 @@ export default function SurveysScreen() {
   const [selectedTemplate, setSelectedTemplate] = useState<SurveyTemplate | null>(null);
   const [selectedStore, setSelectedStore] = useState<Store | null>(null);
   const [surveyData, setSurveyData] = useState<Map<string, { present?: boolean; shelfPercentage?: number; shelfOccupied?: number; price?: number; answers?: string[] }>>(new Map());
+  const [numericDrafts, setNumericDrafts] = useState<Map<string, string>>(new Map());
   const [totalShelves, setTotalShelves] = useState("");
   const [storePhotoUris, setStorePhotoUris] = useState<string[]>([]);
   const [surveyNotes, setSurveyNotes] = useState("");
@@ -153,13 +155,11 @@ export default function SurveysScreen() {
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [showCycleFilterMenu, setShowCycleFilterMenu] = useState(false);
   
-  // Analytics - Selected Template
-  const [selectedAnalysisTemplate, setSelectedAnalysisTemplate] = useState<string | null>(null);
-  const [showAnalysisTemplateMenu, setShowAnalysisTemplateMenu] = useState(false);
-  
-  // Analytics - Cycle Filter
-  const [selectedAnalysisCycleId, setSelectedAnalysisCycleId] = useState<string | null>(null);
-  const [showAnalysisCycleMenu, setShowAnalysisCycleMenu] = useState(false);
+  // سجل الدورات المنتهية
+  const [selectedHistoryCycle, setSelectedHistoryCycle] = useState<SurveyCycle | null>(null);
+  const [showCycleDetail, setShowCycleDetail] = useState(false);
+  const [showDeleteCycleMediaConfirm, setShowDeleteCycleMediaConfirm] = useState(false);
+  const [isDeletingCycleMedia, setIsDeletingCycleMedia] = useState(false);
   
   // Edit Result
   const [editingResult, setEditingResult] = useState<SurveyResult | null>(null);
@@ -422,6 +422,7 @@ export default function SurveysScreen() {
     setSelectedTemplate(template);
     setSelectedStore(null);
     setSurveyData(new Map());
+    setNumericDrafts(new Map());
     setTotalShelves("");
     setStorePhotoUris([]);
     setShowUseModal(true);
@@ -443,6 +444,10 @@ export default function SurveysScreen() {
     setSelectedTemplate(template);
     setSelectedStore(store);
     setSurveyData(restoredData);
+    setNumericDrafts(new Map(result.data.flatMap((item) => [
+      [`shelf:${item.productId}`, String(item.shelfOccupied ?? item.shelfPercentage ?? 0)],
+      [`price:${item.productId}`, item.price === undefined ? "" : String(item.price)],
+    ])));
     setTotalShelves(result.totalShelves === undefined ? "" : String(result.totalShelves));
     setStorePhotoUris(result.storePhotoUris?.length ? result.storePhotoUris : result.storePhotoUri ? [result.storePhotoUri] : []);
     setSurveyNotes(result.notes || "");
@@ -625,6 +630,7 @@ export default function SurveysScreen() {
     setShowSurveySuccess(true);
     setShowUseModal(false);
     setSurveyData(new Map());
+    setNumericDrafts(new Map());
     setTotalShelves("");
     setStorePhotoUris([]);
     setSurveyNotes("");
@@ -809,6 +815,29 @@ export default function SurveysScreen() {
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   };
 
+  const openCycleHistory = (cycle: SurveyCycle) => {
+    setSelectedHistoryCycle(cycle);
+    setShowCycleDetail(true);
+  };
+
+  const confirmDeleteCycleMedia = async () => {
+    if (!selectedHistoryCycle) return;
+    setIsDeletingCycleMedia(true);
+    try {
+      const removedMediaOwners = results.filter((result) => result.cycleId === selectedHistoryCycle.id);
+      const outcome = await deleteSurveyCycleMedia(selectedHistoryCycle.id);
+      await deleteUnreferencedSurveyStorePhotos(removedMediaOwners, outcome.results);
+      setResults(outcome.results);
+      setShowDeleteCycleMediaConfirm(false);
+      setSuccessMessage(outcome.removedMediaCount ? `تم حذف ${outcome.removedMediaCount} وسائط من دورة «${selectedHistoryCycle.name}» نهائياً` : "لا توجد وسائط متبقية في هذه الدورة");
+      setShowSuccessDelete(true);
+    } catch (error) {
+      Alert.alert("تعذر حذف الوسائط", error instanceof Error ? error.message : "تعذر حذف وسائط الدورة من التطبيق.");
+    } finally {
+      setIsDeletingCycleMedia(false);
+    }
+  };
+
   const renderTemplate = (info: { item: SurveyTemplate }) => {
     const item = info.item as SurveyTemplate;
     const activeCycleResults = getActiveSurveyCycleResults(item.id, results, cycles);
@@ -844,7 +873,7 @@ export default function SurveysScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <Text style={[styles.headerTitle, { color: colors.foreground, flex: 1, textAlign: "center" }]}>
-          {activeTab === "templates" ? `الاستبيانات (${templates.length})` : activeTab === "results" ? "النتائج" : "التحليلات"}
+          {activeTab === "templates" ? `الاستبيانات (${templates.length})` : activeTab === "results" ? "النتائج" : "السجل"}
         </Text>
         {/* ExportButton منقول إلى FABMenu */}
       </View>
@@ -884,19 +913,19 @@ export default function SurveysScreen() {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => setActiveTab("analytics")}
+          onPress={() => setActiveTab("history")}
           style={[
             styles.tabBtn,
-            activeTab === "analytics" && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
+            activeTab === "history" && { borderBottomColor: colors.primary, borderBottomWidth: 2 },
           ]}
         >
           <Text
             style={[
               styles.tabText,
-              { color: activeTab === "analytics" ? colors.primary : colors.muted },
+              { color: activeTab === "history" ? colors.primary : colors.muted },
             ]}
           >
-            التحليلات
+            السجل
           </Text>
         </TouchableOpacity>
       </View>
@@ -1060,6 +1089,14 @@ export default function SurveysScreen() {
             }
           />
         </>
+      ) : activeTab === "history" ? (
+        <FlatList
+          data={closedCycles}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <SurveyCycleHistoryCard cycle={item} summary={getSurveyCycleSummary(item.id, results)} mediaCount={results.filter((result) => result.cycleId === item.id).reduce((total, result) => total + (result.storePhotoUris?.length || (result.storePhotoUri ? 1 : 0)), 0)} onPress={() => openCycleHistory(item)} />}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="history" size={48} color={colors.muted} /><Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد دورات استبيان منتهية بعد</Text><Text style={[styles.emptyHint, { color: colors.muted }]}>اضغط مطولاً على قالب الاستبيان ثم اختر «انتهى الاستبيان» لإضافة الدورة إلى السجل.</Text></View>}
+        />
       ) : (
         <View style={styles.analyticsContainer}>
           {results.length === 0 ? (
@@ -1508,6 +1545,15 @@ export default function SurveysScreen() {
       </Modal>
       <CardActionModal visible={Boolean(resultActionTarget)} title={resultActionTarget?.storeName || "إجراءات النتيجة"} description="اختر الإجراء المطلوب لهذه النتيجة" onClose={() => setResultActionTarget(null)} actions={[...(canEdit ? [{ id: "edit", label: "تعديل النتيجة", icon: "edit" as const, onPress: () => { const target = resultActionTarget; setResultActionTarget(null); if (target) handleEditSurveyResult(target); } }] : []), ...(canDelete ? [{ id: "delete", label: "حذف النتيجة", icon: "delete-outline" as const, tone: "danger" as const, onPress: () => { const target = resultActionTarget; setResultActionTarget(null); if (target) handleDeleteResult(target.id); } }] : [])]} />
 
+      <SurveyCycleDetailScreen
+        cycle={selectedHistoryCycle}
+        results={selectedHistoryCycle ? results.filter((result) => result.cycleId === selectedHistoryCycle.id) : []}
+        visible={showCycleDetail}
+        isDeletingMedia={isDeletingCycleMedia}
+        onClose={() => { if (!isDeletingCycleMedia) { setShowCycleDetail(false); setSelectedHistoryCycle(null); } }}
+        onDeleteMedia={() => setShowDeleteCycleMediaConfirm(true)}
+      />
+
       <ConfirmDialog
         visible={showDeleteConfirm}
         title="حذف الاستبيان"
@@ -1542,6 +1588,17 @@ export default function SurveysScreen() {
           setTemplateToCloseCycle(null);
         }}
         onConfirm={() => void confirmCloseSurveyCycle()}
+      />
+      <ConfirmDialog
+        visible={showDeleteCycleMediaConfirm}
+        title="حذف وسائط الدورة نهائياً"
+        message={selectedHistoryCycle ? `سيُحذف نهائياً كل صور المحلات ضمن دورة «${selectedHistoryCycle.name}» من التطبيق. ستبقى النتائج والأرقام في السجل، ولا يمكن التراجع عن حذف الصور.` : "سيُحذف نهائياً كل وسائط الدورة من التطبيق."}
+        confirmText="حذف الوسائط نهائياً"
+        isDangerous
+        isSubmitting={isDeletingCycleMedia}
+        icon="delete-forever"
+        onCancel={() => !isDeletingCycleMedia && setShowDeleteCycleMediaConfirm(false)}
+        onConfirm={() => void confirmDeleteCycleMedia()}
       />
       <ConfirmDialog
         visible={Boolean(pendingTemplateImport)}
@@ -1634,8 +1691,8 @@ export default function SurveysScreen() {
                       style={[styles.formInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground }]}
                       value={totalShelves}
                       onChangeText={setTotalShelves}
-                      keyboardType="number-pad"
-                      placeholder="مثال: 10"
+                      keyboardType="decimal-pad"
+                      placeholder="مثال: 10 أو 0.5"
                       placeholderTextColor={colors.muted}
                     />
                   </View>
@@ -1692,18 +1749,22 @@ export default function SurveysScreen() {
                               styles.shelfInputField,
                               { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
                             ]}
-                            value={(data.shelfOccupied ?? 0).toString()}
+                            value={numericDrafts.get(`shelf:${product.productId}`) ?? (data.shelfOccupied ?? 0).toString()}
                             onChangeText={(v) => {
+                              const nextValue = v.replace(",", ".");
+                              const nextDrafts = new Map(numericDrafts);
+                              nextDrafts.set(`shelf:${product.productId}`, nextValue);
+                              setNumericDrafts(nextDrafts);
                               const newData = new Map(surveyData);
-                              newData.set(product.productId, { ...data, shelfOccupied: normalizeShelfValue(v) });
+                              newData.set(product.productId, { ...data, shelfOccupied: normalizeShelfValue(nextValue) });
                               setSurveyData(newData);
                             }}
-                            keyboardType="number-pad"
-                            maxLength={3}
-                            placeholder="0"
+                            keyboardType="decimal-pad"
+                            maxLength={8}
+                            placeholder="0 أو 0.5"
                             placeholderTextColor={colors.muted}
                           />
-                          <Text style={[styles.calculatedShelfText, { color: colors.primary }]}>النسبة المحسوبة: {calculateShelfPercentage(data.shelfOccupied ?? data.shelfPercentage ?? 0, normalizeShelfValue(totalShelves))}%</Text>
+                          <Text style={[styles.calculatedShelfText, { color: colors.primary }]}>نسبة الظهور المحسوبة: {calculateShelfPercentage(data.shelfOccupied ?? data.shelfPercentage ?? 0, normalizeShelfValue(totalShelves))}%</Text>
                         </View>
                       )}
                       {data.present && shouldShowProductPrice(selectedTemplate.showProductPrice) && (
@@ -1714,14 +1775,18 @@ export default function SurveysScreen() {
                               styles.shelfInputField,
                               { backgroundColor: colors.background, borderColor: colors.border, color: colors.foreground },
                             ]}
-                            value={data.price === undefined ? "" : data.price.toString()}
+                            value={numericDrafts.get(`price:${product.productId}`) ?? (data.price === undefined ? "" : data.price.toString())}
                             onChangeText={(value) => {
+                              const nextValue = value.replace(",", ".");
+                              const nextDrafts = new Map(numericDrafts);
+                              nextDrafts.set(`price:${product.productId}`, nextValue);
+                              setNumericDrafts(nextDrafts);
                               const newData = new Map(surveyData);
-                              newData.set(product.productId, { ...data, price: Number.parseFloat(value) || 0 });
+                              newData.set(product.productId, { ...data, price: normalizeShelfValue(nextValue) });
                               setSurveyData(newData);
                             }}
                             keyboardType="decimal-pad"
-                            placeholder="0"
+                            placeholder="0 أو 0.5"
                             placeholderTextColor={colors.muted}
                           />
                         </View>
@@ -2016,6 +2081,7 @@ const styles = StyleSheet.create({
   percentageText: { fontSize: 12, fontWeight: "700" as any },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingVertical: 40 },
   emptyText: { fontSize: 16 },
+  emptyHint: { fontSize: 12, lineHeight: 18, textAlign: "center", maxWidth: 280 },
   modal: { flex: 1 },
   questionModal: { flex: 1 },
   modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: 0.5 },

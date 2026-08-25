@@ -20,6 +20,11 @@ export interface SurveyCascadeDeleteOutcome {
   deletedResultIds: string[];
 }
 
+export interface SurveyCycleMediaDeleteOutcome {
+  results: SurveyResult[];
+  removedMediaCount: number;
+}
+
 type ParallelSurveyNote = { id?: string; surveyId?: string };
 
 /** يحفظ القالب ويحدّث نتائج الدورة النشطة التابعة له فقط في عملية موحدة. */
@@ -110,6 +115,22 @@ export async function deleteSurveyResultCascade(resultId: string): Promise<Surve
     removeParallelNotes([resultId]),
   ]);
   return { ...cleaned, deletedResultIds: allResults.some((result) => result.id === resultId) ? [resultId] : [] };
+}
+
+/** يحذف وسائط دورة واحدة نهائياً من التخزين ويزيل مراجعها، مع إبقاء الدورة وبيانات النتائج النصية في السجل. */
+export async function deleteSurveyCycleMedia(cycleId: string): Promise<SurveyCycleMediaDeleteOutcome> {
+  const [allResults, allCycles] = await Promise.all([
+    getItems<SurveyResult>(STORAGE_KEYS.SURVEY_RESULTS),
+    getItems<SurveyCycle>(STORAGE_KEYS.SURVEY_CYCLES),
+  ]);
+  if (!allCycles.some((cycle) => cycle.id === cycleId)) throw new Error("تعذر العثور على دورة الاستبيان المطلوبة.");
+  const affected = allResults.filter((result) => result.cycleId === cycleId);
+  const removedMediaCount = affected.reduce((total, result) => total + (result.storePhotoUris?.length || (result.storePhotoUri ? 1 : 0)), 0);
+  const results = allResults.map((result) => result.cycleId === cycleId
+    ? { ...result, storePhotoUri: undefined, storePhotoUris: undefined }
+    : result);
+  await saveItems(STORAGE_KEYS.SURVEY_RESULTS, results);
+  return { results, removedMediaCount };
 }
 
 /** يحذف المحل ونتائج استبياناته حتى لا تبقى ضمن التحليلات أو التقارير. */

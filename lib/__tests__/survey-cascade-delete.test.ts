@@ -9,7 +9,7 @@ vi.mock("../storage", () => ({
 }));
 vi.mock("@react-native-async-storage/async-storage", () => ({ default: { getItem, setItem } }));
 
-import { deleteStoreSurveyDataCascade, deleteSurveyResultCascade, deleteSurveyTemplateCascade, pruneOrphanedSurveyData } from "../survey-storage";
+import { deleteStoreSurveyDataCascade, deleteSurveyCycleMedia, deleteSurveyResultCascade, deleteSurveyTemplateCascade, pruneOrphanedSurveyData } from "../survey-storage";
 import { sortSurveyCyclesNewestFirst } from "../survey-cycle-manager";
 
 const template = { id: "template-a", name: "دراسة أ", createdAt: "2026-01-01", products: [] };
@@ -19,6 +19,18 @@ const resultB = { id: "result-b", templateId: "template-b", templateName: "در�
 
 describe("الحذف المتسلسل للاستبيانات", () => {
   beforeEach(() => { getItems.mockReset(); saveItems.mockReset(); getItem.mockReset(); setItem.mockReset(); getItem.mockResolvedValue(JSON.stringify([{ surveyId: "result-a" }, { surveyId: "result-b" }])); });
+
+  it("يحذف وسائط دورة منتهية نهائياً مع إبقاء نتائجها والسجل", async () => {
+    const mediaResult = { ...resultA, cycleId: "cycle-a", storePhotoUris: ["file:///documents/survey-store-photos/a.jpg", "file:///documents/survey-store-photos/b.jpg"] };
+    getItems.mockResolvedValueOnce([mediaResult, resultB]).mockResolvedValueOnce([{ id: "cycle-a", templateId: "template-a", templateName: "دراسة أ", name: "دورة أ", resultIds: ["result-a"], createdAt: "2026-01-03", closedAt: "2026-01-04" }]);
+
+    const outcome = await deleteSurveyCycleMedia("cycle-a");
+
+    expect(outcome.removedMediaCount).toBe(2);
+    expect(outcome.results.find((item) => item.id === "result-a")?.storePhotoUris).toBeUndefined();
+    expect(outcome.results.find((item) => item.id === "result-a")?.cycleId).toBe("cycle-a");
+    expect(saveItems).toHaveBeenCalledWith("results", outcome.results);
+  });
 
   it("يحذف القالب ودوراته ونتائجه وملاحظاته الموازية مع إبقاء البيانات الأخرى", async () => {
     getItems.mockResolvedValueOnce([template, otherTemplate]).mockResolvedValueOnce([resultA, resultB]).mockResolvedValueOnce([{ id: "cycle-a", templateId: "template-a", templateName: "دراسة أ", name: "دورة أ", resultIds: ["result-a"], createdAt: "2026-01-03" }, { id: "cycle-b", templateId: "template-b", templateName: "دراسة ب", name: "دورة ب", resultIds: ["result-b"], createdAt: "2026-01-04" }]);
