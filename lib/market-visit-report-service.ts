@@ -16,6 +16,7 @@ const OUTPUT_DIR = `${ROOT}generated/`;
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 export type MarketVisitTemplatePersistStage = "copy-external" | "copy-local" | "verify";
+export type MarketVisitPptxGenerationStage = "build" | "save" | "share";
 
 export async function persistMarketVisitTemplate(sourceUri: string, name: string, size?: number, onProgress?: (stage: MarketVisitTemplatePersistStage) => void): Promise<MarketVisitReportTemplate> {
   try {
@@ -38,14 +39,17 @@ export async function persistMarketVisitTemplate(sourceUri: string, name: string
   return { id, name: name.replace(/\.pptx$/i, "") || "قالب زيارة السوق", fileName, uri, size, createdAt: new Date().toISOString() };
 }
 
-export async function generateAndShareMarketVisitPptx(template: MarketVisitReportTemplate, cycleName: string, visits: MarketVisitPptxEntry[], imageFit: MarketVisitImageFit = "fill", slideRepeatMode: MarketVisitSlideRepeatMode = "second-slide", productMetrics: MarketVisitProductMetric[] = []) {
+export async function generateAndShareMarketVisitPptx(template: MarketVisitReportTemplate, cycleName: string, visits: MarketVisitPptxEntry[], imageFit: MarketVisitImageFit = "fill", slideRepeatMode: MarketVisitSlideRepeatMode = "second-slide", productMetrics: MarketVisitProductMetric[] = [], onProgress?: (stage: MarketVisitPptxGenerationStage) => void) {
+  onProgress?.("build");
   const templateBase64 = await FileSystem.readAsStringAsync(template.uri, { encoding: FileSystem.EncodingType.Base64 });
   const outputBase64 = await buildMarketVisitPptx({ templateBase64, cycleName, generatedAt: new Date().toLocaleDateString("en-US"), visits, imageFit, slideRepeatMode, productMetrics });
+  onProgress?.("save");
   await ensureDirectoryExists(OUTPUT_DIR);
   const uri = `${OUTPUT_DIR}${sanitizeFilename(`زيارة_السوق_${cycleName}_${new Date().toISOString().slice(0, 10)}`, "pptx")}`;
   await FileSystem.writeAsStringAsync(uri, outputBase64, { encoding: FileSystem.EncodingType.Base64 });
   const info = await FileSystem.getInfoAsync(uri);
   await recordGeneratedReport({ title: `زيارة السوق - ${cycleName}`, type: "PPTX", uri, size: info.exists ? info.size : undefined });
+  onProgress?.("share");
   if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { dialogTitle: "مشاركة تقرير زيارة السوق", mimeType: PPTX_MIME });
   return uri;
 }

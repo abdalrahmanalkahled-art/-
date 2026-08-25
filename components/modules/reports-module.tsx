@@ -116,22 +116,33 @@ export default function ReportsModule() {
   const generate = async () => {
     if (!selectedTemplate || !selectedCycle) { Alert.alert("اختر القالب والدورة", "حدد قالب PowerPoint ثم دورة الاستبيان المراد تضمين محلاتها."); return; }
     setIsGenerating(true);
+    const progress = beginOperationProgress({ kind: "export", title: "إنشاء تقرير زيارة السوق", steps: ["تجهيز بيانات الدورة", "تجهيز صور المحلات", "بناء ملف PowerPoint", "حفظ التقرير والتحقق منه", "فتح المشاركة"] });
     try {
+      progress.update({ stepIndex: 0, message: "جارٍ تجهيز بيانات الدورة والمحلات" });
       const [latestResults, stores] = await Promise.all([getItems<SurveyResult>(STORAGE_KEYS.SURVEY_RESULTS), getItems<any>(STORAGE_KEYS.STORES)]);
       const latestCycleResults = getMarketVisitCycleResults(selectedCycle, latestResults);
-      const visits = await Promise.all(latestCycleResults.map(async (result) => {
+      const totalPhotos = latestCycleResults.reduce((total, result) => total + (result.storePhotoUris?.length ? result.storePhotoUris.length : result.storePhotoUri ? 1 : 0), 0);
+      let preparedPhotos = 0;
+      const visits = [];
+      for (const result of latestCycleResults) {
         const store = stores.find((item) => item.id === result.storeId) || {};
         const photoUris = result.storePhotoUris?.length ? result.storePhotoUris : result.storePhotoUri ? [result.storePhotoUri] : [];
-        return { id: result.id, surveyDate: result.surveyDate, storeName: result.storeName, category: store.category || store.classification || "غير مصنف", region: result.storeRegion || store.region || "غير محددة", notes: result.notes || "لا توجد ملاحظات", images: await toPptxImages(photoUris, order.imageCompression || "compressed") };
-      }));
+        const images = await toPptxImages(photoUris, order.imageCompression || "compressed");
+        preparedPhotos += photoUris.length;
+        progress.update({ stepIndex: 1, message: totalPhotos ? `جارٍ تجهيز صور المحلات: ${preparedPhotos} من ${totalPhotos}` : "لا توجد صور محلات لتجهيزها", completedItems: preparedPhotos, totalItems: totalPhotos });
+        visits.push({ id: result.id, surveyDate: result.surveyDate, storeName: result.storeName, category: store.category || store.classification || "غير مصنف", region: result.storeRegion || store.region || "غير محددة", notes: result.notes || "لا توجد ملاحظات", images });
+      }
       if (!visits.length) { Alert.alert("لا توجد نتائج", "لا توجد محلات أُخذ لها استبيان ضمن الدورة المختارة."); return; }
       const metricIds = (order.productMetricIds || []).filter((id) => latestCycleResults.some((result) => result.data.some((item) => item.productId === id)));
-      await generateAndShareMarketVisitPptx(selectedTemplate, selectedCycle.name, sortMarketVisitStores(visits, order), order.imageFit || "fill", order.slideRepeatMode || "second-slide", calculateMarketVisitProductMetrics(latestCycleResults, metricIds));
+      await generateAndShareMarketVisitPptx(selectedTemplate, selectedCycle.name, sortMarketVisitStores(visits, order), order.imageFit || "fill", order.slideRepeatMode || "second-slide", calculateMarketVisitProductMetrics(latestCycleResults, metricIds), (stage) => {
+        const updates = { build: { stepIndex: 2, message: "جارٍ بناء ملف PowerPoint" }, save: { stepIndex: 3, message: "جارٍ حفظ التقرير والتحقق من الملف" }, share: { stepIndex: 4, message: "جارٍ فتح خيارات مشاركة التقرير" } } as const;
+        progress.update(updates[stage]);
+      });
     } catch (error) {
       const reason = error instanceof Error && error.message ? error.message : "حدث خطأ غير متوقع أثناء تجهيز الملف.";
       const guidance = (order.slideRepeatMode || "second-slide") === "repeat-tag" ? "تأكد من وجود وسم {{تكرار_محل}} مرة واحدة في شريحة المحل." : "تُكرر الشريحة الثانية تلقائياً لكل محلات الدورة.";
       Alert.alert("تعذر إنشاء التقرير", `${reason}\n\n${guidance} الصور غير المتاحة تُتجاوز فقط.`);
-    } finally { setIsGenerating(false); }
+    } finally { progress.complete(); setIsGenerating(false); }
   };
 
   const togglePriority = async (field: "category" | "region", value: string) => {
