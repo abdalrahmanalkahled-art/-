@@ -27,13 +27,16 @@ describe("تفاصيل مخطط الأعمدة في إعدادات التحلي�
   });
 
   it("يعرض تلميحاً للقيمة الدقيقة عند لمس العمود أو المرور فوقه", () => {
-    expect(chartSource).toContain('import { useState } from "react";');
+    expect(chartSource).toContain('import { useEffect, useRef, useState } from "react";');
     expect(chartSource).not.toContain('Text, useState, useWindowDimensions');
     expect(chartSource).toContain("onBarInteraction: setTooltip");
     expect(chartSource).toContain("onBarInteraction={onBarInteraction}");
     expect(chartSource).toContain("onMouseEnter");
-    expect(chartSource).toContain("onPress={() => onBarInteraction(tooltip)}");
+    expect(chartSource).toContain("event.stopPropagation?.(); onBarInteraction(tooltip);");
     expect(chartSource).toContain("الدورة:");
     expect(chartSource).toContain("styles.tooltip");
+    expect(chartSource).toContain("<Pressable onPress={dismissTooltip}");
+    expect(chartSource).toContain("Animated.timing(tooltipOpacity");
+    expect(chartSource).toContain("backgroundColor: colors.surface");
   });
 });
