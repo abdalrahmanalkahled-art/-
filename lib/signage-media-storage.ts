@@ -34,3 +34,8 @@ export async function persistSignageMediaUri(uri?: string, kind = "asset"): Prom
 export function isSignageMediaUri(uri: string | undefined): boolean {
   return Boolean(uri && FileSystem.documentDirectory && uri.startsWith(`${FileSystem.documentDirectory}${SIGNAGE_MEDIA_DIRECTORY}`));
 }
+
+/** تُستخدم قبل الترحيل الجماعي لتجنب أي فحص أو نسخ للملفات المُدارة مسبقاً. */
+export function needsSignageMediaPersistence(uri: string | undefined): boolean {
+  return Boolean(uri && Platform.OS !== "web" && !isSignageMediaUri(uri));
+}

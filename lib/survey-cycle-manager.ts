@@ -17,6 +17,11 @@ export interface SurveyCycleSummary {
   averagePresencePercentage: number;
 }
 
+export interface SurveyCycleMetrics {
+  summary: SurveyCycleSummary;
+  mediaCount: number;
+}
+
 function dateOnly(value: string): string {
   return value.split("T")[0] || value;
 }
@@ -208,4 +213,52 @@ export function getSurveyCycleSummary(cycleId: string, results: SurveyResult[]):
     storeCount,
     averagePresencePercentage: productRows.length === 0 ? 0 : Math.round((presentRows / productRows.length) * 100),
   };
+}
+
+/**
+ * يفهرس مؤشرات كل دورة في مرور واحد على النتائج. يُستخدم في القوائم التي تعرض
+ * بطاقات دورات عديدة كي لا تُمسح النتائج كاملةً لكل بطاقة أثناء التمرير.
+ */
+export function getSurveyCycleMetricsById(results: SurveyResult[]): Map<string, SurveyCycleMetrics> {
+  const rawMetrics = new Map<string, {
+    resultCount: number;
+    storeIds: Set<string>;
+    productCount: number;
+    presentProductCount: number;
+    mediaCount: number;
+  }>();
+
+  results.forEach((result) => {
+    if (!result.cycleId) return;
+    const current = rawMetrics.get(result.cycleId) ?? {
+      resultCount: 0,
+      storeIds: new Set<string>(),
+      productCount: 0,
+      presentProductCount: 0,
+      mediaCount: 0,
+    };
+
+    current.resultCount += 1;
+    current.storeIds.add(result.storeId);
+    current.productCount += result.data.length;
+    current.presentProductCount += result.data.filter((product) => product.present).length;
+    current.mediaCount += result.storePhotoUris?.length || (result.storePhotoUri ? 1 : 0);
+    rawMetrics.set(result.cycleId, current);
+  });
+
+  return new Map(
+    [...rawMetrics].map(([cycleId, metric]) => [
+      cycleId,
+      {
+        summary: {
+          resultCount: metric.resultCount,
+          storeCount: metric.storeIds.size,
+          averagePresencePercentage: metric.productCount === 0
+            ? 0
+            : Math.round((metric.presentProductCount / metric.productCount) * 100),
+        },
+        mediaCount: metric.mediaCount,
+      },
+    ]),
+  );
 }

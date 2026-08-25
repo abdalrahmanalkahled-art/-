@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
@@ -15,6 +15,7 @@ import { DEFAULT_DASHBOARD_SETTINGS, type DashboardChartId, type DashboardSectio
 import { buildDashboardNotifications, syncNotificationCenter, unreadNotificationCount } from "@/lib/notification-center";
 import type { AppNotification } from "@/lib/notifications-model";
 import { getItems, STORAGE_KEYS } from "@/lib/storage";
+import { buildDashboardExpenseTrend } from "@/lib/dashboard-expense-trend";
 
 type Point = { label: string; value: number; color?: string };
 interface DashboardData {
@@ -30,7 +31,6 @@ const EMPTY_DASHBOARD: DashboardData = { eventsCount: 0, completedEventsCount: 0
 const MONTHS = Array.from({ length: 4 }, (_, index) => { const date = new Date(); date.setMonth(date.getMonth() - (3 - index)); return date; });
 
 function isUpcoming(eventDate: string, now = new Date()) { const difference = new Date(eventDate).getTime() - now.getTime(); return difference >= 0 && difference <= 2 * 24 * 60 * 60 * 1000; }
-function monthKey(value: Date) { return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`; }
 function shortMonth(value: Date) { return new Intl.DateTimeFormat("ar-SY", { month: "short" }).format(value); }
 function presence(result: any) { const answers = Array.isArray(result.data) ? result.data : []; return answers.length ? answers.filter((answer: any) => answer.present).length * 100 / answers.length : 0; }
 
@@ -57,7 +57,7 @@ export default function DashboardScreen() {
       ]);
       const today = new Date().toISOString().slice(0, 10); const totalExpenses = expenses.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0); const totalBudget = budgets.reduce((sum: number, item: any) => sum + Number(item.totalBudget || 0), 0); const avgPresence = surveyResults.length ? surveyResults.reduce((sum: number, result: any) => sum + presence(result), 0) / surveyResults.length : 0;
       const lowStockItems = warehouseItems.filter((item: any) => Number(item.currentQuantity) <= Number(item.minimumQuantity)); const delayedTasks = tasks.filter((task: any) => task.status !== "completed" && task.dueDate && task.dueDate < today); const upcomingEvents = events.filter((event: any) => event.status !== "cancelled" && event.eventDate && isUpcoming(event.eventDate)); const maintenanceTools = tools.filter((tool: any) => ["needs_repair", "damaged"].includes(tool.condition));
-      const expenseTrend = MONTHS.map((month) => ({ label: shortMonth(month), value: expenses.filter((item: any) => String(item.expenseDate || item.createdAt || "").startsWith(monthKey(month))).reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0), color: colors.primary }));
+      const expenseTrend = buildDashboardExpenseTrend(expenses, MONTHS, shortMonth, colors.primary);
       const selectedProduct = products.find((product: any) => product.id === appSettings.dashboard.presenceProductId);
       const presenceTrend = selectedProduct ? surveyResults.filter((result: any) => Array.isArray(result.data) && result.data.some((answer: any) => answer.productId === selectedProduct.id)).slice(-4).map((result: any, index: number) => ({ label: result.surveyDate || `زيارة ${index + 1}`, value: result.data.find((answer: any) => answer.productId === selectedProduct.id)?.present ? 100 : 0, color: colors.success })) : [];
       const recentActivities = [...events.map((event: any) => ({ id: `event:${event.id}`, title: event.title || "فعالية", subtitle: event.location || "فعالية ميدانية", date: event.eventDate || event.createdAt, icon: "event" as const, color: colors.primary, route: "/(tabs)/events" })), ...surveyResults.map((result: any) => ({ id: `survey:${result.id}`, title: result.storeName || "استبيان ميداني", subtitle: `${result.templateName || "استبيان"} • ${result.storeRegion || "بدون منطقة"}`, date: result.surveyDate || result.createdAt, icon: "assignment" as const, color: colors.accent, route: "/(tabs)/surveys" }))].filter((activity) => activity.date).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 4);
@@ -65,7 +65,7 @@ export default function DashboardScreen() {
       setDashboardSettings(appSettings.dashboard); setData(dashboard); setNotifications(await syncNotificationCenter(buildDashboardNotifications({ lowStockItems, delayedTasks, upcomingEvents, maintenanceTools, roadsideContracts: roadContracts.filter((contract: any) => contract.status === "active"), roadsideReminderDays: appSettings.roadsideContractReminderDays })));
     } catch (error) { console.error("Error loading dashboard data:", error); }
   }, [colors.accent, colors.primary, colors.secondary, colors.success]);
-  useEffect(() => { void loadData(); }, [loadData]); useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
+  useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
   const budgetPercentage = data.totalBudget > 0 ? Math.min(data.totalExpenses / data.totalBudget * 100, 100) : 0; const unread = unreadNotificationCount(notifications); const alerts = notifications.filter((notification) => !notification.isRead).slice(0, 3).map((notification) => ({ id: notification.id, type: notification.type === "task" ? "error" as const : notification.type === "stock" || notification.type === "tool" ? "warning" as const : "info" as const, title: notification.title, message: notification.message })); const greeting = new Date().getHours() < 12 ? "صباح الخير" : new Date().getHours() < 17 ? "مساء الخير" : "مساء النور";
   const enabled = useCallback((id: DashboardSectionId) => dashboardSettings.enabledSections.includes(id), [dashboardSettings.enabledSections]);
   const charts = useMemo(() => dashboardSettings.enabledCharts, [dashboardSettings.enabledCharts]);

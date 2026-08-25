@@ -42,7 +42,7 @@ import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
 import { renewStoreBoardBrand, type StoreBoardFace, type StoreBoardRecord } from "@/lib/store-board";
 import { createShelfInstallation, type ShelfInstallation, type ShelfInstallationDraft } from "@/lib/shelves";
 import { createAdvertisingVehicle, type AdvertisingVehicle, type AdvertisingVehicleDraft } from "@/lib/advertising-vehicles";
-import { persistSignageMediaUri } from "@/lib/signage-media-storage";
+import { needsSignageMediaPersistence, persistSignageMediaUri } from "@/lib/signage-media-storage";
 
 interface Signage {
   id: string;
@@ -141,6 +141,37 @@ async function persistVehicleMedia(vehicle: AdvertisingVehicle): Promise<Adverti
     back: (await persistSignageMediaUri(vehicle.images.back, "vehicle-back")) || vehicle.images.back,
   };
   return Object.keys(images).every((key) => images[key as keyof typeof images] === vehicle.images[key as keyof typeof images]) ? vehicle : { ...vehicle, images };
+}
+
+function hasPendingRoadsideContractMedia(contract: RoadsideContract): boolean {
+  return contract.boards.some((board) =>
+    needsSignageMediaPersistence(board.frontImageUri || board.imageUri) ||
+    needsSignageMediaPersistence(board.backImageUri),
+  );
+}
+
+function hasPendingSignageMedia(signage: Signage): boolean {
+  return needsSignageMediaPersistence(signage.frontImageUri || signage.imageUri) || needsSignageMediaPersistence(signage.backImageUri);
+}
+
+function hasPendingVehicleMedia(vehicle: AdvertisingVehicle): boolean {
+  return Object.values(vehicle.images).some((uri) => needsSignageMediaPersistence(uri));
+}
+
+/**
+ * يرحّل فقط السجلات التي تحمل وسائط غير مُدارة، وبشكل متسلسل لتجنب منافسة نسخ
+ * الملفات الكبيرة على الذاكرة عند استعادة التطبيق للتركيز.
+ */
+async function normalizePendingMedia<T>(
+  records: T[],
+  hasPendingMedia: (record: T) => boolean,
+  persist: (record: T) => Promise<T>,
+): Promise<T[]> {
+  const normalized: T[] = [];
+  for (const record of records) {
+    normalized.push(hasPendingMedia(record) ? await persist(record) : record);
+  }
+  return normalized;
 }
 
 type RoadContractAlert = ReturnType<typeof getRoadsideContractAlert>;
@@ -326,13 +357,11 @@ export default function SignageModule() {
         getItems<RoadsideContract>(STORAGE_KEYS.ROAD_SIGNAGE_CONTRACTS),
         loadAppSettings(),
       ]);
-      const [managedSignages, managedStands, managedShelves, managedVehicles, managedContracts] = await Promise.all([
-        Promise.all(signageData.map(persistSignageRecordMedia)),
-        Promise.all(standData.map(persistStandMedia)),
-        Promise.all(shelfData.map(persistShelfMedia)),
-        Promise.all(vehiclesData.map(persistVehicleMedia)),
-        Promise.all(contractsData.map(persistRoadsideContractMedia)),
-      ]);
+      const managedSignages = await normalizePendingMedia(signageData, hasPendingSignageMedia, persistSignageRecordMedia);
+      const managedStands = await normalizePendingMedia(standData, (stand) => needsSignageMediaPersistence(stand.imageUri), persistStandMedia);
+      const managedShelves = await normalizePendingMedia(shelfData, (shelf) => needsSignageMediaPersistence(shelf.imageUri), persistShelfMedia);
+      const managedVehicles = await normalizePendingMedia(vehiclesData, hasPendingVehicleMedia, persistVehicleMedia);
+      const managedContracts = await normalizePendingMedia(contractsData, hasPendingRoadsideContractMedia, persistRoadsideContractMedia);
       await Promise.all([
         managedSignages.some((item, index) => item !== signageData[index]) ? saveItems(STORAGE_KEYS.SIGNAGE_BOARDS, managedSignages) : Promise.resolve(),
         managedStands.some((item, index) => item !== standData[index]) ? saveItems(STORAGE_KEYS.STANDS, managedStands) : Promise.resolve(),

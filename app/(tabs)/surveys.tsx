@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -53,12 +53,12 @@ import { shouldShowProductPrice, shouldShowShelfPercentage } from "@/lib/survey-
 import {
   addResultToActiveSurveyCycle,
   closeActiveSurveyCycle,
-  getActiveSurveyCycleResults,
-  getSurveyCycleSummary,
+  getSurveyCycleMetricsById,
   getSurveyResultDisplayName,
   isStoreUsedInActiveSurveyCycle,
   sortSurveyCyclesNewestFirst,
 } from "@/lib/survey-cycle-manager";
+import type { SurveyCycleSummary } from "@/lib/survey-cycle-manager";
 import type { Product, Question, Store, SurveyCycle, SurveyResult, SurveyTemplate, SurveyNoteType } from "@/lib/types/survey-types";
 import { calculateShelfPercentage, normalizeShelfValue, orderSurveyProducts } from "@/lib/survey-order-and-shelves";
 
@@ -77,6 +77,12 @@ function mergeStoredItems<T extends { id: string }>(memoryItems: T[], storedItem
   storedItems.forEach((item) => merged.set(item.id, item));
   return [...merged.values()];
 }
+
+const EMPTY_SURVEY_CYCLE_SUMMARY: SurveyCycleSummary = {
+  resultCount: 0,
+  storeCount: 0,
+  averagePresencePercentage: 0,
+};
 
 export default function SurveysScreen() {
   const colors = useColors();
@@ -143,7 +149,6 @@ export default function SurveysScreen() {
   const [templateActionTarget, setTemplateActionTarget] = useState<SurveyTemplate | null>(null);
   const [resultActionTarget, setResultActionTarget] = useState<SurveyResult | null>(null);
   const [storeSearchText, setStoreSearchText] = useState('');
-  const [filteredStores, setFilteredStores] = useState<Store[]>([]);
   const [showSurveySuccess, setShowSurveySuccess] = useState(false);
   const [showSurveyError, setShowSurveyError] = useState(false);
   const [surveyErrorMessage, setSurveyErrorMessage] = useState('');
@@ -333,34 +338,55 @@ export default function SurveysScreen() {
     }
   }, [showError]);
 
-  useEffect(() => {
-    if (storeSearchText.trim()) {
-      const filtered = stores.filter(
-        (store) =>
-          store.name.toLowerCase().includes(storeSearchText.toLowerCase()) ||
-          store.region.toLowerCase().includes(storeSearchText.toLowerCase())
-      );
-      setFilteredStores(filtered);
-    } else {
-      setFilteredStores(stores);
-    }
+  const normalizedSearchText = searchText.trim().toLowerCase();
+  const filteredStores = useMemo(() => {
+    const normalizedStoreSearch = storeSearchText.trim().toLowerCase();
+    if (!normalizedStoreSearch) return stores;
+    return stores.filter((store) =>
+      store.name.toLowerCase().includes(normalizedStoreSearch) ||
+      store.region.toLowerCase().includes(normalizedStoreSearch),
+    );
   }, [storeSearchText, stores]);
 
   // Pagination for Templates
-  const filteredTemplates = templates.filter((t) =>
-    t.name.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const filteredTemplates = useMemo(() => templates.filter((template) =>
+    template.name.toLowerCase().includes(normalizedSearchText),
+  ), [normalizedSearchText, templates]);
   const templatesPagination = usePaginatedData(filteredTemplates, { initialPageSize: templatePageSize });
 
-  // Pagination for Results
-  const closedCycles = sortSurveyCyclesNewestFirst(cycles.filter((cycle) => Boolean(cycle.closedAt)));
-  const selectedCycle = closedCycles.find((cycle) => cycle.id === selectedCycleId) ?? null;
-  const selectedCycleSummary = selectedCycle ? getSurveyCycleSummary(selectedCycle.id, results) : null;
-  const filteredResults = results.filter((r) =>
-    (selectedTemplateFilter ? r.templateId === selectedTemplateFilter : true) &&
-    (selectedCycleId ? r.cycleId === selectedCycleId : true) &&
-    getSurveyResultDisplayName(r).toLowerCase().includes(searchText.toLowerCase())
+  // Pagination for Results and history: all cycle cards share a single result pass.
+  const closedCycles = useMemo(
+    () => sortSurveyCyclesNewestFirst(cycles.filter((cycle) => Boolean(cycle.closedAt))),
+    [cycles],
   );
+  const cycleMetricsById = useMemo(() => getSurveyCycleMetricsById(results), [results]);
+  const selectedCycle = useMemo(
+    () => closedCycles.find((cycle) => cycle.id === selectedCycleId) ?? null,
+    [closedCycles, selectedCycleId],
+  );
+  const selectedCycleSummary = selectedCycle
+    ? cycleMetricsById.get(selectedCycle.id)?.summary ?? EMPTY_SURVEY_CYCLE_SUMMARY
+    : null;
+  const filteredResults = useMemo(() => results.filter((result) =>
+    (!selectedTemplateFilter || result.templateId === selectedTemplateFilter) &&
+    (!selectedCycleId || result.cycleId === selectedCycleId) &&
+    getSurveyResultDisplayName(result).toLowerCase().includes(normalizedSearchText),
+  ), [normalizedSearchText, results, selectedCycleId, selectedTemplateFilter]);
+  const activeCycleResultCountByTemplate = useMemo(() => {
+    const activeCycleByTemplate = new Map(
+      cycles.filter((cycle) => !cycle.closedAt).map((cycle) => [cycle.templateId, cycle.id]),
+    );
+    const templatesWithKnownCycles = new Set(cycles.map((cycle) => cycle.templateId));
+    const counts = new Map<string, number>();
+    results.forEach((result) => {
+      const activeCycleId = activeCycleByTemplate.get(result.templateId);
+      const isLegacyActiveResult = !templatesWithKnownCycles.has(result.templateId) && !result.cycleId;
+      if (result.cycleId === activeCycleId || isLegacyActiveResult) {
+        counts.set(result.templateId, (counts.get(result.templateId) ?? 0) + 1);
+      }
+    });
+    return counts;
+  }, [cycles, results]);
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -418,7 +444,7 @@ export default function SurveysScreen() {
   };
 
   // Use Template
-  const handleStartSurvey = (template: SurveyTemplate) => {
+  const handleStartSurvey = useCallback((template: SurveyTemplate) => {
     setSelectedTemplate(template);
     setSelectedStore(null);
     setSurveyData(new Map());
@@ -426,7 +452,7 @@ export default function SurveysScreen() {
     setTotalShelves("");
     setStorePhotoUris([]);
     setShowUseModal(true);
-  };
+  }, []);
 
   const handleEditSurveyResult = (result: SurveyResult) => {
     const template = templates.find((item) => item.id === result.templateId);
@@ -815,10 +841,10 @@ export default function SurveysScreen() {
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   };
 
-  const openCycleHistory = (cycle: SurveyCycle) => {
+  const openCycleHistory = useCallback((cycle: SurveyCycle) => {
     setSelectedHistoryCycle(cycle);
     setShowCycleDetail(true);
-  };
+  }, []);
 
   const confirmDeleteCycleMedia = async () => {
     if (!selectedHistoryCycle) return;
@@ -838,16 +864,20 @@ export default function SurveysScreen() {
     }
   };
 
-  const renderTemplate = (info: { item: SurveyTemplate }) => {
+  const renderTemplate = useCallback((info: { item: SurveyTemplate }) => {
     const item = info.item as SurveyTemplate;
-    const activeCycleResults = getActiveSurveyCycleResults(item.id, results, cycles);
-    return <SurveyTemplateCard template={item} activeCycleResultCount={activeCycleResults.length} onStart={() => handleStartSurvey(item)} onLongPress={() => setTemplateActionTarget(item)} />;
-  };
+    return <SurveyTemplateCard template={item} activeCycleResultCount={activeCycleResultCountByTemplate.get(item.id) ?? 0} onStart={() => handleStartSurvey(item)} onLongPress={() => setTemplateActionTarget(item)} />;
+  }, [activeCycleResultCountByTemplate, handleStartSurvey]);
 
-  const renderResult = (info: { item: SurveyResult }) => {
+  const renderResult = useCallback((info: { item: SurveyResult }) => {
     const item = info.item as SurveyResult;
     return <SurveyResultCard result={item} displayName={getSurveyResultDisplayName(item)} onPress={() => { setSelectedResultForDetail(item); setShowResultDetail(true); }} onLongPress={() => setResultActionTarget(item)} />;
-  };
+  }, []);
+
+  const renderHistoryCycle = useCallback(({ item }: { item: SurveyCycle }) => {
+    const cycleMetrics = cycleMetricsById.get(item.id);
+    return <SurveyCycleHistoryCard cycle={item} summary={cycleMetrics?.summary ?? EMPTY_SURVEY_CYCLE_SUMMARY} mediaCount={cycleMetrics?.mediaCount ?? 0} onPress={() => openCycleHistory(item)} />;
+  }, [cycleMetricsById, openCycleHistory]);
 
   return (
     <ScreenContainer containerClassName="bg-background">
@@ -1078,6 +1108,10 @@ export default function SurveysScreen() {
             data={filteredResults}
             keyExtractor={(item) => item.id}
             renderItem={renderResult}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={7}
+            removeClippedSubviews={Platform.OS !== "web"}
             contentContainerStyle={styles.list}
             ListEmptyComponent={
               <View style={styles.empty}>
@@ -1093,7 +1127,11 @@ export default function SurveysScreen() {
         <FlatList
           data={closedCycles}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <SurveyCycleHistoryCard cycle={item} summary={getSurveyCycleSummary(item.id, results)} mediaCount={results.filter((result) => result.cycleId === item.id).reduce((total, result) => total + (result.storePhotoUris?.length || (result.storePhotoUri ? 1 : 0)), 0)} onPress={() => openCycleHistory(item)} />}
+          renderItem={renderHistoryCycle}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS !== "web"}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View style={styles.empty}><MaterialIcons name="history" size={48} color={colors.muted} /><Text style={[styles.emptyText, { color: colors.muted }]}>لا توجد دورات استبيان منتهية بعد</Text><Text style={[styles.emptyHint, { color: colors.muted }]}>اضغط مطولاً على قالب الاستبيان ثم اختر «انتهى الاستبيان» لإضافة الدورة إلى السجل.</Text></View>}
         />

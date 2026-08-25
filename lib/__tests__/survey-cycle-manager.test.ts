@@ -3,6 +3,7 @@ import {
   addResultToActiveSurveyCycle,
   buildSurveyCycleName,
   closeActiveSurveyCycle,
+  getSurveyCycleMetricsById,
   getActiveSurveyCycleResults,
   getSurveyCycleSummary,
   isStoreUsedInActiveSurveyCycle,
@@ -48,6 +49,40 @@ describe("دورات الاستبيان الزمنية", () => {
     ]);
 
     expect(sorted.map((cycle) => cycle.id)).toEqual(["closed-evening", "closed-morning"]);
+  });
+
+  it("يفهرس ملخصات الدورات والوسائط في مرور واحد مع احترام الصورة القديمة والجديدة", () => {
+    const first = {
+      ...makeResult("result-1", "store-1", "2026-03-18"),
+      cycleId: "cycle-a",
+      data: [
+        { productId: "p-1", productName: "منتج 1", present: true },
+        { productId: "p-2", productName: "منتج 2", present: false },
+      ],
+      storePhotoUris: ["file://one.jpg", "file://two.jpg"],
+    };
+    const second = {
+      ...makeResult("result-2", "store-1", "2026-03-19"),
+      cycleId: "cycle-a",
+      data: [{ productId: "p-3", productName: "منتج 3", present: true }],
+      storePhotoUri: "file://legacy.jpg",
+    };
+    const otherCycle = {
+      ...makeResult("result-3", "store-2", "2026-03-20"),
+      cycleId: "cycle-b",
+      data: [],
+    };
+
+    const metrics = getSurveyCycleMetricsById([first, second, otherCycle]);
+
+    expect(metrics.get("cycle-a")).toEqual({
+      summary: { resultCount: 2, storeCount: 1, averagePresencePercentage: 67 },
+      mediaCount: 3,
+    });
+    expect(metrics.get("cycle-b")).toEqual({
+      summary: { resultCount: 1, storeCount: 1, averagePresencePercentage: 0 },
+      mediaCount: 0,
+    });
   });
 
   it("يعتبر النتائج القديمة غير الموسومة دورة نشطة واحدة ويمنع تكرار المحل فيها", () => {
