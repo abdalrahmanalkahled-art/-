@@ -130,7 +130,9 @@ export default function SettingsScreen() {
     setIsBackingUp(true);
     try {
       const result = await createFullBackup({ share: false });
-      Alert.alert("تم إنشاء النسخة", result.shared ? "اختر تطبيق الملفات أو التخزين السحابي لحفظ النسخة خارج التطبيق." : "حُفظت النسخة داخل مساحة التطبيق.");
+      const locationMessage = result.shared ? "اختر تطبيق الملفات أو التخزين السحابي لحفظ النسخة خارج التطبيق." : "حُفظت النسخة داخل مساحة التطبيق.";
+      const skippedMessage = result.skippedMediaCount ? `\n\nلم تُضمّن ${result.skippedMediaCount} وسائط كبيرة حفاظاً على قابلية الاستعادة؛ احتفظ بها في مجلد marketing manager.` : "";
+      Alert.alert("تم إنشاء النسخة", `${locationMessage}${skippedMessage}`);
     } catch (error) {
       Alert.alert("تعذر النسخ الاحتياطي", error instanceof Error ? error.message : "حدث خطأ غير معروف");
     } finally { setIsBackingUp(false); }

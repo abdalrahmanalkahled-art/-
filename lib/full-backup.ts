@@ -65,7 +65,7 @@ export interface FullBackupPayload {
   skippedMediaPaths: string[];
 }
 
-export interface BackupResult { fileUri?: string; filename: string; itemCount: number; mediaCount: number; shared: boolean; }
+export interface BackupResult { fileUri?: string; filename: string; itemCount: number; mediaCount: number; skippedMediaCount: number; shared: boolean; }
 
 /** الملفات المولّدة أو المكررة تبقى خارج النسخة؛ لأن بياناتها الأصلية موجودة أو لأنها ليست بيانات تشغيلية. */
 export function isBackupManagedMediaUri(uri: string, documentDirectory: string): boolean {
@@ -187,7 +187,7 @@ async function createBackupForKeys(keys: string[], options: { filename: string; 
   const skippedMediaPaths = [...internal.skippedMediaPaths, ...external.skippedMediaPaths];
   const payload = buildFullBackupPayload(data, media, skippedMediaPaths, new Date().toISOString(), options.backupKind, options.sections || []);
   const written = await writeBackupFile(JSON.stringify(payload), options.filename, options.share);
-  return { fileUri: written.fileUri, filename: options.filename, itemCount: Object.keys(data).length, mediaCount: media.length, shared: written.shared };
+  return { fileUri: written.fileUri, filename: options.filename, itemCount: Object.keys(data).length, mediaCount: media.length, skippedMediaCount: skippedMediaPaths.length, shared: written.shared };
 }
 
 /** ينشئ نسخة كاملة من البيانات والوسائط المسموح بها. */

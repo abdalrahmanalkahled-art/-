@@ -9,6 +9,7 @@ export interface PdfImageProfile {
 const DEFAULT_PROFILE: PdfImageProfile = { width: 1024, quality: 0.6, prefix: "pdf-media" };
 const MAX_SOURCE_IMAGE_BYTES = 16 * 1024 * 1024;
 const MAX_EMBEDDED_IMAGE_BYTES = 2 * 1024 * 1024;
+const FAST_PATH_IMAGE_BYTES = 512 * 1024;
 
 class PdfMediaMemoryError extends Error {
   constructor(message: string) {
@@ -17,15 +18,31 @@ class PdfMediaMemoryError extends Error {
   }
 }
 
-async function assertSafeImageSize(uri: string): Promise<void> {
+async function assertSafeImageSize(uri: string): Promise<number | undefined> {
   if (uri.startsWith("data:image/")) {
     if (uri.length > MAX_EMBEDDED_IMAGE_BYTES * 1.4) throw new PdfMediaMemoryError("الصورة المضمّنة كبيرة جداً لعرضها بأمان داخل تقرير PDF.");
-    return;
+    return undefined;
   }
   const info = await FileSystem.getInfoAsync(uri).catch(() => null);
   if (info?.exists && !info.isDirectory && typeof info.size === "number" && info.size > MAX_SOURCE_IMAGE_BYTES) {
     throw new PdfMediaMemoryError(`حجم الصورة الأصلية (${Math.ceil(info.size / (1024 * 1024))} MB) أكبر من الحد الآمن لإدراجها في التقرير.`);
   }
+  return info?.exists && !info.isDirectory && typeof info.size === "number" ? info.size : undefined;
+}
+
+function imageMimeType(uri: string): string {
+  const extension = uri.split("?")[0]?.split(".").pop()?.toLowerCase();
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  return "image/jpeg";
+}
+
+async function smallImageDataUri(uri: string): Promise<string | undefined> {
+  const options = { encoding: FileSystem.EncodingType.Base64 };
+  const base64 = uri.startsWith("content://")
+    ? await FileSystem.StorageAccessFramework.readAsStringAsync(uri, options)
+    : await FileSystem.readAsStringAsync(uri, options);
+  return base64 ? `data:${imageMimeType(uri)};base64,${base64}` : undefined;
 }
 
 async function localPdfImageUri(uri: string, prefix: string): Promise<{ uri: string; temporaryUri?: string }> {
@@ -45,7 +62,9 @@ export async function preparePdfImageDataUri(uri: string | undefined, profile: P
   let temporaryUri: string | undefined;
   let resizedUri: string | undefined;
   try {
-    await assertSafeImageSize(uri);
+    const originalSize = await assertSafeImageSize(uri);
+    if (uri.startsWith("data:image/")) return uri;
+    if (typeof originalSize === "number" && originalSize <= FAST_PATH_IMAGE_BYTES) return smallImageDataUri(uri);
     const local = uri.startsWith("data:image/") ? { uri } : await localPdfImageUri(uri, options.prefix || DEFAULT_PROFILE.prefix!);
     temporaryUri = local.temporaryUri;
     const ImageManipulator = await import("expo-image-manipulator");

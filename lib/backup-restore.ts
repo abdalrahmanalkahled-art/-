@@ -5,7 +5,7 @@ import { BACKUP_KEY_LABELS, LOCAL_SETTINGS_KEYS, mergeBackupData, type BackupMer
 import { createLastRestoreHistory, saveLastRestoreHistory } from "./backup-restore-history";
 import { BACKUP_DATA_KEYS } from "./full-backup";
 import type { BackupMediaFile, BackupSectionId, FullBackupPayload } from "./full-backup";
-import { persistMarketingManagerFile, restoreMarketingManagerFile } from "./marketing-manager-storage";
+import { restoreMarketingManagerFile, restoreMarketingManagerFileFromUri } from "./marketing-manager-storage";
 import { describeBackupRestoreSpaceError, estimateBackupRestoreSpace, hasEnoughBackupRestoreSpace } from "./backup-storage-capacity";
 import { LegacyBackupStreamParser, type LegacyBackupHeader, type LegacyBackupMediaMeta } from "./legacy-backup-stream";
 
@@ -123,7 +123,7 @@ function payloadFromLegacyHeader(header: LegacyBackupHeader, media: LegacyBackup
   return { schemaVersion: 1, type: "madar-full-backup", backupKind: header.backupKind === "partial" ? "partial" : "full", ...(header.backupKind === "partial" ? { sections: (header.sections || []).filter((section): section is BackupSectionId => typeof section === "string") } : {}), createdAt: header.createdAt, data: header.data, media: media.map((item) => ({ ...item, base64: "" })), skippedMediaPaths: [] };
 }
 
-async function readLargeBackupHeader(sourceUri: string): Promise<FullBackupPayload> {
+export async function readLargeBackupHeader(sourceUri: string): Promise<FullBackupPayload> {
   const source = await localStreamingSource(sourceUri);
   const parser = new LegacyBackupStreamParser();
   const decoder = new TextDecoder();
@@ -153,9 +153,11 @@ async function readLargeBackupHeader(sourceUri: string): Promise<FullBackupPaylo
   }
 }
 
-function mediaKindAndName(relativePath: string): { kind: "media" | "templates" | "branding" | "backups"; name: string } {
-  const [kindText, name] = relativePath.replace(/^marketing-manager\//, "").split("/", 2);
-  return { kind: ["media", "templates", "branding", "backups"].includes(kindText) ? kindText as "media" | "templates" | "branding" | "backups" : "media", name: name || "restored.bin" };
+/** تُكتب وسائط التطبيق مباشرة في موضعها النهائي؛ أما ملفات المجلد الخارجي فتحتاج محطة محلية قصيرة قبل نقل SAF الأصلي. */
+export function streamingRestoreTargetUri(documentDirectory: string, relativePath: string): string {
+  return relativePath.startsWith("marketing-manager/")
+    ? `${documentDirectory}madar-restore-stream/${relativePath}`
+    : `${documentDirectory}${relativePath}`;
 }
 
 async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirectory: string): Promise<Map<string, string>> {
@@ -176,7 +178,7 @@ async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirec
       const text = decoder.decode(byteArrayFromBase64(encoded), { stream: position < info.size });
       for (const event of parser.feed(text, position >= info.size)) {
         if (event.type === "media-start") {
-          const temporaryUri = `${documentDirectory}madar-restore-stream/${event.media.relativePath}`;
+          const temporaryUri = streamingRestoreTargetUri(documentDirectory, event.media.relativePath);
           const parent = temporaryUri.slice(0, temporaryUri.lastIndexOf("/") + 1);
           await FileSystem.makeDirectoryAsync(parent, { intermediates: true });
           const fileSystemNext = await import("expo-file-system/next");
@@ -198,8 +200,7 @@ async function streamLegacyBackupMedia(payload: FullBackupPayload, documentDirec
           const localInfo = await FileSystem.getInfoAsync(saved.temporaryUri);
           if (!localInfo.exists || localInfo.isDirectory || !localInfo.size) throw new Error(`تعذر استعادة ملف الوسائط: ${saved.media.relativePath}`);
           if (saved.media.relativePath.startsWith("marketing-manager/")) {
-            const { kind, name } = mediaKindAndName(saved.media.relativePath);
-            const target = await persistMarketingManagerFile(saved.temporaryUri, kind, name);
+            const target = await restoreMarketingManagerFileFromUri(saved.media.relativePath.replace(/^marketing-manager\//, ""), saved.temporaryUri);
             if (saved.media.sourceUri) uriMap.set(saved.media.sourceUri, target);
             await FileSystem.deleteAsync(saved.temporaryUri, { idempotent: true }).catch(() => undefined);
           } else if (saved.media.sourceUri) uriMap.set(saved.media.sourceUri, saved.temporaryUri);

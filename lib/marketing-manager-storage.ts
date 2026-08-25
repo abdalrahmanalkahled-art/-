@@ -134,3 +134,21 @@ export async function restoreMarketingManagerFile(relativePath: string, base64: 
   await saveRegistry([...current.filter((item) => item.relativePath !== relativePath), entry]);
   return targetUri;
 }
+
+/** يستعيد ملفاً محلياً إلى المجلد الخارجي عبر SAF copyAsync، من دون إعادة تحميل محتواه في ذاكرة JavaScript. */
+export async function restoreMarketingManagerFileFromUri(relativePath: string, sourceUri: string): Promise<string> {
+  const location = await loadMarketingManagerLocation();
+  if (!location || Platform.OS !== "android") throw new Error("اختر موقع مجلد marketing manager قبل استعادة الملفات.");
+  const [kindText, fileName] = relativePath.split("/", 2);
+  const kind: MarketingManagerFileKind = ["media", "templates", "branding", "backups"].includes(kindText) ? kindText as MarketingManagerFileKind : "media";
+  const extension = extensionFromUri(fileName || "asset.bin");
+  const name = (fileName || `restored_${Date.now()}`).replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 48) || "restored";
+  const targetUri = await FileSystem.StorageAccessFramework.createFileAsync(directoryFor(location, kind), name, mimeTypeFor(extension));
+  await FileSystem.StorageAccessFramework.copyAsync({ from: sourceUri, to: targetUri });
+  const info = await FileSystem.getInfoAsync(targetUri);
+  if (!info.exists || info.isDirectory || !info.size) throw new Error(`تعذر استعادة الملف: ${relativePath}`);
+  const entry: MarketingManagerFileEntry = { uri: targetUri, relativePath, kind, createdAt: new Date().toISOString() };
+  const current = await loadRegistry();
+  await saveRegistry([...current.filter((item) => item.relativePath !== relativePath), entry]);
+  return targetUri;
+}

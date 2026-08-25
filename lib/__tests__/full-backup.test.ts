@@ -57,6 +57,7 @@ describe("full backup", () => {
     const result = await createFullBackup();
 
     expect(result.shared).toBe(false);
+    expect(result.skippedMediaCount).toBe(0);
     expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(expect.stringContaining("backups/madar_full_backup_"), expect.stringContaining("madar_stores"), expect.objectContaining({ encoding: "utf8" }));
     expect(Sharing.isAvailableAsync).not.toHaveBeenCalled();
   });

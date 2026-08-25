@@ -87,7 +87,7 @@ export default function BackupManagementScreen() {
     try {
       const result = await createFullBackup({ share: false });
       await load();
-      setSuccess(`تم إنشاء نسخة كاملة تضم ${result.itemCount} مجموعة بيانات و${result.mediaCount} ملف وسائط.`);
+      setSuccess(`تم إنشاء نسخة كاملة تضم ${result.itemCount} مجموعة بيانات و${result.mediaCount} ملف وسائط.${result.skippedMediaCount ? ` لم تُضمّن ${result.skippedMediaCount} وسائط كبيرة للحفاظ على قابلية الاستعادة؛ احتفظ بها في مجلد marketing manager.` : ""}`);
     } catch (error) { setSuccess(error instanceof Error ? error.message : "تعذر إنشاء النسخة الاحتياطية."); }
     finally { setCreateMode(null); }
   };
@@ -100,7 +100,7 @@ export default function BackupManagementScreen() {
       setSectionPickerVisible(false);
       setSelectedSections([]);
       await load();
-      setSuccess(`تم إنشاء نسخة جزئية تضم ${result.itemCount} مجموعة بيانات و${result.mediaCount} ملف وسائط.`);
+      setSuccess(`تم إنشاء نسخة جزئية تضم ${result.itemCount} مجموعة بيانات و${result.mediaCount} ملف وسائط.${result.skippedMediaCount ? ` لم تُضمّن ${result.skippedMediaCount} وسائط كبيرة للحفاظ على قابلية الاستعادة؛ احتفظ بها في مجلد marketing manager.` : ""}`);
     } catch (error) { setSuccess(error instanceof Error ? error.message : "تعذر إنشاء النسخة الجزئية."); }
     finally { setCreateMode(null); }
   };

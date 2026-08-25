@@ -6,9 +6,14 @@ vi.mock("../storage", () => ({ STORAGE_KEYS: { STORES: "madar_stores", EVENTS: "
 vi.mock("../full-backup", () => ({ BACKUP_DATA_KEYS: ["madar_stores", "madar_events"] }));
 vi.mock("../marketing-manager-storage", () => ({ restoreMarketingManagerFile: vi.fn() }));
 
-import { createBackupPreview, parseFullBackup } from "../backup-restore";
+import { createBackupPreview, parseFullBackup, streamingRestoreTargetUri } from "../backup-restore";
 
 describe("استعادة النسخة الاحتياطية", () => {
+  it("يعيد وسائط التطبيق الداخلية إلى مسارها النهائي لا إلى مجلد مرحلي", () => {
+    expect(streamingRestoreTargetUri("file:///documents/", "event_documentation/photo.jpg")).toBe("file:///documents/event_documentation/photo.jpg");
+    expect(streamingRestoreTargetUri("file:///documents/", "marketing-manager/media/photo.jpg")).toContain("madar-restore-stream/");
+  });
+
   it("يتحقق من النسخة ويبني معاينة للسجلات والوسائط قبل الاستعادة", () => {
     const payload = parseFullBackup(JSON.stringify({
       schemaVersion: 1, type: "madar-full-backup", createdAt: "2026-08-17T09:00:00.000Z",
