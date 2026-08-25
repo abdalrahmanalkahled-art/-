@@ -89,7 +89,10 @@ export default function ReportsModule() {
       const next = [template, ...templates];
       await saveItems(STORAGE_KEYS.MARKET_VISIT_REPORT_TEMPLATES, next);
       setTemplates(next); setSelectedTemplateId(template.id); setPanel(null);
-    } catch { Alert.alert("تعذر حفظ القالب", "تأكد من صلاحية الملف ومساحة التخزين ثم حاول مجدداً."); }
+    } catch (error) {
+      const reason = error instanceof Error && error.message ? error.message : "تعذر نسخ القالب إلى تخزين التطبيق.";
+      Alert.alert("تعذر حفظ القالب", `${reason}\n\nتأكد من أن الملف بصيغة PPTX وأن مساحة الجهاز الفعلية متاحة، ثم حاول مجدداً.`);
+    }
   };
 
   const generate = async () => {

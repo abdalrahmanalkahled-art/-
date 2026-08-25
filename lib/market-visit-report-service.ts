@@ -16,9 +16,13 @@ const OUTPUT_DIR = `${ROOT}generated/`;
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
 export async function persistMarketVisitTemplate(sourceUri: string, name: string, size?: number): Promise<MarketVisitReportTemplate> {
-  const externalUri = await persistMarketingManagerFile(sourceUri, "templates", name);
-  if (externalUri !== sourceUri) {
-    return { id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name: name.replace(/\.pptx$/i, "") || "قالب زيارة السوق", fileName: name, uri: externalUri, size, createdAt: new Date().toISOString() };
+  try {
+    const externalUri = await persistMarketingManagerFile(sourceUri, "templates", name);
+    if (externalUri !== sourceUri) {
+      return { id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name: name.replace(/\.pptx$/i, "") || "قالب زيارة السوق", fileName: name, uri: externalUri, size, createdAt: new Date().toISOString() };
+    }
+  } catch {
+    // بعض مزوّدي SAF يرفضون النسخ إلى المجلد الخارجي برسالة مساحة مضللة؛ الحفظ المحلي يبقي الرفع متاحاً.
   }
   await ensureDirectoryExists(TEMPLATE_DIR);
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
