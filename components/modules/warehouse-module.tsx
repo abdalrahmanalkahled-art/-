@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Modal,
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -31,6 +30,7 @@ import { DEFAULT_WAREHOUSE_REPORT_SETTINGS, type WarehouseReportSettings } from 
 import type { WarehouseTool } from "@/lib/warehouse-tools";
 import { DESIGN } from "@/lib/design-system";
 import { WarehouseMaterialDetailsSheet } from "@/components/warehouse-detail-sheets";
+import { CardActionModal } from "@/components/card-action-modal";
 import { calculateMovementPieces, calculatePackagePieces, formatMovementQuantity, formatWarehouseQuantity, getPiecesPerPackage, parsePositiveWarehouseDecimal, type WarehouseMovementUnit } from "@/lib/warehouse-quantity";
 
 
@@ -561,18 +561,16 @@ export default function WarehouseModule() {
         onCancel={() => setMovementSavePending(false)}
         onConfirm={() => { setMovementSavePending(false); void handleSaveMovement(); }}
       />
-      <Modal visible={Boolean(itemActionTarget)} transparent animationType="fade" onRequestClose={() => setItemActionTarget(null)}>
-        <View style={styles.actionOverlay}>
-          <View style={[styles.actionSheet, { backgroundColor: colors.surface }]}>
-            <View style={[styles.actionSheetIcon, { backgroundColor: colors.primary + "16" }]}><MaterialIcons name="inventory-2" size={25} color={colors.primary} /></View>
-            <Text style={[styles.actionSheetTitle, { color: colors.foreground }]}>{itemActionTarget?.name}</Text>
-            <Text style={[styles.actionSheetHint, { color: colors.muted }]}>اختر الإجراء المطلوب لهذه المادة</Text>
-            {canEdit ? <TouchableOpacity onPress={() => itemActionTarget && beginEditItem(itemActionTarget)} style={[styles.actionSheetButton, { backgroundColor: colors.primary }]}><MaterialIcons name="edit" size={19} color="#fff" /><Text style={styles.actionSheetButtonText}>تعديل المادة</Text></TouchableOpacity> : null}
-            {canDelete ? <TouchableOpacity onPress={() => { if (itemActionTarget) handleDeleteItem(itemActionTarget); setItemActionTarget(null); }} style={[styles.actionSheetButton, { backgroundColor: colors.error + "12", borderWidth: 1, borderColor: colors.error + "34" }]}><MaterialIcons name="delete-outline" size={19} color={colors.error} /><Text style={[styles.actionSheetButtonText, { color: colors.error }]}>حذف المادة وسجلها</Text></TouchableOpacity> : null}
-            <TouchableOpacity onPress={() => setItemActionTarget(null)} style={styles.actionSheetCancel}><Text style={[styles.actionSheetCancelText, { color: colors.muted }]}>إلغاء</Text></TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <CardActionModal
+        visible={Boolean(itemActionTarget)}
+        title={itemActionTarget?.name || "إجراءات المادة"}
+        description="اختر الإجراء المطلوب لهذه المادة"
+        onClose={() => setItemActionTarget(null)}
+        actions={[
+          ...(canEdit ? [{ id: "edit", label: "تعديل المادة", icon: "edit" as const, onPress: () => { const target = itemActionTarget; setItemActionTarget(null); if (target) beginEditItem(target); } }] : []),
+          ...(canDelete ? [{ id: "delete", label: "حذف المادة وسجلها", icon: "delete-outline" as const, tone: "danger" as const, onPress: () => { const target = itemActionTarget; setItemActionTarget(null); if (target) handleDeleteItem(target); } }] : []),
+        ]}
+      />
       <ConfirmDialog
         visible={notice.visible}
         title={notice.title}
@@ -617,7 +615,6 @@ const styles = StyleSheet.create({
   itemText: { flex: 1 },
   holdHint: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 4 },
   holdHintText: { fontSize: 10, fontWeight: "700" as any },
-  actionOverlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.5)", justifyContent: "flex-end", padding: 14 }, actionSheet: { borderRadius: 24, padding: 20, alignItems: "center" }, actionSheetIcon: { width: 52, height: 52, borderRadius: 18, alignItems: "center", justifyContent: "center" }, actionSheetTitle: { fontSize: 16, fontWeight: "800" as any, marginTop: 10, textAlign: "center" }, actionSheetHint: { fontSize: 12, marginTop: 4, marginBottom: 16, textAlign: "center" }, actionSheetButton: { width: "100%", minHeight: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, marginTop: 8 }, actionSheetButtonText: { color: "#fff", fontSize: 13, fontWeight: "800" as any }, actionSheetCancel: { minHeight: 40, marginTop: 8, justifyContent: "center", paddingHorizontal: 18 }, actionSheetCancelText: { fontSize: 13, fontWeight: "700" as any },
   catIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   itemName: { fontSize: 14, fontWeight: "600" as any },
   itemCat: { fontSize: 12, marginTop: 2 },

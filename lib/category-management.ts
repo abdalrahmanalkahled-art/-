@@ -33,7 +33,8 @@ export const DEFAULT_STORE_CATEGORIES: ManagedCategory[] = [
 export const CATEGORY_ICON_OPTIONS = [
   "category", "inventory-2", "redeem", "card-giftcard", "view-agenda", "crop-landscape",
   "campaign", "store", "local-shipping", "build", "print", "event", "palette", "devices",
-  "cleaning-services", "construction", "restaurant", "more-horiz",
+  "cleaning-services", "soap", "sanitizer", "local-drink", "kitchen", "science", "medical-services",
+  "brush", "format-paint", "construction", "restaurant", "more-horiz",
 ] as const;
 
 export function getManagedCategories(stored: ManagedCategory[], defaults: ManagedCategory[]): ManagedCategory[] {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_EXPENSE_CATEGORIES, getFallbackCategoryId, getManagedCategories } from "../category-management";
+import { CATEGORY_ICON_OPTIONS, DEFAULT_EXPENSE_CATEGORIES, getFallbackCategoryId, getManagedCategories } from "../category-management";
 
 describe("إدارة التصنيفات المحلية", () => {
   it("يُظهر التصنيفات الافتراضية عند غياب أي تصنيف محفوظ", () => {
@@ -15,5 +15,9 @@ describe("إدارة التصنيفات المحلية", () => {
     expect(getManagedCategories(categories, DEFAULT_EXPENSE_CATEGORIES)).toEqual(categories);
     expect(getFallbackCategoryId(categories, "custom")).toBe("other");
     expect(getFallbackCategoryId([{ ...categories[0] }], "custom")).toBeNull();
+  });
+
+  it("يوفر رموزاً تمثيلية للمواد والتنظيف والاستهلاك داخل منتقي الفئات", () => {
+    expect(CATEGORY_ICON_OPTIONS).toEqual(expect.arrayContaining(["cleaning-services", "soap", "sanitizer", "local-drink", "kitchen", "science", "medical-services"]));
   });
 });
