@@ -9,8 +9,9 @@ import { AppPageHeader } from "@/components/app-page-header";
 import { useColors } from "@/hooks/use-colors";
 import { getItems, STORAGE_KEYS } from "@/lib/storage";
 import { getGoalImpactMetrics } from "@/lib/goal-impact-metrics";
+import { deriveGoalPeriod, getEffectiveGoalStatus, goalPeriodLabel, type EffectiveGoalStatus, type GoalPeriod, type StoredGoalStatus } from "@/lib/goal-lifecycle";
 
-type GoalStatus = "on_track" | "delayed" | "completed" | "cancelled";
+type GoalStatus = StoredGoalStatus;
 type EventStatus = "planned" | "ongoing" | "completed" | "cancelled";
 
 interface MarketingGoal {
@@ -18,7 +19,7 @@ interface MarketingGoal {
   title: string;
   brandName?: string;
   description?: string;
-  period: "monthly" | "quarterly" | "annual";
+  period: GoalPeriod;
   startDate: string;
   endDate: string;
   kpi?: string;
@@ -41,10 +42,11 @@ interface EventItem {
   brandName?: string;
 }
 
-const GOAL_STATUS: Record<GoalStatus, { label: string; color: string }> = {
+const GOAL_STATUS: Record<EffectiveGoalStatus, { label: string; color: string }> = {
   on_track: { label: "في المسار", color: "#10B981" },
   delayed: { label: "متأخر", color: "#EF4444" },
-  completed: { label: "مكتمل", color: "#64748B" },
+  completed: { label: "مكتمل", color: "#6B7280" },
+  expired: { label: "منتهٍ", color: "#64748B" },
   cancelled: { label: "ملغي", color: "#9CA3AF" },
 };
 
@@ -53,12 +55,6 @@ const EVENT_STATUS: Record<EventStatus, { label: string; color: string }> = {
   ongoing: { label: "جارية", color: "#3B82F6" },
   completed: { label: "مكتملة", color: "#10B981" },
   cancelled: { label: "ملغاة", color: "#EF4444" },
-};
-
-const PERIOD_LABELS: Record<MarketingGoal["period"], string> = {
-  monthly: "شهري",
-  quarterly: "ربع سنوي",
-  annual: "سنوي",
 };
 
 export default function GoalDetailsScreen() {
@@ -110,7 +106,7 @@ export default function GoalDetailsScreen() {
     );
   }
 
-  const goalStatus = GOAL_STATUS[goal.status] ?? GOAL_STATUS.on_track;
+  const goalStatus = GOAL_STATUS[getEffectiveGoalStatus(goal)] ?? GOAL_STATUS.on_track;
   const { totalGifts, totalBeneficiaries, coveredRegionCount } = getGoalImpactMetrics(events);
 
   return (
@@ -126,7 +122,7 @@ export default function GoalDetailsScreen() {
           </View>
           <Text style={styles.heroTitle}>{goal.title}</Text>
           {goal.brandName ? <View style={styles.heroBrand}><MaterialIcons name="sell" size={14} color="#fff" /><Text style={styles.heroBrandText}>{goal.brandName}</Text></View> : null}
-          <Text style={styles.heroPeriod}>{PERIOD_LABELS[goal.period]} · {goal.startDate || "غير محدد"}{goal.endDate ? ` ← ${goal.endDate}` : ""}</Text>
+          <Text style={styles.heroPeriod}>{goalPeriodLabel(deriveGoalPeriod(goal.startDate, goal.endDate))} · {goal.startDate || "غير محدد"}{goal.endDate ? ` ← ${goal.endDate}` : ""}</Text>
         </View>
 
         <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>

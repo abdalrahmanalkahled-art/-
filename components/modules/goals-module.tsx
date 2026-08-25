@@ -20,6 +20,7 @@ import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
 import { ReportFab } from "@/components/report-fab";
 import { exportTabReportExcel, exportTabReportPdf } from "@/lib/tab-report-exporter";
 import { getGoalImpactMetrics } from "@/lib/goal-impact-metrics";
+import { deriveGoalPeriod, getEffectiveGoalStatus, goalPeriodLabel, type GoalPeriod, type StoredGoalStatus } from "@/lib/goal-lifecycle";
 
 interface MarketingTask {
   id: string;
@@ -37,14 +38,14 @@ interface MarketingGoal {
   title: string;
   brandName?: string;
   description: string;
-  period: "monthly" | "quarterly" | "annual";
+  period: GoalPeriod;
   startDate: string;
   endDate: string;
   kpi: string;
   targetValue: number;
   currentValue: number;
   completionPercentage: number;
-  status: "on_track" | "delayed" | "completed" | "cancelled";
+  status: StoredGoalStatus;
   tasks: MarketingTask[];
   createdAt: string;
 }
@@ -52,6 +53,7 @@ interface MarketingGoal {
 const PERIOD_OPTIONS = [
   { value: "monthly", label: "شهري", color: "#3B82F6" },
   { value: "quarterly", label: "ربع سنوي", color: "#7C3AED" },
+  { value: "semiannual", label: "نصف سنوي", color: "#0891B2" },
   { value: "annual", label: "سنوي", color: "#DC2626" },
 ];
 
@@ -59,6 +61,7 @@ const STATUS_OPTIONS = [
   { value: "on_track", label: "في المسار", color: "#10B981" },
   { value: "delayed", label: "متأخر", color: "#EF4444" },
   { value: "completed", label: "مكتمل", color: "#6B7280" },
+  { value: "expired", label: "منتهٍ", color: "#64748B" },
   { value: "cancelled", label: "ملغي", color: "#9CA3AF" },
 ];
 
@@ -107,7 +110,7 @@ export default function GoalsModule() {
 
   const loadData = useCallback(async () => {
     const data = await getItems<MarketingGoal>(STORAGE_KEYS.MARKETING_GOALS);
-    setGoals(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    setGoals(data.map((goal) => ({ ...goal, period: deriveGoalPeriod(goal.startDate, goal.endDate) })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     setRefreshing(false);
   }, []);
 
@@ -135,6 +138,7 @@ export default function GoalsModule() {
     const target = parseFloat(goalForm.targetValue) || 0;
     const current = parseFloat(goalForm.currentValue) || 0;
     const completion = target > 0 ? Math.round((current / target) * 100) : 0;
+    const period = deriveGoalPeriod(goalForm.startDate, goalForm.endDate);
 
     if (isEditing && selectedGoal) {
       // تعديل الهدف الموجود
@@ -143,6 +147,7 @@ export default function GoalsModule() {
           ? {
               ...g,
               ...goalForm,
+              period,
               targetValue: target,
               currentValue: current,
               completionPercentage: completion,
@@ -153,7 +158,7 @@ export default function GoalsModule() {
     } else {
       // إنشاء هدف جديد
       const newGoal: MarketingGoal = {
-        id: Date.now().toString(), ...goalForm,
+        id: Date.now().toString(), ...goalForm, period,
         targetValue: target, currentValue: current,
         completionPercentage: completion, tasks: [],
         createdAt: new Date().toISOString(),
@@ -218,7 +223,7 @@ export default function GoalsModule() {
       title: goal.title,
       brandName: goal.brandName || "",
       description: goal.description,
-      period: goal.period,
+      period: deriveGoalPeriod(goal.startDate, goal.endDate),
       startDate: goal.startDate,
       endDate: goal.endDate,
       kpi: goal.kpi,
@@ -260,7 +265,7 @@ export default function GoalsModule() {
       const rows = [summary, ...scope.map((goal) => {
         const linkedEvents = events.filter((event) => event.goalId === goal.id);
         const impact = getGoalImpactMetrics(linkedEvents);
-        const row: Record<string, unknown> = { الهدف: goal.title, الماركة: goal.brandName || "—", الفترة: `${goal.startDate || "—"} ← ${goal.endDate || "—"}`, الحالة: getStatusInfo(goal.status).label };
+        const row: Record<string, unknown> = { الهدف: goal.title, الماركة: goal.brandName || "—", الفترة: `${goalPeriodLabel(deriveGoalPeriod(goal.startDate, goal.endDate))} · ${goal.startDate || "—"} ← ${goal.endDate || "—"}`, الحالة: getStatusInfo(getEffectiveGoalStatus(goal)).label };
         if (reportSettings.includeProgress) row.الإنجاز = `${Math.round(goal.completionPercentage || 0)}%`;
         if (reportSettings.includeEvents) row["فعاليات مرتبطة"] = linkedEvents.length;
         if (reportSettings.includeBeneficiaries) row.المستفيدون = impact.totalBeneficiaries;
@@ -296,7 +301,7 @@ export default function GoalsModule() {
         }
         renderItem={({ item }) => {
           const periodInfo = getPeriodInfo(item.period);
-          const statusInfo = getStatusInfo(item.status);
+          const statusInfo = getStatusInfo(getEffectiveGoalStatus(item));
           return (
             <AnimatedCard
               style={[styles.goalCard, { marginHorizontal: 0, marginVertical: 0 }]}
@@ -460,28 +465,18 @@ export default function GoalsModule() {
                     <Text style={[styles.brandPickerText, { color: goalForm.startDate && goalForm.endDate ? colors.foreground : colors.muted }]}>{goalForm.startDate && goalForm.endDate ? `${goalForm.startDate} ← ${goalForm.endDate}` : "اختر فترة الهدف"}</Text>
                   </TouchableOpacity>
                 </View>
-                <View style={styles.formGroup}>
-                  <Text style={[styles.formLabel, { color: colors.foreground }]}>الفترة الزمنية</Text>
-                  <View style={styles.periodOptions}>
-                    {PERIOD_OPTIONS.map((opt) => (
-                      <TouchableOpacity
-                        key={opt.value}
-                        style={[styles.periodOption, goalForm.period === opt.value && { backgroundColor: opt.color }]}
-                        onPress={() => setGoalForm((f) => ({ ...f, period: opt.value as MarketingGoal["period"] }))}
-                      >
-                        <Text style={[styles.periodOptionText, { color: goalForm.period === opt.value ? "#fff" : colors.muted }]}>{opt.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                <View style={[styles.periodSummary, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
+                  <View style={[styles.periodSummaryIcon, { backgroundColor: colors.primary + "18" }]}><MaterialIcons name="timeline" size={19} color={colors.primary} /></View>
+                  <View style={styles.periodSummaryCopy}><Text style={[styles.periodSummaryLabel, { color: colors.muted }]}>المسار المحتسب تلقائياً</Text><Text style={[styles.periodSummaryValue, { color: colors.foreground }]}>{goalPeriodLabel(deriveGoalPeriod(goalForm.startDate, goalForm.endDate))}</Text></View>
                 </View>
                 <View style={styles.formGroup}>
                   <Text style={[styles.formLabel, { color: colors.foreground }]}>الحالة</Text>
                   <View style={styles.statusOptions}>
-                    {STATUS_OPTIONS.map((opt) => (
+                    {STATUS_OPTIONS.filter((opt) => opt.value !== "expired").map((opt) => (
                       <TouchableOpacity
                         key={opt.value}
                         style={[styles.statusOption, goalForm.status === opt.value && { backgroundColor: opt.color }]}
-                        onPress={() => setGoalForm((f) => ({ ...f, status: opt.value as MarketingGoal["status"] }))}
+                        onPress={() => setGoalForm((f) => ({ ...f, status: opt.value as StoredGoalStatus }))}
                       >
                         <Text style={[styles.statusOptionText, { color: goalForm.status === opt.value ? "#fff" : colors.muted }]}>{opt.label}</Text>
                       </TouchableOpacity>
@@ -517,7 +512,9 @@ export default function GoalsModule() {
         title="فترة الهدف"
         onCancel={() => setShowGoalDateRange(false)}
         onConfirm={(startDate, endDate) => {
-          setGoalForm((current) => ({ ...current, startDate: toIsoDate(startDate), endDate: toIsoDate(endDate) }));
+          const nextStartDate = toIsoDate(startDate);
+          const nextEndDate = toIsoDate(endDate);
+          setGoalForm((current) => ({ ...current, startDate: nextStartDate, endDate: nextEndDate, period: deriveGoalPeriod(nextStartDate, nextEndDate) }));
           setShowGoalDateRange(false);
         }}
       />
@@ -710,6 +707,11 @@ const styles = StyleSheet.create({
   brandOption: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "flex-start", gap: 8, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(100,116,139,0.2)" },
   brandOptionText: { fontSize: 13, fontWeight: "500" as any, textAlign: "right" },
   brandEmptyText: { fontSize: 12, textAlign: "right", padding: 12 },
+  periodSummary: { minHeight: 64, borderWidth: 1, borderRadius: 14, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, marginBottom: 16 },
+  periodSummaryIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  periodSummaryCopy: { flex: 1, alignItems: "flex-end" },
+  periodSummaryLabel: { fontSize: 11, textAlign: "right" },
+  periodSummaryValue: { marginTop: 2, fontSize: 14, fontWeight: "800" as any, textAlign: "right" },
   periodOptions: { flexDirection: "row", gap: 8 },
   periodOption: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: "#E5E7EB", alignItems: "center" },
   periodOptionText: { fontSize: 13, fontWeight: "600" as any },

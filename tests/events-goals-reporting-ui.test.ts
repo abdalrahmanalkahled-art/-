@@ -5,14 +5,23 @@ import { describe, expect, it } from "vitest";
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("تحديثات الفعاليات والخطة والتقارير", () => {
-  it("يعتمد نموذج الفعالية نطاق تاريخ ويعرض المسار والحالة المنتهية تلقائياً", () => {
+  it("يعيد نموذج الفعالية إلى تاريخ واحد وحالات يدوية بلا مسار أو انتهاء تلقائي", () => {
     const events = source("app/(tabs)/events.tsx");
-    expect(events).toContain('selectionMode="range"');
-    expect(events).toContain("deriveEventPeriod(form.startDate, form.endDate)");
-    expect(events).toContain("getEffectiveEventStatus(item)");
-    expect(events).toContain("المسار المحتسب تلقائياً");
+    expect(events).toContain('selectionMode="single"');
+    expect(events).toContain("eventDate: form.eventDate");
+    expect(events).not.toContain("deriveEventPeriod");
+    expect(events).not.toContain("getEffectiveEventStatus");
+    expect(events).not.toContain("المسار المحتسب تلقائياً");
     expect(events).not.toContain("form.budget");
     expect(events).not.toContain("form.actualCost");
+  });
+
+  it("يشتق مسار الهدف وحالة انتهائه تلقائياً من نطاقه الزمني", () => {
+    const goals = source("components/modules/goals-module.tsx");
+    expect(goals).toContain("deriveGoalPeriod");
+    expect(goals).toContain("getEffectiveGoalStatus");
+    expect(goals).toContain("semiannual");
+    expect(goals).toContain("المسار المحتسب تلقائياً");
   });
 
   it("يبني تقرير الخطة من الفعاليات المرتبطة ويشمل إجمالي المستفيدين وإعداداته", () => {

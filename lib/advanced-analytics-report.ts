@@ -1,5 +1,6 @@
 import type { AdvancedSurveyAnalytics } from "./advanced-analytics";
 import { formatAnalyticsDate, formatAnalyticsDateTime, formatAnalyticsNumber, toWesternDigits } from "./analytics-number-format";
+import { deriveGoalPeriod, getEffectiveGoalStatus } from "./goal-lifecycle";
 import type { MarketingAnalyticsSummary } from "./marketing-analytics";
 import type { AnalyticsSettings } from "./analytics-settings-model";
 import type { AnalyticsDecisionMetrics } from "./analytics-decision-metrics";
@@ -171,10 +172,10 @@ export function buildAnalyticsReportData(
     ...(product.averagePrice !== undefined ? { "متوسط السعر": `${formatAnalyticsNumber(product.averagePrice)} ل.س` } : {}),
   })));
   const eventStatusLabels = { planned: "مخططة", ongoing: "قيد التنفيذ", completed: "مكتملة", cancelled: "ملغاة" } as const;
-  const goalStatusLabels = { on_track: "في المسار", delayed: "متأخر", completed: "مكتمل", cancelled: "ملغي" } as const;
+  const goalStatusLabels = { on_track: "في المسار", delayed: "متأخر", completed: "مكتمل", expired: "منتهٍ", cancelled: "ملغي" } as const;
   const boardTypeLabels = { store: "لوحة محل", road: "لوحة طرقية", wall: "لوحة جدارية", island: "منصف إعلاني" } as const;
   const standConditionLabels = { good: "بحالة جيدة", damaged: "متضرر", needs_repair: "يحتاج صيانة" } as const;
-  const periodLabels = { monthly: "شهري", quarterly: "ربع سنوي", annual: "سنوي" } as const;
+  const periodLabels = { monthly: "شهري", quarterly: "ربع سنوي", semiannual: "نصف سنوي", annual: "سنوي" } as const;
   const goalsById = new Map((marketing?.goals || []).map((goal) => [goal.id, goal]));
   const marketingRows = marketing ? [
     { البند: "الفعاليات ضمن النطاق", الإجمالي: formatAnalyticsNumber(marketing.events.length) },
@@ -201,8 +202,8 @@ export function buildAnalyticsReportData(
   const marketingGoals = (marketing?.goals || []).map((goal) => ({
     الهدف: toWesternDigits(goal.title || "هدف تسويقي"),
     الماركة: toWesternDigits(goal.brandName || "غير محددة"),
-    الحالة: goalStatusLabels[goal.status || "on_track"],
-    الفترة: periodLabels[goal.period || "monthly"],
+    الحالة: goalStatusLabels[getEffectiveGoalStatus(goal)],
+    الفترة: periodLabels[deriveGoalPeriod(goal.startDate || "", goal.endDate || "")],
     المؤشر: toWesternDigits(goal.kpi || "—"),
     الإنجاز: `${Math.round(Number(goal.completionPercentage) || (Number(goal.targetValue) ? (Number(goal.currentValue) / Number(goal.targetValue)) * 100 : 0))}%`,
     "عدد الفعاليات المرتبطة": formatAnalyticsNumber((marketing?.events || []).filter((event) => event.goalId === goal.id).length),

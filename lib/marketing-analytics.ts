@@ -60,7 +60,7 @@ export interface MarketingGoalRecord {
   title?: string;
   brandName?: string;
   description?: string;
-  period?: "monthly" | "quarterly" | "annual";
+  period?: "monthly" | "quarterly" | "semiannual" | "annual";
   startDate?: string;
   endDate?: string;
   kpi?: string;

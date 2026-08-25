@@ -34,7 +34,6 @@ import { useAppError } from "@/hooks/use-app-error";
 import { loadEventGoals, type EventGoal } from "@/lib/event-goal-loader";
 import { persistEventMedia } from "@/lib/event-video-storage";
 import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
-import { deriveEventPeriod, eventEndDate, eventPeriodLabel, eventStartDate, getEffectiveEventStatus, type EventPeriod } from "@/lib/event-lifecycle";
 
 interface EventItem {
   id: string;
@@ -42,7 +41,6 @@ interface EventItem {
   eventDate: string;
   startDate?: string;
   endDate?: string;
-  period?: EventPeriod;
   region: string;
   detailedAddress: string;
   giftsDistributed: number;
@@ -71,7 +69,6 @@ const STATUS_OPTIONS = [
   { value: "planned", label: "مخططة", color: "#F59E0B" },
   { value: "ongoing", label: "جارية", color: "#3B82F6" },
   { value: "completed", label: "مكتملة", color: "#10B981" },
-  { value: "expired", label: "منتهية", color: "#64748B" },
   { value: "cancelled", label: "ملغاة", color: "#EF4444" },
 ];
 
@@ -103,8 +100,7 @@ export default function EventsScreen() {
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [form, setForm] = useState({
     title: "",
-    startDate: new Date().toISOString().split("T")[0],
-    endDate: new Date().toISOString().split("T")[0],
+    eventDate: new Date().toISOString().split("T")[0],
     region: "",
     detailedAddress: "",
     giftsDistributed: "",
@@ -119,11 +115,7 @@ export default function EventsScreen() {
 
   const loadEvents = useCallback(async () => {
     const data = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
-    setEvents(data.map((event) => {
-      const startDate = eventStartDate(event);
-      const endDate = eventEndDate(event);
-      return { ...event, eventDate: startDate, startDate, endDate, period: event.period || deriveEventPeriod(startDate, endDate) };
-    }).sort((a, b) => new Date(b.startDate || b.eventDate).getTime() - new Date(a.startDate || a.eventDate).getTime()));
+    setEvents(data.map((event) => ({ ...event, eventDate: event.eventDate || event.startDate || event.endDate || "" })).sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()));
   }, []);
 
   const refreshGoals = useCallback(async () => {
@@ -200,7 +192,7 @@ export default function EventsScreen() {
 
   const filtered = events.filter((e) => {
     const matchSearch = e.title.includes(search) || e.region.includes(search) || (e.detailedAddress || "").includes(search);
-    const matchStatus = filterStatus === "all" || getEffectiveEventStatus(e) === filterStatus;
+    const matchStatus = filterStatus === "all" || e.status === filterStatus;
     return matchSearch && matchStatus;
   });
 
@@ -219,7 +211,7 @@ export default function EventsScreen() {
   const openCreateModal = useCallback(async () => {
     setEditingEvent(null);
     const today = new Date().toISOString().split("T")[0];
-    setForm({ title: "", startDate: today, endDate: today, region: "", detailedAddress: "", giftsDistributed: "", attendeesCount: "", status: "planned", notes: "", imageUri: "", mediaUris: [], goalId: "", brandName: "" });
+    setForm({ title: "", eventDate: today, region: "", detailedAddress: "", giftsDistributed: "", attendeesCount: "", status: "planned", notes: "", imageUri: "", mediaUris: [], goalId: "", brandName: "" });
     await refreshGoals();
     setShowGoalSelector(true);
   }, [refreshGoals]);
@@ -228,8 +220,7 @@ export default function EventsScreen() {
     setEditingEvent(event);
     setForm({
       title: event.title,
-      startDate: eventStartDate(event),
-      endDate: eventEndDate(event),
+      eventDate: event.eventDate || event.startDate || event.endDate || "",
       region: event.region || "",
       giftsDistributed: event.giftsDistributed?.toString() || "",
       attendeesCount: event.attendeesCount?.toString() || "",
@@ -247,7 +238,7 @@ export default function EventsScreen() {
   const handleExportEvents = async (format: "pdf" | "excel") => {
     setExporting(format);
     const statusLabel = (status: string) => STATUS_OPTIONS.find((item) => item.value === status)?.label || status;
-    const report = { title: "تقرير الفعاليات", filename: "الفعاليات", columns: ["الفعالية", "من", "إلى", "المسار", "المنطقة", "العنوان", "الماركة", "الهدف", "الحالة", "الحضور", "الهدايا", "الملاحظات"], rows: events.map((event) => ({ الفعالية: event.title, من: eventStartDate(event), إلى: eventEndDate(event), المسار: eventPeriodLabel(event.period || deriveEventPeriod(eventStartDate(event), eventEndDate(event))), المنطقة: event.region || "—", العنوان: event.detailedAddress || "—", الماركة: event.brandName || "—", الهدف: goals.find((goal) => goal.id === event.goalId)?.title || "—", الحالة: statusLabel(getEffectiveEventStatus(event)), الحضور: event.attendeesCount || "0", الهدايا: event.giftsDistributed || "0", الملاحظات: event.notes || "—" })) };
+    const report = { title: "تقرير الفعاليات", filename: "الفعاليات", columns: ["الفعالية", "التاريخ", "المنطقة", "العنوان", "الماركة", "الهدف", "الحالة", "الحضور", "الهدايا", "الملاحظات"], rows: events.map((event) => ({ الفعالية: event.title, التاريخ: event.eventDate || "—", المنطقة: event.region || "—", العنوان: event.detailedAddress || "—", الماركة: event.brandName || "—", الهدف: goals.find((goal) => goal.id === event.goalId)?.title || "—", الحالة: statusLabel(event.status), الحضور: event.attendeesCount || "0", الهدايا: event.giftsDistributed || "0", الملاحظات: event.notes || "—" })) };
     try { if (format === "pdf") await exportTabReportPdf(report); else await exportTabReportExcel(report); } finally { setExporting(null); }
   };
 
@@ -334,12 +325,11 @@ export default function EventsScreen() {
     }
     try {
       const allEvents = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
-      const period = deriveEventPeriod(form.startDate, form.endDate);
-      const next = { ...form, eventDate: form.startDate, startDate: form.startDate, endDate: form.endDate, period, giftsDistributed: parseInt(form.giftsDistributed) || 0, attendeesCount: parseInt(form.attendeesCount) || 0, imageUri: form.imageUri };
+      const next = { ...form, giftsDistributed: parseInt(form.giftsDistributed) || 0, attendeesCount: parseInt(form.attendeesCount) || 0, imageUri: form.imageUri };
     if (editingEvent) {
       const updated = allEvents.map((e) =>
         e.id === editingEvent.id
-          ? { ...e, ...next }
+          ? (() => { const { startDate, endDate, period, ...withoutLegacyTimeline } = e; return { ...withoutLegacyTimeline, ...next }; })()
           : e
       );
       await saveItems(STORAGE_KEYS.EVENTS, updated);
@@ -347,10 +337,7 @@ export default function EventsScreen() {
       const newEvent: EventItem = {
         id: Date.now().toString(),
         title: form.title,
-        eventDate: form.startDate,
-        startDate: form.startDate,
-        endDate: form.endDate,
-        period,
+        eventDate: form.eventDate,
         region: form.region,
         detailedAddress: form.detailedAddress,
         giftsDistributed: parseInt(form.giftsDistributed) || 0,
@@ -548,7 +535,7 @@ export default function EventsScreen() {
   };
 
   const renderEvent = ({ item }: { item: EventItem }) => {
-    const statusInfo = getStatusInfo(getEffectiveEventStatus(item));
+    const statusInfo = getStatusInfo(item.status);
     return (
       <TouchableOpacity
         style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -578,7 +565,7 @@ export default function EventsScreen() {
             <Text style={[styles.locationText, { color: colors.muted }]}>{item.region}</Text>
             <MaterialIcons name="location-on" size={14} color={colors.muted} />
           </View>
-          <Text style={[styles.eventDate, { color: colors.muted }]}>{eventStartDate(item)} ← {eventEndDate(item)} · {eventPeriodLabel(item.period || deriveEventPeriod(eventStartDate(item), eventEndDate(item)))}</Text>
+          <Text style={[styles.eventDate, { color: colors.muted }]}>{item.eventDate}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -657,15 +644,11 @@ export default function EventsScreen() {
               </View>
             ))}
             <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.foreground }]}>فترة الفعالية</Text>
+              <Text style={[styles.formLabel, { color: colors.foreground }]}>تاريخ الفعالية</Text>
               <TouchableOpacity onPress={() => setShowEventDatePicker(true)} style={[styles.formInput, styles.eventDatePicker, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <MaterialIcons name="calendar-today" size={20} color={colors.primary} />
-                <Text style={[styles.eventDatePickerText, { color: form.startDate && form.endDate ? colors.foreground : colors.muted }]}>{form.startDate && form.endDate ? `${form.startDate} ← ${form.endDate} · ${eventPeriodLabel(deriveEventPeriod(form.startDate, form.endDate))}` : "اختر بداية ونهاية الفعالية"}</Text>
+                <Text style={[styles.eventDatePickerText, { color: form.eventDate ? colors.foreground : colors.muted }]}>{form.eventDate || "اختر تاريخ الفعالية"}</Text>
               </TouchableOpacity>
-            </View>
-            <View style={[styles.periodSummary, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
-              <View style={[styles.periodSummaryIcon, { backgroundColor: colors.primary + "18" }]}><MaterialIcons name="timeline" size={19} color={colors.primary} /></View>
-              <View style={styles.periodSummaryCopy}><Text style={[styles.periodSummaryLabel, { color: colors.muted }]}>المسار المحتسب تلقائياً</Text><Text style={[styles.periodSummaryValue, { color: colors.foreground }]}>{eventPeriodLabel(deriveEventPeriod(form.startDate, form.endDate))}</Text></View>
             </View>
 
             <View style={[styles.formGroup, { marginTop: 8, zIndex: 1000 }]}>
@@ -718,7 +701,7 @@ export default function EventsScreen() {
             <View style={styles.formGroup}>
               <Text style={[styles.formLabel, { color: colors.foreground }]}>الحالة</Text>
               <View style={styles.statusOptions}>
-                {STATUS_OPTIONS.filter((opt) => opt.value !== "expired").map((opt) => (
+                {STATUS_OPTIONS.map((opt) => (
                   <TouchableOpacity
                     key={opt.value}
                     style={[styles.statusOption, form.status === opt.value && { backgroundColor: opt.color }]}
@@ -766,13 +749,13 @@ export default function EventsScreen() {
       </FloatingFormModal>
       <DateRangePickerModal
         visible={showEventDatePicker}
-        startDate={fromIsoDate(form.startDate)}
-        endDate={fromIsoDate(form.endDate)}
-        selectionMode="range"
-        title="فترة الفعالية"
+        startDate={fromIsoDate(form.eventDate)}
+        endDate={fromIsoDate(form.eventDate)}
+        selectionMode="single"
+        title="تاريخ الفعالية"
         onCancel={() => setShowEventDatePicker(false)}
-        onConfirm={(startDate, endDate) => {
-          setForm((current) => ({ ...current, startDate: toIsoDate(startDate), endDate: toIsoDate(endDate) }));
+        onConfirm={(date) => {
+          setForm((current) => ({ ...current, eventDate: toIsoDate(date) }));
           setShowEventDatePicker(false);
         }}
       />
