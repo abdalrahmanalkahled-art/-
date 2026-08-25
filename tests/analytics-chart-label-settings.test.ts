@@ -25,4 +25,12 @@ describe("تفاصيل مخطط الأعمدة في إعدادات التحلي�
     expect(chartSource).toContain("rotate(-45");
     expect(chartSource).toContain("toWesternDigits(product.productName)");
   });
+
+  it("يعرض تلميحاً للقيمة الدقيقة عند لمس العمود أو المرور فوقه", () => {
+    expect(chartSource).toContain("onBarInteraction: setTooltip");
+    expect(chartSource).toContain("onMouseEnter");
+    expect(chartSource).toContain("onPress={() => onBarInteraction(tooltip)}");
+    expect(chartSource).toContain("الدورة:");
+    expect(chartSource).toContain("styles.tooltip");
+  });
 });
