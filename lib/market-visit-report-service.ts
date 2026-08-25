@@ -15,10 +15,14 @@ const TEMPLATE_DIR = `${ROOT}templates/`;
 const OUTPUT_DIR = `${ROOT}generated/`;
 const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
-export async function persistMarketVisitTemplate(sourceUri: string, name: string, size?: number): Promise<MarketVisitReportTemplate> {
+export type MarketVisitTemplatePersistStage = "copy-external" | "copy-local" | "verify";
+
+export async function persistMarketVisitTemplate(sourceUri: string, name: string, size?: number, onProgress?: (stage: MarketVisitTemplatePersistStage) => void): Promise<MarketVisitReportTemplate> {
   try {
+    onProgress?.("copy-external");
     const externalUri = await persistMarketingManagerFile(sourceUri, "templates", name);
     if (externalUri !== sourceUri) {
+      onProgress?.("verify");
       return { id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, name: name.replace(/\.pptx$/i, "") || "قالب زيارة السوق", fileName: name, uri: externalUri, size, createdAt: new Date().toISOString() };
     }
   } catch {
@@ -28,7 +32,9 @@ export async function persistMarketVisitTemplate(sourceUri: string, name: string
   const id = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const fileName = sanitizeFilename(`${name || "قالب_زيارة_السوق"}_${id}`, "pptx");
   const uri = `${TEMPLATE_DIR}${fileName}`;
+  onProgress?.("copy-local");
   await FileSystem.copyAsync({ from: sourceUri, to: uri });
+  onProgress?.("verify");
   return { id, name: name.replace(/\.pptx$/i, "") || "قالب زيارة السوق", fileName, uri, size, createdAt: new Date().toISOString() };
 }
 

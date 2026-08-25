@@ -19,9 +19,11 @@ describe("حفظ قالب زيارة السوق", () => {
     mocks.ensureDirectoryExists.mockResolvedValue(true);
     mocks.copyAsync.mockResolvedValue(undefined);
 
-    const template = await persistMarketVisitTemplate("file:///cache/template.pptx", "قالب.pptx", 1234);
+    const stages: string[] = [];
+    const template = await persistMarketVisitTemplate("file:///cache/template.pptx", "قالب.pptx", 1234, (stage) => stages.push(stage));
 
     expect(template.uri).toBe("file:///documents/market-visit-reports/templates/template.pptx");
     expect(mocks.copyAsync).toHaveBeenCalledWith({ from: "file:///cache/template.pptx", to: template.uri });
+    expect(stages).toEqual(["copy-external", "copy-local", "verify"]);
   });
 });

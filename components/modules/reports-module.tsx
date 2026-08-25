@@ -13,6 +13,7 @@ import { DEFAULT_STORE_CATEGORIES, getManagedCategories, type ManagedCategory } 
 import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { openFileWithCompatibleApp } from "@/lib/open-file-with-app";
+import { beginOperationProgress, type OperationProgressController } from "@/lib/operation-progress";
 import type { SurveyCycle, SurveyResult } from "@/lib/types/survey-types";
 
 type Panel = "templates" | "cycles" | "settings" | null;
@@ -41,6 +42,7 @@ export default function ReportsModule() {
   const [panel, setPanel] = useState<Panel>(null);
   const [fabOpen, setFabOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
   const [removingTemplate, setRemovingTemplate] = useState<MarketVisitReportTemplate | null>(null);
   const [order, setOrder] = useState<MarketVisitReportOrder>(DEFAULT_MARKET_VISIT_REPORT_ORDER);
   const [orderChoices, setOrderChoices] = useState({ categories: [] as string[], regions: [] as string[] });
@@ -80,18 +82,34 @@ export default function ReportsModule() {
   const saveOrder = async (next: MarketVisitReportOrder) => { setOrder(next); await saveItems(STORAGE_KEYS.MARKET_VISIT_REPORT_SETTINGS, [next]); };
 
   const uploadTemplate = async () => {
+    if (isUploadingTemplate) return;
     const result = await DocumentPicker.getDocumentAsync({ type: [PPTX_MIME, "application/octet-stream"], copyToCacheDirectory: true });
     if (result.canceled) return;
     const file = result.assets[0];
     if (!file.name.toLowerCase().endsWith(".pptx")) { Alert.alert("نوع الملف غير مدعوم", "اختر قالب PowerPoint بصيغة PPTX فقط."); return; }
+    const progress = beginOperationProgress({ kind: "export", title: "رفع قالب PowerPoint", steps: ["فحص ملف القالب", "نسخ القالب إلى التخزين", "التحقق من الملف", "إضافة القالب إلى القائمة"] });
+    const reportStage = (stage: "copy-external" | "copy-local" | "verify") => {
+      const update: Record<typeof stage, Parameters<OperationProgressController["update"]>[0]> = {
+        "copy-external": { stepIndex: 1, message: "جارٍ نسخ القالب إلى مجلد marketing manager" },
+        "copy-local": { stepIndex: 1, message: "جارٍ حفظ القالب داخل التطبيق لضمان اكتمال الرفع" },
+        verify: { stepIndex: 2, message: "جارٍ التحقق من سلامة ملف PowerPoint" },
+      };
+      progress.update(update[stage]);
+    };
+    setIsUploadingTemplate(true);
     try {
-      const template = await persistMarketVisitTemplate(file.uri, file.name, file.size);
+      progress.update({ stepIndex: 0, message: "جارٍ فحص ملف PowerPoint المختار" });
+      const template = await persistMarketVisitTemplate(file.uri, file.name, file.size, reportStage);
+      progress.update({ stepIndex: 3, message: "جارٍ إضافة القالب إلى القائمة" });
       const next = [template, ...templates];
       await saveItems(STORAGE_KEYS.MARKET_VISIT_REPORT_TEMPLATES, next);
       setTemplates(next); setSelectedTemplateId(template.id); setPanel(null);
     } catch (error) {
       const reason = error instanceof Error && error.message ? error.message : "تعذر نسخ القالب إلى تخزين التطبيق.";
       Alert.alert("تعذر حفظ القالب", `${reason}\n\nتأكد من أن الملف بصيغة PPTX وأن مساحة الجهاز الفعلية متاحة، ثم حاول مجدداً.`);
+    } finally {
+      progress.complete();
+      setIsUploadingTemplate(false);
     }
   };
 
