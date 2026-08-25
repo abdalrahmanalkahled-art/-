@@ -9,13 +9,13 @@ const events = readFileSync(resolve(process.cwd(), "app/(tabs)/events.tsx"), "ut
 const animatedCard = readFileSync(resolve(process.cwd(), "components/animated-card.tsx"), "utf8");
 
 describe("مؤشرات أثر الفعاليات في تفاصيل الهدف", () => {
-  it("يجمع الهدايا والحضور ويحسب المناطق الفريدة مع بديل الموقع", () => {
+  it("يجمع الهدايا والحضور ويحسب المناطق الفريدة من حقل المنطقة فقط", () => {
     expect(getGoalImpactMetrics([
       { giftsDistributed: 12, attendeesCount: 40, region: "دمشق" },
       { giftsDistributed: "8", attendeesCount: "25", region: "دمشق" },
       { giftsDistributed: -3, attendeesCount: null, location: "حلب" },
       { giftsDistributed: "غير صالح", attendeesCount: 5, region: " " },
-    ])).toEqual({ totalGifts: 20, totalBeneficiaries: 70, coveredRegionCount: 2 });
+    ])).toEqual({ totalGifts: 20, totalBeneficiaries: 70, coveredRegionCount: 1 });
   });
 
   it("يعرض مؤشرات الأثر والمناطق ولا يعرض قسم المهام في تفاصيل الهدف", () => {

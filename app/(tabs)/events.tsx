@@ -10,8 +10,6 @@ import {
   Pressable,
   ScrollView,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -33,20 +31,20 @@ import { CardActionModal } from "@/components/card-action-modal";
 import { EventDetailsModal } from "@/components/event-details-modal";
 import { ErrorHandler } from "@/lib/error-handler";
 import { useAppError } from "@/hooks/use-app-error";
-import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
 import { loadEventGoals, type EventGoal } from "@/lib/event-goal-loader";
 import { persistEventMedia } from "@/lib/event-video-storage";
 import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
+import { deriveEventPeriod, eventEndDate, eventPeriodLabel, eventStartDate, getEffectiveEventStatus, type EventPeriod } from "@/lib/event-lifecycle";
 
 interface EventItem {
   id: string;
   title: string;
   eventDate: string;
-  location: string;
+  startDate?: string;
+  endDate?: string;
+  period?: EventPeriod;
   region: string;
   detailedAddress: string;
-  budget: number;
-  actualCost: number;
   giftsDistributed: number;
   attendeesCount: number;
   status: "planned" | "ongoing" | "completed" | "cancelled";
@@ -73,6 +71,7 @@ const STATUS_OPTIONS = [
   { value: "planned", label: "مخططة", color: "#F59E0B" },
   { value: "ongoing", label: "جارية", color: "#3B82F6" },
   { value: "completed", label: "مكتملة", color: "#10B981" },
+  { value: "expired", label: "منتهية", color: "#64748B" },
   { value: "cancelled", label: "ملغاة", color: "#EF4444" },
 ];
 
@@ -104,12 +103,10 @@ export default function EventsScreen() {
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [form, setForm] = useState({
     title: "",
-    eventDate: new Date().toISOString().split("T")[0],
-    location: "",
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: new Date().toISOString().split("T")[0],
     region: "",
     detailedAddress: "",
-    budget: "",
-    actualCost: "",
     giftsDistributed: "",
     attendeesCount: "",
     status: "planned" as EventItem["status"],
@@ -122,7 +119,11 @@ export default function EventsScreen() {
 
   const loadEvents = useCallback(async () => {
     const data = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
-    setEvents(data.sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()));
+    setEvents(data.map((event) => {
+      const startDate = eventStartDate(event);
+      const endDate = eventEndDate(event);
+      return { ...event, eventDate: startDate, startDate, endDate, period: event.period || deriveEventPeriod(startDate, endDate) };
+    }).sort((a, b) => new Date(b.startDate || b.eventDate).getTime() - new Date(a.startDate || a.eventDate).getTime()));
   }, []);
 
   const refreshGoals = useCallback(async () => {
@@ -198,8 +199,8 @@ export default function EventsScreen() {
   }, []);
 
   const filtered = events.filter((e) => {
-    const matchSearch = e.title.includes(search) || e.location.includes(search) || e.region.includes(search);
-    const matchStatus = filterStatus === "all" || e.status === filterStatus;
+    const matchSearch = e.title.includes(search) || e.region.includes(search) || (e.detailedAddress || "").includes(search);
+    const matchStatus = filterStatus === "all" || getEffectiveEventStatus(e) === filterStatus;
     return matchSearch && matchStatus;
   });
 
@@ -217,7 +218,8 @@ export default function EventsScreen() {
 
   const openCreateModal = useCallback(async () => {
     setEditingEvent(null);
-    setForm({ title: "", eventDate: new Date().toISOString().split("T")[0], location: "", region: "", detailedAddress: "", budget: "", actualCost: "", giftsDistributed: "", attendeesCount: "", status: "planned", notes: "", imageUri: "", mediaUris: [], goalId: "", brandName: "" });
+    const today = new Date().toISOString().split("T")[0];
+    setForm({ title: "", startDate: today, endDate: today, region: "", detailedAddress: "", giftsDistributed: "", attendeesCount: "", status: "planned", notes: "", imageUri: "", mediaUris: [], goalId: "", brandName: "" });
     await refreshGoals();
     setShowGoalSelector(true);
   }, [refreshGoals]);
@@ -226,11 +228,9 @@ export default function EventsScreen() {
     setEditingEvent(event);
     setForm({
       title: event.title,
-      eventDate: event.eventDate,
-      location: event.location || "",
+      startDate: eventStartDate(event),
+      endDate: eventEndDate(event),
       region: event.region || "",
-      budget: event.budget?.toString() || "",
-      actualCost: event.actualCost?.toString() || "",
       giftsDistributed: event.giftsDistributed?.toString() || "",
       attendeesCount: event.attendeesCount?.toString() || "",
       status: event.status,
@@ -246,8 +246,8 @@ export default function EventsScreen() {
 
   const handleExportEvents = async (format: "pdf" | "excel") => {
     setExporting(format);
-    const statusLabel = (status: EventItem["status"]) => STATUS_OPTIONS.find((item) => item.value === status)?.label || status;
-    const report = { title: "تقرير الفعاليات", filename: "الفعاليات", columns: ["الفعالية", "التاريخ", "الموقع", "المنطقة", "الماركة", "الهدف", "الميزانية", "التكلفة الفعلية", "الحالة", "الحضور", "الملاحظات"], rows: events.map((event) => ({ الفعالية: event.title, التاريخ: event.eventDate, الموقع: event.location, المنطقة: event.region, الماركة: event.brandName || "—", الهدف: goals.find((goal) => goal.id === event.goalId)?.title || "—", الميزانية: `${(event.budget || 0).toLocaleString("en-US")} ل.س`, "التكلفة الفعلية": `${(event.actualCost || 0).toLocaleString("en-US")} ل.س`, الحالة: statusLabel(event.status), الحضور: event.attendeesCount || "—", الملاحظات: event.notes || "—" })) };
+    const statusLabel = (status: string) => STATUS_OPTIONS.find((item) => item.value === status)?.label || status;
+    const report = { title: "تقرير الفعاليات", filename: "الفعاليات", columns: ["الفعالية", "من", "إلى", "المسار", "المنطقة", "العنوان", "الماركة", "الهدف", "الحالة", "الحضور", "الهدايا", "الملاحظات"], rows: events.map((event) => ({ الفعالية: event.title, من: eventStartDate(event), إلى: eventEndDate(event), المسار: eventPeriodLabel(event.period || deriveEventPeriod(eventStartDate(event), eventEndDate(event))), المنطقة: event.region || "—", العنوان: event.detailedAddress || "—", الماركة: event.brandName || "—", الهدف: goals.find((goal) => goal.id === event.goalId)?.title || "—", الحالة: statusLabel(getEffectiveEventStatus(event)), الحضور: event.attendeesCount || "0", الهدايا: event.giftsDistributed || "0", الملاحظات: event.notes || "—" })) };
     try { if (format === "pdf") await exportTabReportPdf(report); else await exportTabReportExcel(report); } finally { setExporting(null); }
   };
 
@@ -334,10 +334,12 @@ export default function EventsScreen() {
     }
     try {
       const allEvents = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
+      const period = deriveEventPeriod(form.startDate, form.endDate);
+      const next = { ...form, eventDate: form.startDate, startDate: form.startDate, endDate: form.endDate, period, giftsDistributed: parseInt(form.giftsDistributed) || 0, attendeesCount: parseInt(form.attendeesCount) || 0, imageUri: form.imageUri };
     if (editingEvent) {
       const updated = allEvents.map((e) =>
         e.id === editingEvent.id
-          ? { ...e, ...form, budget: parseFloat(form.budget) || 0, actualCost: parseFloat(form.actualCost) || 0, giftsDistributed: parseInt(form.giftsDistributed) || 0, attendeesCount: parseInt(form.attendeesCount) || 0, imageUri: form.imageUri }
+          ? { ...e, ...next }
           : e
       );
       await saveItems(STORAGE_KEYS.EVENTS, updated);
@@ -345,12 +347,12 @@ export default function EventsScreen() {
       const newEvent: EventItem = {
         id: Date.now().toString(),
         title: form.title,
-        eventDate: form.eventDate,
-        location: form.location,
+        eventDate: form.startDate,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        period,
         region: form.region,
         detailedAddress: form.detailedAddress,
-        budget: parseFloat(form.budget) || 0,
-        actualCost: parseFloat(form.actualCost) || 0,
         giftsDistributed: parseInt(form.giftsDistributed) || 0,
         attendeesCount: parseInt(form.attendeesCount) || 0,
         status: form.status,
@@ -546,7 +548,7 @@ export default function EventsScreen() {
   };
 
   const renderEvent = ({ item }: { item: EventItem }) => {
-    const statusInfo = getStatusInfo(item.status);
+    const statusInfo = getStatusInfo(getEffectiveEventStatus(item));
     return (
       <TouchableOpacity
         style={[styles.eventCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -576,7 +578,7 @@ export default function EventsScreen() {
             <Text style={[styles.locationText, { color: colors.muted }]}>{item.region}</Text>
             <MaterialIcons name="location-on" size={14} color={colors.muted} />
           </View>
-          <Text style={[styles.eventDate, { color: colors.muted }]}>{item.eventDate}</Text>
+          <Text style={[styles.eventDate, { color: colors.muted }]}>{eventStartDate(item)} ← {eventEndDate(item)} · {eventPeriodLabel(item.period || deriveEventPeriod(eventStartDate(item), eventEndDate(item)))}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -628,11 +630,7 @@ export default function EventsScreen() {
 
       <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-        <KeyboardAvoidingView 
-          behavior={getKeyboardAvoidingBehavior(Platform.OS)}
-          style={{ flex: 1, backgroundColor: colors.background }}
-        >
-        <View style={[styles.modal, { backgroundColor: colors.background }]}>
+        <View style={[styles.modal, { backgroundColor: colors.background }]}> 
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setShowModal(false)}>
               <MaterialIcons name="close" size={24} color={colors.foreground} />
@@ -659,11 +657,15 @@ export default function EventsScreen() {
               </View>
             ))}
             <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.foreground }]}>تاريخ الفعالية</Text>
+              <Text style={[styles.formLabel, { color: colors.foreground }]}>فترة الفعالية</Text>
               <TouchableOpacity onPress={() => setShowEventDatePicker(true)} style={[styles.formInput, styles.eventDatePicker, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <MaterialIcons name="calendar-today" size={20} color={colors.primary} />
-                <Text style={[styles.eventDatePickerText, { color: form.eventDate ? colors.foreground : colors.muted }]}>{form.eventDate || "اختر تاريخ الفعالية"}</Text>
+                <Text style={[styles.eventDatePickerText, { color: form.startDate && form.endDate ? colors.foreground : colors.muted }]}>{form.startDate && form.endDate ? `${form.startDate} ← ${form.endDate} · ${eventPeriodLabel(deriveEventPeriod(form.startDate, form.endDate))}` : "اختر بداية ونهاية الفعالية"}</Text>
               </TouchableOpacity>
+            </View>
+            <View style={[styles.periodSummary, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
+              <View style={[styles.periodSummaryIcon, { backgroundColor: colors.primary + "18" }]}><MaterialIcons name="timeline" size={19} color={colors.primary} /></View>
+              <View style={styles.periodSummaryCopy}><Text style={[styles.periodSummaryLabel, { color: colors.muted }]}>المسار المحتسب تلقائياً</Text><Text style={[styles.periodSummaryValue, { color: colors.foreground }]}>{eventPeriodLabel(deriveEventPeriod(form.startDate, form.endDate))}</Text></View>
             </View>
 
             <View style={[styles.formGroup, { marginTop: 8, zIndex: 1000 }]}>
@@ -716,7 +718,7 @@ export default function EventsScreen() {
             <View style={styles.formGroup}>
               <Text style={[styles.formLabel, { color: colors.foreground }]}>الحالة</Text>
               <View style={styles.statusOptions}>
-                {STATUS_OPTIONS.map((opt) => (
+                {STATUS_OPTIONS.filter((opt) => opt.value !== "expired").map((opt) => (
                   <TouchableOpacity
                     key={opt.value}
                     style={[styles.statusOption, form.status === opt.value && { backgroundColor: opt.color }]}
@@ -760,18 +762,17 @@ export default function EventsScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        </KeyboardAvoidingView>
         </SafeAreaView>
       </FloatingFormModal>
       <DateRangePickerModal
         visible={showEventDatePicker}
-        startDate={fromIsoDate(form.eventDate)}
-        endDate={fromIsoDate(form.eventDate)}
-        selectionMode="single"
-        title="تاريخ الفعالية"
+        startDate={fromIsoDate(form.startDate)}
+        endDate={fromIsoDate(form.endDate)}
+        selectionMode="range"
+        title="فترة الفعالية"
         onCancel={() => setShowEventDatePicker(false)}
-        onConfirm={(date) => {
-          setForm((current) => ({ ...current, eventDate: toIsoDate(date) }));
+        onConfirm={(startDate, endDate) => {
+          setForm((current) => ({ ...current, startDate: toIsoDate(startDate), endDate: toIsoDate(endDate) }));
           setShowEventDatePicker(false);
         }}
       />
@@ -915,6 +916,11 @@ const styles = StyleSheet.create({
   formInput: { borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15 },
   eventDatePicker: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   eventDatePickerText: { fontSize: 15, fontWeight: "600" as any },
+  periodSummary: { minHeight: 62, borderWidth: 1, borderRadius: 15, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 10, marginTop: -4, marginBottom: 16 },
+  periodSummaryIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  periodSummaryCopy: { flex: 1, alignItems: "flex-end" },
+  periodSummaryLabel: { fontSize: 11, fontWeight: "600" as any, textAlign: "right" },
+  periodSummaryValue: { fontSize: 15, fontWeight: "800" as any, textAlign: "right", marginTop: 2 },
   textArea: { height: 100 },
   statusOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   statusOption: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: "#E5E7EB" },

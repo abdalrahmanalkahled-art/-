@@ -12,6 +12,7 @@ import { calculateMarketVisitProductMetrics, marketVisitProductMetricTags } from
 import { DEFAULT_STORE_CATEGORIES, getManagedCategories, type ManagedCategory } from "@/lib/category-management";
 import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
+import { openFileWithCompatibleApp } from "@/lib/open-file-with-app";
 import type { SurveyCycle, SurveyResult } from "@/lib/types/survey-types";
 
 type Panel = "templates" | "cycles" | "settings" | null;
@@ -125,6 +126,13 @@ export default function ReportsModule() {
       setTemplates(next); if (selectedTemplateId === removingTemplate.id) setSelectedTemplateId(next[0]?.id || null); setRemovingTemplate(null);
     } catch { Alert.alert("تعذر حذف القالب", "تعذر حذف ملف القالب من تخزين الهاتف. لم تُزل بياناته من القائمة."); }
   };
+  const openTemplate = async (template: MarketVisitReportTemplate) => {
+    try {
+      await openFileWithCompatibleApp(template.uri, template.name);
+    } catch (error) {
+      Alert.alert("تعذر فتح القالب", error instanceof Error ? error.message : "تعذر إظهار التطبيقات المتوافقة مع قالب PowerPoint.");
+    }
+  };
 
   return <View style={styles.root}>
     <ScrollView contentContainerStyle={styles.content}>
@@ -134,7 +142,7 @@ export default function ReportsModule() {
       <Selector icon="event-note" label="دورة الاستبيان" value={selectedCycle?.name || "اختر دورة لإدراج محلاتها"} colors={colors} onPress={() => setPanel("cycles")} />
       <TouchableOpacity disabled={isGenerating} onPress={() => void generate()} style={[styles.generate, { backgroundColor: colors.primary }, isGenerating && styles.disabled]}><MaterialIcons name="slideshow" size={20} color="#fff" /><Text style={styles.generateText}>{isGenerating ? "جارٍ إنشاء التقرير..." : "إنشاء تقرير زيارة السوق"}</Text></TouchableOpacity>
       <Text style={[styles.sectionTitle, { color: colors.foreground }]}>القوالب المحفوظة</Text>
-      {templates.length ? templates.slice(0, 3).map((template) => <View key={template.id} style={[styles.templateRow, { backgroundColor: colors.surface, borderColor: colors.border }]}><TouchableOpacity onPress={() => setRemovingTemplate(template)}><MaterialIcons name="delete-outline" size={20} color={colors.error} /></TouchableOpacity><TouchableOpacity style={styles.templateMain} onPress={() => setSelectedTemplateId(template.id)}><Text style={[styles.value, { color: colors.foreground }]}>{template.name}</Text><Text style={[styles.label, { color: colors.muted }]}>{template.id === selectedTemplateId ? "القالب المحدد" : "اضغط للاختيار"}</Text></TouchableOpacity><MaterialIcons name="description" size={20} color={colors.primary} /></View>) : <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.label, { color: colors.muted }]}>لم ترفع قالب PowerPoint بعد.</Text></View>}
+      {templates.length ? templates.slice(0, 3).map((template) => <View key={template.id} style={[styles.templateRow, { backgroundColor: colors.surface, borderColor: colors.border }]}><TouchableOpacity onPress={() => setRemovingTemplate(template)}><MaterialIcons name="delete-outline" size={20} color={colors.error} /></TouchableOpacity><TouchableOpacity style={styles.templateMain} onPress={() => void openTemplate(template)}><Text style={[styles.value, { color: colors.foreground }]}>{template.name}</Text><Text style={[styles.label, { color: colors.muted }]}>{template.id === selectedTemplateId ? "القالب المحدد · اضغط لفتحه" : "اضغط لفتحه بتطبيق PowerPoint أو عارض متوافق"}</Text></TouchableOpacity><MaterialIcons name="open-in-new" size={20} color={colors.primary} /></View>) : <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.border }]}><Text style={[styles.label, { color: colors.muted }]}>لم ترفع قالب PowerPoint بعد.</Text></View>}
     </ScrollView>
     {fabOpen ? <View style={[styles.fabMenu, { backgroundColor: colors.surface, borderColor: colors.border }]}><FabItem icon="add" label="رفع قالب PowerPoint" colors={colors} onPress={() => { setFabOpen(false); void uploadTemplate(); }} /><FabItem icon="settings" label="الإعدادات" colors={colors} onPress={() => { setFabOpen(false); void load(); setPanel("settings"); }} /></View> : null}
     <TouchableOpacity onPress={() => setFabOpen((value) => !value)} style={[styles.fab, { backgroundColor: colors.primary }]}><MaterialIcons name={fabOpen ? "close" : "more-horiz"} size={27} color="#fff" /></TouchableOpacity>

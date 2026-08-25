@@ -57,7 +57,7 @@ export interface AnalyticsReportData {
   summary: { label: string; value: string }[];
   cycleRows: AnalyticsReportRow[];
   marketingRows: { البند: string; الإجمالي: string }[];
-  marketingEvents: Array<{ الفعالية: string; الحالة: string; التاريخ: string; الموقع: string; المنطقة: string; الماركة: string; المستفيدون: string; الهدايا: string; الهدف: string }>;
+  marketingEvents: Array<{ الفعالية: string; الحالة: string; التاريخ: string; المنطقة: string; الماركة: string; المستفيدون: string; الهدايا: string; الهدف: string }>;
   marketingGoals: Array<{ الهدف: string; الماركة: string; الحالة: string; الفترة: string; المؤشر: string; الإنجاز: string; "عدد الفعاليات المرتبطة": string }>;
   marketingSignages: Array<{ اللوحة: string; النوع: string; الماركة: string; المنطقة: string; الموقع: string; الحالة: string; "نهاية العقد": string }>;
   marketingStands: Array<{ الستاند: string; الماركة: string; المحل: string; الحالة: string; "تاريخ التركيب": string; "سجل الصيانة": string }>;
@@ -192,7 +192,6 @@ export function buildAnalyticsReportData(
     الفعالية: toWesternDigits(event.title || event.name || "فعالية ميدانية"),
     الحالة: eventStatusLabels[event.status || "planned"],
     التاريخ: dateLabel(event.eventDate || ""),
-    الموقع: toWesternDigits(event.location || event.detailedAddress || "غير محدد"),
     المنطقة: toWesternDigits(event.region || "غير محددة"),
     الماركة: toWesternDigits(event.brandName || "غير محددة"),
     المستفيدون: formatAnalyticsNumber(Number(event.attendeesCount) || 0),

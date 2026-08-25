@@ -19,7 +19,7 @@ export function getGoalImpactMetrics(events: GoalImpactEvent[]) {
     totalGifts += toNonNegativeNumber(event.giftsDistributed);
     totalBeneficiaries += toNonNegativeNumber(event.attendeesCount);
 
-    const area = (event.region || event.location || "").trim();
+    const area = (event.region || "").trim();
     if (area) coveredRegions.add(area);
   }
 

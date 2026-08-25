@@ -17,6 +17,9 @@ import { AnimatedCard } from "@/components/animated-card";
 import { useColors } from "@/hooks/use-colors";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
+import { ReportFab } from "@/components/report-fab";
+import { exportTabReportExcel, exportTabReportPdf } from "@/lib/tab-report-exporter";
+import { getGoalImpactMetrics } from "@/lib/goal-impact-metrics";
 
 interface MarketingTask {
   id: string;
@@ -66,6 +69,10 @@ const TASK_STATUS = [
   { value: "delayed", label: "متأخر", color: "#EF4444" },
 ];
 
+const GOAL_REPORT_SETTINGS_KEY = "madar_marketing_goals_report_settings";
+type GoalReportSettings = { includeProgress: boolean; includeEvents: boolean; includeBeneficiaries: boolean; includeGifts: boolean; includeRegions: boolean; };
+const DEFAULT_GOAL_REPORT_SETTINGS: GoalReportSettings = { includeProgress: true, includeEvents: true, includeBeneficiaries: true, includeGifts: true, includeRegions: true };
+
 const toIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const fromIsoDate = (value: string) => value ? new Date(`${value}T12:00:00`) : null;
 
@@ -86,6 +93,9 @@ export default function GoalsModule() {
   const [showBrandOptions, setShowBrandOptions] = useState(false);
   const [showGoalDateRange, setShowGoalDateRange] = useState(false);
   const [showTaskDatePicker, setShowTaskDatePicker] = useState(false);
+  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
+  const [showReportSettings, setShowReportSettings] = useState(false);
+  const [reportSettings, setReportSettings] = useState<GoalReportSettings>(DEFAULT_GOAL_REPORT_SETTINGS);
   const [goalForm, setGoalForm] = useState({
     title: "", brandName: "", description: "", period: "monthly" as MarketingGoal["period"],
     startDate: new Date().toISOString().split("T")[0],
@@ -114,6 +124,7 @@ export default function GoalsModule() {
   }, []);
 
   useEffect(() => { void loadBrandOptions(); }, [loadBrandOptions]);
+  useEffect(() => { void getItems<GoalReportSettings>(GOAL_REPORT_SETTINGS_KEY).then((saved) => setReportSettings({ ...DEFAULT_GOAL_REPORT_SETTINGS, ...(saved[0] || {}) })); }, []);
 
   const filtered = filterPeriod === "all" ? goals : goals.filter((g) => g.period === filterPeriod);
 
@@ -218,6 +229,50 @@ export default function GoalsModule() {
     setShowGoalModal(true);
   };
 
+  const openCreateGoal = () => {
+    setIsEditing(false);
+    setSelectedGoal(null);
+    void loadBrandOptions();
+    setGoalForm({ title: "", brandName: "", description: "", period: "monthly", startDate: new Date().toISOString().split("T")[0], endDate: "", kpi: "", targetValue: "", currentValue: "0", status: "on_track" });
+    setShowGoalModal(true);
+  };
+
+  const updateReportSetting = async (key: keyof GoalReportSettings) => {
+    const next = { ...reportSettings, [key]: !reportSettings[key] };
+    setReportSettings(next);
+    await saveItems(GOAL_REPORT_SETTINGS_KEY, [next]);
+  };
+
+  const handleExportGoals = async (format: "pdf" | "excel") => {
+    setExporting(format);
+    try {
+      const events = await getItems<any>(STORAGE_KEYS.EVENTS);
+      const scope = filtered;
+      const allScopedEvents = events.filter((event) => scope.some((goal) => goal.id === event.goalId));
+      const totalImpact = getGoalImpactMetrics(allScopedEvents);
+      const columns = ["الهدف", "الماركة", "الفترة", "الحالة", ...(reportSettings.includeProgress ? ["الإنجاز"] : []), ...(reportSettings.includeEvents ? ["فعاليات مرتبطة"] : []), ...(reportSettings.includeBeneficiaries ? ["المستفيدون"] : []), ...(reportSettings.includeGifts ? ["الهدايا"] : []), ...(reportSettings.includeRegions ? ["المناطق المغطاة"] : [])];
+      const summary: Record<string, unknown> = { الهدف: "إجمالي الخطة ضمن النطاق", الماركة: "—", الفترة: "—", الحالة: "ملخص" };
+      if (reportSettings.includeProgress) summary.الإنجاز = "—";
+      if (reportSettings.includeEvents) summary["فعاليات مرتبطة"] = allScopedEvents.length;
+      if (reportSettings.includeBeneficiaries) summary.المستفيدون = totalImpact.totalBeneficiaries;
+      if (reportSettings.includeGifts) summary.الهدايا = totalImpact.totalGifts;
+      if (reportSettings.includeRegions) summary["المناطق المغطاة"] = totalImpact.coveredRegionCount;
+      const rows = [summary, ...scope.map((goal) => {
+        const linkedEvents = events.filter((event) => event.goalId === goal.id);
+        const impact = getGoalImpactMetrics(linkedEvents);
+        const row: Record<string, unknown> = { الهدف: goal.title, الماركة: goal.brandName || "—", الفترة: `${goal.startDate || "—"} ← ${goal.endDate || "—"}`, الحالة: getStatusInfo(goal.status).label };
+        if (reportSettings.includeProgress) row.الإنجاز = `${Math.round(goal.completionPercentage || 0)}%`;
+        if (reportSettings.includeEvents) row["فعاليات مرتبطة"] = linkedEvents.length;
+        if (reportSettings.includeBeneficiaries) row.المستفيدون = impact.totalBeneficiaries;
+        if (reportSettings.includeGifts) row.الهدايا = impact.totalGifts;
+        if (reportSettings.includeRegions) row["المناطق المغطاة"] = impact.coveredRegionCount;
+        return row;
+      })];
+      const report = { title: "تقرير الخطة التسويقية", filename: "الخطة_التسويقية", columns, rows };
+      if (format === "pdf") await exportTabReportPdf(report); else await exportTabReportExcel(report);
+    } finally { setExporting(null); }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
@@ -231,20 +286,6 @@ export default function GoalsModule() {
           </TouchableOpacity>
         ))}
       </ScrollView>
-
-      <TouchableOpacity
-        style={[styles.addBtn, { backgroundColor: colors.primary }]}
-        onPress={() => {
-          setIsEditing(false);
-          setSelectedGoal(null);
-          void loadBrandOptions();
-          setGoalForm({ title: "", brandName: "", description: "", period: "monthly", startDate: new Date().toISOString().split("T")[0], endDate: "", kpi: "", targetValue: "", currentValue: "0", status: "on_track" });
-          setShowGoalModal(true);
-        }}
-      >
-        <MaterialIcons name="add" size={18} color="#fff" />
-        <Text style={styles.addBtnText}>إضافة هدف</Text>
-      </TouchableOpacity>
 
       <FlatList
         data={filtered}
@@ -605,6 +646,24 @@ export default function GoalsModule() {
           },
         ] : []}
       />
+      <FloatingFormModal visible={showReportSettings} onClose={() => setShowReportSettings(false)} backgroundColor={colors.background} compactHeight>
+        <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={[styles.modal, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => setShowReportSettings(false)}><MaterialIcons name="close" size={24} color={colors.foreground} /></TouchableOpacity><Text style={[styles.modalTitle, { color: colors.foreground }]}>إعدادات تقرير الخطة</Text><View style={{ width: 24 }} /></View>
+            <ScrollView style={styles.modalContent} contentContainerStyle={styles.modalScrollContent}>
+              <Text style={[styles.reportSettingsHint, { color: colors.muted }]}>تُحسب المؤشرات من جميع الفعاليات المرتبطة بالأهداف الظاهرة ضمن التصفية الحالية.</Text>
+              {[
+                ["includeProgress", "تقدم الأهداف", "يعرض نسبة الإنجاز لكل هدف"],
+                ["includeEvents", "عدد الفعاليات المرتبطة", "يجمع الفعاليات المسجلة لكل هدف"],
+                ["includeBeneficiaries", "إجمالي المستفيدين", "يساوي مجموع الحضور في الفعاليات"],
+                ["includeGifts", "إجمالي الهدايا", "يساوي الهدايا الموزعة في الفعاليات"],
+                ["includeRegions", "المناطق المغطاة", "عدد المناطق الفريدة للفعاليات المرتبطة"],
+              ].map(([key, title, detail]) => <TouchableOpacity key={key} onPress={() => void updateReportSetting(key as keyof GoalReportSettings)} style={[styles.reportSettingRow, { backgroundColor: colors.surface, borderColor: colors.border }]}><MaterialIcons name={reportSettings[key as keyof GoalReportSettings] ? "check-circle" : "radio-button-unchecked"} size={22} color={reportSettings[key as keyof GoalReportSettings] ? colors.primary : colors.muted} /><View style={styles.reportSettingCopy}><Text style={[styles.reportSettingTitle, { color: colors.foreground }]}>{title}</Text><Text style={[styles.reportSettingDetail, { color: colors.muted }]}>{detail}</Text></View></TouchableOpacity>)}
+            </ScrollView>
+          </View>
+        </SafeAreaView>
+      </FloatingFormModal>
+      <ReportFab module="goals" addLabel="إضافة هدف" onAdd={openCreateGoal} onSettings={() => setShowReportSettings(true)} onExport={(format) => void handleExportGoals(format)} exporting={exporting} />
       <SuccessModal visible={goalSuccess.visible} message={goalSuccess.message} onClose={() => setGoalSuccess({ visible: false, message: "" })} />
     </View>
   );
@@ -616,9 +675,7 @@ const styles = StyleSheet.create({
   filterContent: { paddingHorizontal: 12, gap: 8, alignItems: "center" },
   filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: "#E5E7EB" },
   filterChipText: { fontSize: 12, fontWeight: "500" as any },
-  addBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", margin: 12, padding: 12, borderRadius: 12, gap: 6 },
-  addBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" as any },
-  list: { paddingHorizontal: 12, gap: 10, paddingBottom: 20 },
+  list: { paddingHorizontal: 12, gap: 10, paddingBottom: 104 },
   goalCard: { borderRadius: 14, padding: 14, borderWidth: 1, gap: 10 },
   goalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" },
   goalTitle: { fontSize: 15, fontWeight: "700" as any, textAlign: "right" },
@@ -664,4 +721,9 @@ const styles = StyleSheet.create({
   cancelBtn: {},
   cancelBtnText: { fontSize: 15, fontWeight: "600" as any },
   saveFooterBtn: {},
+  reportSettingsHint: { fontSize: 12, textAlign: "right", lineHeight: 19, marginBottom: 12 },
+  reportSettingRow: { minHeight: 68, borderWidth: 1, borderRadius: 14, padding: 12, flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 9 },
+  reportSettingCopy: { flex: 1, alignItems: "flex-end" },
+  reportSettingTitle: { fontSize: 13, fontWeight: "800" as any, textAlign: "right" },
+  reportSettingDetail: { fontSize: 11, textAlign: "right", marginTop: 3, lineHeight: 16 },
 });

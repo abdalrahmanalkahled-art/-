@@ -10,6 +10,7 @@ import { MediaGalleryLightbox } from "./media-gallery-lightbox";
 import { ConfirmDialog } from "./confirm-dialog";
 import { CardActionModal } from "./card-action-modal";
 import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
+import { deriveEventPeriod, eventEndDate, eventPeriodLabel, eventStartDate, getEffectiveEventStatus } from "@/lib/event-lifecycle";
 
 interface EventDetailsModalProps {
   visible: boolean;
@@ -25,6 +26,7 @@ const STATUS_OPTIONS = [
   { value: "planned", label: "مخططة", color: "#3B82F6", icon: "event-note" },
   { value: "ongoing", label: "جارية", color: "#F59E0B", icon: "bolt" },
   { value: "completed", label: "مكتملة", color: "#10B981", icon: "task-alt" },
+  { value: "expired", label: "منتهية", color: "#64748B", icon: "event-busy" },
   { value: "cancelled", label: "ملغاة", color: "#EF4444", icon: "cancel" },
 ] as const;
 
@@ -59,10 +61,8 @@ export function EventDetailsModal({
   const closeDetailsOrTop = useCallback(() => {
     if (!handleDetailsOverlayBack()) onClose();
   }, [handleDetailsOverlayBack, onClose]);
-  const statusInfo = useMemo(
-    () => STATUS_OPTIONS.find((status) => status.value === event?.status) || STATUS_OPTIONS[0],
-    [event?.status],
-  );
+  const effectiveStatus = useMemo(() => getEffectiveEventStatus(event || {}), [event]);
+  const statusInfo = useMemo(() => STATUS_OPTIONS.find((status) => status.value === effectiveStatus) || STATUS_OPTIONS[0], [effectiveStatus]);
   const goalTitle = useMemo(() => getEventGoalTitle(goals, event?.goalId), [event?.goalId, goals]);
 
   useEffect(() => {
@@ -111,7 +111,7 @@ export function EventDetailsModal({
   const metrics = [
     { icon: "groups", label: "الحضور", value: formatNumber(event?.attendeesCount), tone: colors.primary },
     { icon: "redeem", label: "الهدايا", value: formatNumber(event?.giftsDistributed), tone: colors.warning },
-    { icon: "payments", label: "التكلفة", value: `${formatNumber(event?.actualCost || event?.budget)} ل.س`, tone: colors.success },
+    { icon: "calendar-month", label: "المسار", value: eventPeriodLabel(event?.period || deriveEventPeriod(eventStartDate(event || {}), eventEndDate(event || {}))), tone: colors.success },
   ];
 
   return (
@@ -139,10 +139,10 @@ export function EventDetailsModal({
             <Text style={styles.heroTitle}>{event?.title || "فعالية بلا عنوان"}</Text>
             <View style={styles.heroMetaRow}>
               <MaterialIcons name="calendar-today" size={15} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.heroMetaText}>{event?.eventDate || "غير محدد"}</Text>
+              <Text style={styles.heroMetaText}>{eventStartDate(event || {}) || "غير محدد"} ← {eventEndDate(event || {}) || "غير محدد"}</Text>
               <View style={styles.heroMetaDivider} />
               <MaterialIcons name="location-on" size={16} color="rgba(255,255,255,0.9)" />
-              <Text style={styles.heroMetaText}>{event?.region || event?.location || "غير محدد"}</Text>
+              <Text style={styles.heroMetaText}>{event?.region || "غير محدد"}</Text>
             </View>
           </TouchableOpacity>
 
@@ -160,7 +160,6 @@ export function EventDetailsModal({
 
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Text style={[styles.cardTitle, { color: colors.foreground }]}>بيانات الفعالية</Text>
-            <DetailRow icon="place" label="الموقع" value={event?.location || "غير محدد"} colors={colors} />
             <DetailRow icon="map" label="المنطقة" value={event?.region || "غير محددة"} colors={colors} />
             {event?.brandName ? <DetailRow icon="branding-watermark" label="الماركة" value={event.brandName} colors={colors} /> : null}
             {event?.detailedAddress ? <DetailRow icon="home-work" label="العنوان" value={event.detailedAddress} colors={colors} /> : null}
@@ -182,7 +181,7 @@ export function EventDetailsModal({
             <Text style={[styles.statusSummaryHint, { color: colors.muted }]}>تُحدّث من تعديل الفعالية</Text>
           </View>
 
-          {event?.status === "completed" ? (
+          {effectiveStatus === "completed" || effectiveStatus === "expired" ? (
             <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.documentationHeader}>
                 <View>

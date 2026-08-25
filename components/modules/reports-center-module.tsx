@@ -8,6 +8,7 @@ import { useColors } from "@/hooks/use-colors";
 import { SuccessModal } from "@/components/success-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getReportHistory, removeReportRecords, type ReportRecord } from "@/lib/report-history";
+import { openFileWithCompatibleApp } from "@/lib/open-file-with-app";
 
 export function ReportsCenterModule() {
   const colors = useColors();
@@ -52,6 +53,15 @@ export function ReportsCenterModule() {
     }
   };
 
+  const openReport = async (report: ReportRecord) => {
+    try {
+      await openFileWithCompatibleApp(report.uri, report.title);
+    } catch (error) {
+      console.error("Failed to open report", error);
+      Alert.alert("تعذر فتح التقرير", error instanceof Error ? error.message : "تعذر إظهار التطبيقات المتوافقة مع هذا الملف.");
+    }
+  };
+
   const deleteRecord = (id: string) => setPendingDeleteIds([id]);
 
   const toggleSelection = (id: string) => {
@@ -88,7 +98,7 @@ export function ReportsCenterModule() {
           <TouchableOpacity onPress={() => void loadReports()} accessibilityLabel="تحديث التقارير" style={styles.refreshButton}><MaterialIcons name="refresh" size={22} color={colors.primary} /></TouchableOpacity>
         </>}
       </View>
-      <Text style={[styles.description, { color: colors.muted }]}>{selectionMode ? "اضغط على التقارير لتحديدها أو إلغاء تحديدها، ثم احذف المحدد بعد التأكيد." : "تظهر هنا التقارير التي تم إنشاؤها بنجاح من المحلات والفعاليات والاستبيانات. اضغط مطولاً على أي تقرير لبدء التحديد."}</Text>
+      <Text style={[styles.description, { color: colors.muted }]}>{selectionMode ? "اضغط على التقارير لتحديدها أو إلغاء تحديدها، ثم احذف المحدد بعد التأكيد." : "اضغط على أي تقرير لاختيار تطبيق متوافق لفتحه، أو اضغط مطولاً لبدء التحديد."}</Text>
 
       <FlatList
         data={reports}
@@ -103,7 +113,7 @@ export function ReportsCenterModule() {
         }
         renderItem={({ item }) => {
           const selected = selectedIds.includes(item.id);
-          return <TouchableOpacity onLongPress={() => toggleSelection(item.id)} onPress={() => selectionMode ? toggleSelection(item.id) : undefined} activeOpacity={selectionMode ? 0.76 : 1} style={[styles.card, { backgroundColor: selected ? colors.primary + "10" : colors.surface, borderColor: selected ? colors.primary : colors.border }]}>
+          return <TouchableOpacity onLongPress={() => toggleSelection(item.id)} onPress={() => selectionMode ? toggleSelection(item.id) : void openReport(item)} activeOpacity={0.76} style={[styles.card, { backgroundColor: selected ? colors.primary + "10" : colors.surface, borderColor: selected ? colors.primary : colors.border }]}>
             <View style={styles.cardTop}>
               {selectionMode ? <MaterialIcons name={selected ? "check-circle" : "radio-button-unchecked"} size={23} color={selected ? colors.primary : colors.muted} /> : null}
               <View style={[styles.typeBadge, { backgroundColor: colors.primary + "20" }]}> 
