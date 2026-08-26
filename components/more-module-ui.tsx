@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import { MaterialIcons } from "@expo/vector-icons";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/use-colors";
 
@@ -25,16 +25,16 @@ export function MoreModuleTabs({
       {items.map((item) => {
         const isSelected = item.id === selectedId;
         return (
-          <TouchableOpacity
+          <Pressable
             key={item.id}
             accessibilityRole="tab"
             accessibilityState={{ selected: isSelected }}
-            activeOpacity={0.78}
-            style={[styles.tab, isSelected && { borderBottomColor: colors.primary }]}
+            android_ripple={{ color: `${colors.primary}12` }}
+            style={({ pressed }) => [styles.tab, isSelected && { borderBottomColor: colors.primary }, pressed && styles.pressedTab]}
             onPress={() => onSelect(item.id)}
           >
             <Text style={[styles.tabText, { color: isSelected ? colors.primary : colors.muted }]}>{item.label}</Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </View>
@@ -57,16 +57,20 @@ export function MoreModuleFilterChips({
       {items.map((item) => {
         const isSelected = item.id === selectedId;
         return (
-          <TouchableOpacity
+          <Pressable
             key={item.id}
             accessibilityRole="tab"
             accessibilityState={{ selected: isSelected }}
-            activeOpacity={0.78}
-            style={[styles.filterChip, { borderColor: isSelected ? colors.primary : colors.border, backgroundColor: isSelected ? colors.primary : colors.surface }]}
+            android_ripple={{ color: isSelected ? "#FFFFFF2E" : `${colors.primary}12` }}
+            style={({ pressed }) => [
+              styles.filterChip,
+              { borderColor: isSelected ? colors.primary : colors.border, backgroundColor: isSelected ? colors.primary : colors.surface },
+              pressed && styles.pressedChip,
+            ]}
             onPress={() => onSelect(item.id)}
           >
             <Text style={[styles.filterText, { color: isSelected ? "#fff" : colors.foreground }]}>{item.label}</Text>
-          </TouchableOpacity>
+          </Pressable>
         );
       })}
     </ScrollView>
@@ -98,10 +102,12 @@ export function MoreModuleEmptyState({
 const styles = StyleSheet.create({
   tabs: { minHeight: 52, flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth },
   tab: { flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center", borderBottomWidth: 2, borderBottomColor: "transparent", paddingHorizontal: 8 },
+  pressedTab: { opacity: 0.72 },
   tabText: { fontSize: 13, fontWeight: "700" as any, textAlign: "center" },
   filterRow: { maxHeight: 56 },
   filterContent: { alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
   filterChip: { minHeight: 36, justifyContent: "center", borderWidth: 1, borderRadius: 12, paddingHorizontal: 13 },
+  pressedChip: { opacity: 0.82, transform: [{ scale: 0.98 }] },
   filterText: { fontSize: 12, fontWeight: "700" as any, textAlign: "center" },
   empty: { minHeight: 156, marginHorizontal: 14, marginTop: 12, borderWidth: 1, borderRadius: 18, alignItems: "center", justifyContent: "center", padding: 20 },
   emptyIcon: { width: 48, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center", marginBottom: 10 },

@@ -10,7 +10,9 @@ describe("توحيد واجهات وحدات صفحة المزيد", () => {
     expect(sharedUi).toContain("export function MoreModuleTabs");
     expect(sharedUi).toContain("export function MoreModuleFilterChips");
     expect(sharedUi).toContain("export function MoreModuleEmptyState");
-    expect(sharedUi).toContain("activeOpacity={0.78}");
+    expect(sharedUi).toContain("android_ripple");
+    expect(sharedUi).toContain("pressed && styles.pressedTab");
+    expect(sharedUi).toContain("pressed && styles.pressedChip");
   });
 
   it("يطبق المكونات المشتركة على المستودع والصرفيات والمنتجات", () => {
