@@ -8,6 +8,15 @@ describe("فتح الملفات المحفوظة", () => {
     expect(source).toContain("application/pdf");
     expect(source).toContain("spreadsheetml.sheet");
     expect(source).toContain("presentationml.presentation");
-    expect(source).toContain("فتح ${name} باستخدام");
+  });
+
+  it("يفتح تقارير Android في عارض متوافق عبر VIEW intent بدلاً من واجهة المشاركة", () => {
+    const source = readFileSync(resolve(process.cwd(), "lib/open-file-with-app.ts"), "utf8");
+    expect(source).toContain('import * as IntentLauncher from "expo-intent-launcher"');
+    expect(source).toContain('Platform.OS === "android"');
+    expect(source).toContain("FileSystem.getContentUriAsync(uri)");
+    expect(source).toContain('IntentLauncher.startActivityAsync("android.intent.action.VIEW"');
+    expect(source).toContain("type: mimeTypeFor(name)");
+    expect(source).toContain("flags: 1");
   });
 });
