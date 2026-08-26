@@ -6,11 +6,13 @@ import * as Sharing from "expo-sharing";
 
 import { BACKUP_SECTION_OPTIONS, buildFullBackupPayload, collectManagedMediaUris, createFullBackup, getBackupFilename, getPartialBackupFilename, isBackupManagedMediaUri } from "../full-backup";
 
+const { logAudit } = vi.hoisted(() => ({ logAudit: vi.fn() }));
 vi.mock("@react-native-async-storage/async-storage", () => ({ default: { multiGet: vi.fn() } }));
 vi.mock("expo-file-system/legacy", () => ({ documentDirectory: "file:///app/documents/", getInfoAsync: vi.fn(), readAsStringAsync: vi.fn(), writeAsStringAsync: vi.fn(), makeDirectoryAsync: vi.fn(), EncodingType: { Base64: "base64", UTF8: "utf8" } }));
 vi.mock("expo-sharing", () => ({ isAvailableAsync: vi.fn(), shareAsync: vi.fn() }));
 vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
 vi.mock("../storage", () => ({ STORAGE_KEYS: { STORES: "madar_stores", EVENTS: "madar_events", SURVEY_RESULTS: "madar_survey_results", SIGNAGE_BOARDS: "madar_signage_boards", ROAD_SIGNAGE_CONTRACTS: "madar_road_signage_contracts", STANDS: "madar_stands", EXTERNAL_ANALYTICS_PACKAGES: "madar_external_analytics_packages", MARKET_VISIT_REPORT_TEMPLATES: "madar_market_visit_report_templates", MARKET_VISIT_REPORT_SETTINGS: "madar_market_visit_report_settings" } }));
+vi.mock("../audit-log", () => ({ logAudit }));
 
 describe("full backup", () => {
   beforeEach(() => { vi.clearAllMocks(); });
@@ -60,6 +62,7 @@ describe("full backup", () => {
     expect(result.skippedMediaCount).toBe(0);
     expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(expect.stringContaining("backups/madar_full_backup_"), expect.stringContaining("madar_stores"), expect.objectContaining({ encoding: "utf8" }));
     expect(Sharing.isAvailableAsync).not.toHaveBeenCalled();
+    expect(logAudit).toHaveBeenCalledWith("BACKUP", "النسخ الاحتياطية", expect.stringContaining("نسخة احتياطية كاملة"));
   });
 
   it("يحافظ على الملف المحلي إذا تعذرت ورقة المشاركة الاختيارية", async () => {

@@ -8,6 +8,7 @@ import { ensureDirectoryExists } from "./export-sanitizer";
 import { STORAGE_KEYS } from "./storage";
 import { USERS_STORAGE_KEY } from "./user-permissions-model";
 import { getMarketingManagerFiles } from "./marketing-manager-storage";
+import { logAudit } from "./audit-log";
 
 const BACKUPS_DIRECTORY = "backups/";
 const BACKUP_SCHEMA_VERSION = 1;
@@ -187,6 +188,7 @@ async function createBackupForKeys(keys: string[], options: { filename: string; 
   const skippedMediaPaths = [...internal.skippedMediaPaths, ...external.skippedMediaPaths];
   const payload = buildFullBackupPayload(data, media, skippedMediaPaths, new Date().toISOString(), options.backupKind, options.sections || []);
   const written = await writeBackupFile(JSON.stringify(payload), options.filename, options.share);
+  await logAudit("BACKUP", "النسخ الاحتياطية", options.backupKind === "full" ? `تم إنشاء نسخة احتياطية كاملة (${Object.keys(data).length} مجموعة بيانات)` : `تم إنشاء نسخة احتياطية جزئية (${options.sections?.length || 0} أقسام)`);
   return { fileUri: written.fileUri, filename: options.filename, itemCount: Object.keys(data).length, mediaCount: media.length, skippedMediaCount: skippedMediaPaths.length, shared: written.shared };
 }
 

@@ -9,6 +9,7 @@ import { restoreMarketingManagerFile, restoreMarketingManagerFileFromUri } from 
 import { describeBackupRestoreSpaceError, estimateBackupRestoreSpace, hasEnoughBackupRestoreSpace } from "./backup-storage-capacity";
 import { LegacyBackupStreamParser, type LegacyBackupHeader, type LegacyBackupMediaMeta } from "./legacy-backup-stream";
 import { beginOperationProgress } from "./operation-progress";
+import { logAudit } from "./audit-log";
 
 export interface BackupPreviewGroup {
   key: string;
@@ -341,6 +342,7 @@ export async function restoreFullBackup(payload: FullBackupPayload, mode: Restor
     const preview = createBackupPreview(payload);
     const history = createLastRestoreHistory(payload, preview, mode, sourceLabel, mergePreview);
     await saveLastRestoreHistory(history);
+    await logAudit("RESTORE", "النسخ الاحتياطية", `تمت ${mode === "merge" ? "مزامنة" : "استعادة"} ${Object.keys(payload.data).filter((key) => !LOCAL_SETTINGS_KEYS.has(key)).length} مجموعة بيانات و${payload.media.length} وسائط`);
     return { dataGroupCount: Object.keys(payload.data).filter((key) => !LOCAL_SETTINGS_KEYS.has(key)).length, mediaCount: payload.media.length, mode, mergePreview };
   } finally {
     progress.complete();

@@ -38,6 +38,7 @@ import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 import { hasUnsavedFormChanges, snapshotFormState } from "@/lib/form-state";
 import { useSingleFlight } from "@/lib/use-single-flight";
 import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog";
+import { logAudit } from "@/lib/audit-log";
 
 interface EventItem {
   id: string;
@@ -363,7 +364,8 @@ export default function EventsScreen() {
         await saveItems(STORAGE_KEYS.MARKETING_GOALS, updatedGoals);
       }
       await saveItems(STORAGE_KEYS.EVENTS, [...allEvents, newEvent]);
-    }
+      }
+      await logAudit(wasEditing ? "UPDATE" : "CREATE", "الفعاليات", wasEditing ? `تم تعديل الفعالية: ${form.title}` : `تمت إضافة فعالية: ${form.title}`);
       resetEventForm();
       setShowModal(false);
       void loadEvents();
@@ -382,7 +384,9 @@ export default function EventsScreen() {
     try {
       const { eventId } = deleteConfirmation;
       const allEvents = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
-      await saveItems(STORAGE_KEYS.EVENTS, allEvents.filter((e) => e.id !== eventId));
+      const removedEvent = allEvents.find((event) => event.id === eventId);
+      await saveItems(STORAGE_KEYS.EVENTS, allEvents.filter((event) => event.id !== eventId));
+      await logAudit("DELETE", "الفعاليات", `تم حذف الفعالية: ${removedEvent?.title || "غير معروفة"}`);
       setDeleteConfirmation({ visible: false, eventId: "" });
       loadEvents();
       setSuccessMessage({ visible: true, message: "تم حذف الفعالية بنجاح" });

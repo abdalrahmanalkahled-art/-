@@ -205,6 +205,7 @@ export default function SettingsScreen() {
       <Text style={[styles.sectionTitle, { color: colors.muted }]}>البيانات</Text>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <SettingRow icon="folder-open" title="موقع ملفات marketing manager" subtitle={marketingManagerLocation ? "تم اختيار موقع خارجي للصور والقوالب والشعارات" : "اختر موقع المجلد الذي سيحفظ ملفات التطبيق"} color="#7C3AED" onPress={() => void chooseMarketingManagerFolder()} />
+        <SettingRow icon="history" title="سجل النشاط" subtitle="عمليات الإضافة والتعديل والحذف والتقارير والنسخ الاحتياطية" color="#0E9F6E" onPress={() => router.push("/activity-log" as any)} />
         <SettingRow icon="storage" title="إدارة مساحة التخزين" subtitle="عرض أحجام الملفات وتنظيف المؤقتات والملفات غير المستخدمة" color="#2563EB" onPress={() => router.push("/storage-management" as any)} />
         <SettingRow icon="backup" title="إدارة النسخ الاحتياطية" subtitle="إنشاء واستعادة واستيراد وحذف النسخ المحمية" color="#0891B2" onPress={() => router.push("/backup-management" as any)} />
         <SettingRow icon="delete-sweep" title="تهيئة التطبيق" subtitle="حذف جميع البيانات أو بيانات تبويبة محددة مع إبقاء النسخ الاحتياطية" color={colors.error} onPress={() => router.push("/app-reset" as any)} />

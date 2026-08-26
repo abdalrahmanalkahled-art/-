@@ -34,6 +34,7 @@ import { StoreDetailsScreen } from "@/components/store-details-screen";
 import { CardActionModal } from "@/components/card-action-modal";
 import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 import { useSingleFlight } from "@/lib/use-single-flight";
+import { logAudit } from "@/lib/audit-log";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAnalytics, EventType } from "@/lib/analytics";
 import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
@@ -295,6 +296,7 @@ export default function StoresScreen() {
         };
         await saveItems(STORAGE_KEYS.STORES, [...allStores, newStore]);
       }
+      await logAudit(wasEditing ? "UPDATE" : "CREATE", "المحلات", wasEditing ? `تم تعديل المحل: ${form.name}` : `تمت إضافة محل: ${form.name}`);
       await AsyncStorage.removeItem(STORE_DRAFT_KEY);
       setForm(emptyStoreForm());
       setEditingStore(null);
@@ -321,6 +323,7 @@ export default function StoresScreen() {
     try {
       const { storeId } = deleteConfirmation;
       await deleteStoreSurveyDataCascade(storeId);
+      await logAudit("DELETE", "المحلات", "تم حذف محل وبيانات الاستبيانات المرتبطة به");
       setDeleteConfirmation({ visible: false, storeId: "" });
       setShowSuccessDelete(true);
       await loadStores();
