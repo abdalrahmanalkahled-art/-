@@ -14,6 +14,7 @@ import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { openFileWithCompatibleApp } from "@/lib/open-file-with-app";
 import { beginOperationProgress, type OperationProgressController } from "@/lib/operation-progress";
+import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 import type { SurveyCycle, SurveyResult } from "@/lib/types/survey-types";
 
 type Panel = "templates" | "cycles" | "settings" | null;
@@ -80,6 +81,17 @@ export default function ReportsModule() {
   const selectedMetrics = calculateMarketVisitProductMetrics(cycleResults, selectedMetricIds);
   const productTags = marketVisitProductMetricTags(selectedMetrics);
   const saveOrder = async (next: MarketVisitReportOrder) => { setOrder(next); await saveItems(STORAGE_KEYS.MARKET_VISIT_REPORT_SETTINGS, [next]); };
+
+  const handleReportsOverlayBack = useCallback(() => {
+    if (showProductTags) { setShowProductTags(false); return true; }
+    if (showMetricProducts) { setShowMetricProducts(false); return true; }
+    if (showTags) { setShowTags(false); return true; }
+    if (removingTemplate) { setRemovingTemplate(null); return true; }
+    if (panel) { setPanel(null); return true; }
+    if (fabOpen) { setFabOpen(false); return true; }
+    return false;
+  }, [fabOpen, panel, removingTemplate, showMetricProducts, showProductTags, showTags]);
+  useOverlayBackHandler(handleReportsOverlayBack);
 
   const uploadTemplate = async () => {
     if (isUploadingTemplate) return;

@@ -33,6 +33,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StoreDetailsScreen } from "@/components/store-details-screen";
 import { CardActionModal } from "@/components/card-action-modal";
 import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
+import { useSingleFlight } from "@/lib/use-single-flight";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAnalytics, EventType } from "@/lib/analytics";
 import { getKeyboardAvoidingBehavior } from "@/lib/keyboard-layout";
@@ -100,6 +101,7 @@ export default function StoresScreen() {
   const [selectedStoreForDetails, setSelectedStoreForDetails] = useState<StoreItem | null>(null);
   const [showSuccessUpdate, setShowSuccessUpdate] = useState(false);
   const [error, setError] = useState<string | Error | null>(null);
+  const { isRunning: isSaving, run: runSave } = useSingleFlight();
   const showError = useCallback((err: unknown) => {
     setError(err instanceof Error || typeof err === "string" ? err : "حدث خطأ غير متوقع");
   }, []);
@@ -273,12 +275,13 @@ export default function StoresScreen() {
     setShowModal(true);
   };
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(() => void runSave(async () => {
     try {
       if (!form.name.trim()) {
         Alert.alert("خطأ", "يرجى إدخال اسم المحل");
         return;
       }
+      const wasEditing = Boolean(editingStore);
       const allStores = await getItems<StoreItem>(STORAGE_KEYS.STORES);
       if (editingStore) {
         const updated = allStores.map((s) => (s.id === editingStore.id ? { ...s, ...form } : s));
@@ -293,12 +296,13 @@ export default function StoresScreen() {
         await saveItems(STORAGE_KEYS.STORES, [...allStores, newStore]);
       }
       await AsyncStorage.removeItem(STORE_DRAFT_KEY);
-      if (!editingStore) setForm(emptyStoreForm());
+      setForm(emptyStoreForm());
       setEditingStore(null);
       setShowCategoryDropdown(false);
+      setShowRegionDropdown(false);
       setShowModal(false);
       await loadStores();
-      if (editingStore) {
+      if (wasEditing) {
         setShowSuccessUpdate(true);
       } else {
         setShowSuccessAdd(true);
@@ -307,7 +311,7 @@ export default function StoresScreen() {
       const appError = ErrorHandler.parse(err);
       showError(appError.message);
     }
-  }, [form, editingStore, emptyStoreForm, loadStores, showError]);
+  }), [form, editingStore, emptyStoreForm, loadStores, runSave, showError]);
 
   const handleDelete = (id: string) => {
     setDeleteConfirmation({ visible: true, storeId: id });
@@ -417,10 +421,12 @@ export default function StoresScreen() {
     if (deleteConfirmation.visible) { setDeleteConfirmation({ visible: false, storeId: "" }); return true; }
     if (storeActionTarget) { setStoreActionTarget(null); return true; }
     if (showImagePickerModal) { setShowImagePickerModal(false); return true; }
+    if (showCategoryDropdown) { setShowCategoryDropdown(false); return true; }
+    if (showRegionDropdown) { setShowRegionDropdown(false); return true; }
     if (showModal) { setShowModal(false); return true; }
     if (showDetailsScreen) { setShowDetailsScreen(false); return true; }
     return false;
-  }, [error, showDeleteRegionConfirm, showAddRegionModal, showCategoryManager, deleteConfirmation.visible, storeActionTarget, showImagePickerModal, showModal, showDetailsScreen]);
+  }, [error, showDeleteRegionConfirm, showAddRegionModal, showCategoryManager, deleteConfirmation.visible, storeActionTarget, showImagePickerModal, showCategoryDropdown, showRegionDropdown, showModal, showDetailsScreen]);
   useOverlayBackHandler(handleStoreOverlayBack);
 
 
@@ -675,8 +681,8 @@ export default function StoresScreen() {
                 <TouchableOpacity onPress={() => setShowModal(false)} style={[styles.cancelBtn, { borderColor: colors.border }]}>
                   <Text style={[styles.cancelBtnText, { color: colors.foreground }]}>إلغاء</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleSave} style={[styles.saveBtnBottom, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.saveBtnText}>حفظ</Text>
+                <TouchableOpacity onPress={handleSave} disabled={isSaving} style={[styles.saveBtnBottom, { backgroundColor: colors.primary }, isSaving && { opacity: 0.65 }]}>
+                  <Text style={styles.saveBtnText}>{isSaving ? "جارٍ الحفظ..." : "حفظ"}</Text>
                 </TouchableOpacity>
               </View>
             </View>

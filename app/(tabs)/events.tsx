@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -35,6 +35,9 @@ import { useAppError } from "@/hooks/use-app-error";
 import { loadEventGoals, type EventGoal } from "@/lib/event-goal-loader";
 import { persistEventMedia } from "@/lib/event-video-storage";
 import { useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
+import { hasUnsavedFormChanges, snapshotFormState } from "@/lib/form-state";
+import { useSingleFlight } from "@/lib/use-single-flight";
+import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog";
 
 interface EventItem {
   id: string;
@@ -56,6 +59,21 @@ interface EventItem {
   createdAt: string;
 }
 
+interface EventForm {
+  title: string;
+  eventDate: string;
+  region: string;
+  detailedAddress: string;
+  giftsDistributed: string;
+  attendeesCount: string;
+  status: EventItem["status"];
+  notes: string;
+  imageUri: string;
+  mediaUris: string[];
+  goalId: string;
+  brandName: string;
+}
+
 const getPermissionErrorMessage = (errorCode: string): string => {
   if (errorCode === 'permission') {
     return 'لم يتم منح الإذن للوصول إلى المعرض أو الكاميرا';
@@ -75,6 +93,7 @@ const STATUS_OPTIONS = [
 
 const toIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const fromIsoDate = (value: string) => value ? new Date(`${value}T12:00:00`) : null;
+const createEmptyEventForm = (): EventForm => ({ title: "", eventDate: new Date().toISOString().split("T")[0], region: "", detailedAddress: "", giftsDistributed: "", attendeesCount: "", status: "planned", notes: "", imageUri: "", mediaUris: [], goalId: "", brandName: "" });
 
 export default function EventsScreen() {
   const colors = useColors();
@@ -100,20 +119,10 @@ export default function EventsScreen() {
   const [showEventDatePicker, setShowEventDatePicker] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [showEventDetails, setShowEventDetails] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    eventDate: new Date().toISOString().split("T")[0],
-    region: "",
-    detailedAddress: "",
-    giftsDistributed: "",
-    attendeesCount: "",
-    status: "planned" as EventItem["status"],
-    notes: "",
-    imageUri: "",
-    mediaUris: [] as string[],
-    goalId: "",
-    brandName: "",
-  });
+  const [form, setForm] = useState<EventForm>(createEmptyEventForm);
+  const formSnapshot = useRef(snapshotFormState(createEmptyEventForm()));
+  const [showDiscardChanges, setShowDiscardChanges] = useState(false);
+  const { isRunning: isSaving, run: runSave } = useSingleFlight();
 
   const loadEvents = useCallback(async () => {
     try {
@@ -163,66 +172,52 @@ export default function EventsScreen() {
     loadGoalsAndRegions();
   }, []);
 
-  // مراقبة تغييرات المناطق والأهداف
-  useEffect(() => {
-    const loadRegions = async () => {
-      try {
-        const savedRegions = await AsyncStorage.getItem('store_regions');
-        if (savedRegions) {
-          setRegions(JSON.parse(savedRegions));
-        } else {
-          const storesData = await getItems<any>(STORAGE_KEYS.STORES);
-          const uniqueRegions = Array.from(new Set(storesData.map((s: any) => s.region).filter(Boolean)));
-          setRegions(uniqueRegions as string[]);
-        }
-      } catch (error) {
-        console.error('خطأ في تحميل المناطق:', error);
-      }
-    };
-    loadRegions();
-  }, []);
-
-  useEffect(() => {
-    const loadGoals = async () => {
-      try {
-        const goalsData = await getItems<any>(STORAGE_KEYS.MARKETING_GOALS);
-        setGoals(goalsData);
-      } catch (error) {
-        console.error('خطأ في تحميل الأهداف:', error);
-      }
-    };
-    loadGoals();
-  }, []);
-
   const filtered = events.filter((e) => {
     const matchSearch = e.title.includes(search) || e.region.includes(search) || (e.detailedAddress || "").includes(search);
     const matchStatus = filterStatus === "all" || e.status === filterStatus;
     return matchSearch && matchStatus;
   });
 
+  const resetEventForm = useCallback(() => {
+    const next = createEmptyEventForm();
+    formSnapshot.current = snapshotFormState(next);
+    setForm(next);
+    setEditingEvent(null);
+    setShowRegionDropdown(false);
+  }, []);
+
+  const requestCloseEventForm = useCallback((discard = false) => {
+    if (!discard && !isSaving && hasUnsavedFormChanges(formSnapshot.current, form)) {
+      setShowDiscardChanges(true);
+      return;
+    }
+    setShowDiscardChanges(false);
+    setShowModal(false);
+    resetEventForm();
+  }, [form, isSaving, resetEventForm]);
+
   const handleEventOverlayBack = useCallback(() => {
     if (showGoalSelector) { setShowGoalSelector(false); return true; }
     if (showEventDatePicker) { setShowEventDatePicker(false); return true; }
     if (showImagePickerModal) { setShowImagePickerModal(false); return true; }
+    if (showRegionDropdown) { setShowRegionDropdown(false); return true; }
     if (deleteConfirmation.visible) { setDeleteConfirmation({ visible: false, eventId: "" }); return true; }
     if (eventActionTarget) { setEventActionTarget(null); return true; }
-    if (showModal) { setShowModal(false); return true; }
+    if (showModal) { requestCloseEventForm(); return true; }
     if (showEventDetails) { setShowEventDetails(false); return true; }
     return false;
-  }, [showGoalSelector, showEventDatePicker, showImagePickerModal, deleteConfirmation.visible, eventActionTarget, showModal, showEventDetails]);
+  }, [showGoalSelector, showEventDatePicker, showImagePickerModal, showRegionDropdown, deleteConfirmation.visible, eventActionTarget, showModal, showEventDetails, requestCloseEventForm]);
   useOverlayBackHandler(handleEventOverlayBack);
 
   const openCreateModal = useCallback(async () => {
-    setEditingEvent(null);
-    const today = new Date().toISOString().split("T")[0];
-    setForm({ title: "", eventDate: today, region: "", detailedAddress: "", giftsDistributed: "", attendeesCount: "", status: "planned", notes: "", imageUri: "", mediaUris: [], goalId: "", brandName: "" });
+    resetEventForm();
     await refreshGoals();
     setShowGoalSelector(true);
-  }, [refreshGoals]);
+  }, [refreshGoals, resetEventForm]);
 
   const openEditModal = useCallback((event: EventItem) => {
     setEditingEvent(event);
-    setForm({
+    const next: EventForm = {
       title: event.title,
       eventDate: event.eventDate || event.startDate || event.endDate || "",
       region: event.region || "",
@@ -235,7 +230,9 @@ export default function EventsScreen() {
       mediaUris: event.mediaUris || [],
       goalId: event.goalId || "",
       brandName: event.brandName || "",
-    });
+    };
+    formSnapshot.current = snapshotFormState(next);
+    setForm(next);
     setShowModal(true);
   }, []);
 
@@ -322,11 +319,12 @@ export default function EventsScreen() {
 
   const { showError } = useAppError();
 
-  const handleSave = async () => {
+  const handleSave = () => void runSave(async () => {
     if (!form.title.trim()) {
       showError("يرجى إدخال عنوان الفعالية");
       return;
     }
+    const wasEditing = Boolean(editingEvent);
     try {
       const allEvents = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
       const next = { ...form, giftsDistributed: parseInt(form.giftsDistributed) || 0, attendeesCount: parseInt(form.attendeesCount) || 0, imageUri: form.imageUri };
@@ -366,14 +364,15 @@ export default function EventsScreen() {
       }
       await saveItems(STORAGE_KEYS.EVENTS, [...allEvents, newEvent]);
     }
+      resetEventForm();
       setShowModal(false);
-      loadEvents();
-      setSuccessMessage({ visible: true, message: editingEvent ? "تم تحديث الفعالية بنجاح" : "تم إضافة فعالية جديدة بنجاح" });
+      void loadEvents();
+      setSuccessMessage({ visible: true, message: wasEditing ? "تم تحديث الفعالية بنجاح" : "تم إضافة فعالية جديدة بنجاح" });
     } catch (err) {
       const appError = ErrorHandler.parse(err);
       showError(appError.message);
     }
-  };
+  });
 
   const handleDelete = (id: string) => {
     setDeleteConfirmation({ visible: true, eventId: id });
@@ -621,11 +620,11 @@ export default function EventsScreen() {
       />
       </>}
 
-      <FloatingFormModal visible={showModal} onClose={() => setShowModal(false)} backgroundColor={colors.background} isLoading={isInitialLoading}>
+      <FloatingFormModal visible={showModal} onClose={requestCloseEventForm} backgroundColor={colors.background} isLoading={isInitialLoading} isDismissDisabled={isSaving}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}> 
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => setShowModal(false)}>
+            <TouchableOpacity onPress={requestCloseEventForm} disabled={isSaving} accessibilityLabel="إغلاق نموذج الفعالية">
               <MaterialIcons name="close" size={24} color={colors.foreground} />
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>
@@ -738,21 +737,24 @@ export default function EventsScreen() {
           </ScrollView>
           <View style={[styles.modalFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
             <TouchableOpacity 
-              onPress={() => setShowModal(false)} 
+              onPress={requestCloseEventForm}
+              disabled={isSaving}
               style={[styles.cancelBtn, { borderColor: colors.border }]}
             >
               <Text style={[styles.cancelBtnText, { color: colors.foreground }]}>إلغاء</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              onPress={handleSave} 
-              style={[styles.saveBtnBottom, { backgroundColor: colors.primary }]}
+              onPress={handleSave}
+              disabled={isSaving}
+              style={[styles.saveBtnBottom, { backgroundColor: colors.primary }, isSaving && { opacity: 0.65 }]}
             >
-              <Text style={styles.saveBtnText}>حفظ</Text>
+              <Text style={styles.saveBtnText}>{isSaving ? "جارٍ الحفظ..." : "حفظ"}</Text>
             </TouchableOpacity>
           </View>
         </View>
         </SafeAreaView>
       </FloatingFormModal>
+      <UnsavedChangesDialog visible={showDiscardChanges} onKeepEditing={() => setShowDiscardChanges(false)} onDiscard={() => requestCloseEventForm(true)} />
       <DateRangePickerModal
         visible={showEventDatePicker}
         startDate={fromIsoDate(form.eventDate)}
@@ -815,7 +817,9 @@ export default function EventsScreen() {
                   key={goal.id}
                   style={[styles.goalItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
                   onPress={() => {
-                    setForm((f) => ({ ...f, goalId: goal.id, brandName: goal.brandName || "" }));
+                    const next = { ...form, goalId: goal.id, brandName: goal.brandName || "" };
+                    formSnapshot.current = snapshotFormState(next);
+                    setForm(next);
                     setShowGoalSelector(false);
                     setShowModal(true);
                   }}

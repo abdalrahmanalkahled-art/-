@@ -224,8 +224,22 @@ export default function SurveysScreen() {
       showDeleteResultConfirm,
       showCloseCycleConfirm,
       showAddQuestion,
+      showSurveyError,
+      hasPendingTemplateImport: Boolean(pendingTemplateImport),
+      showDeleteCycleMediaConfirm,
+      showCycleDetail,
+      hasResultActionTarget: Boolean(resultActionTarget),
+      showResultsExportModal,
+      hasTemplateActionTarget: Boolean(templateActionTarget),
     });
-    if (overlay === "resultDetail") setShowResultDetail(false);
+    if (overlay === "surveyError") setShowSurveyError(false);
+    else if (overlay === "templateImport") { setPendingTemplateImport(null); setPendingTemplateImportName(""); }
+    else if (overlay === "deleteCycleMedia") setShowDeleteCycleMediaConfirm(false);
+    else if (overlay === "cycleDetail") { setShowCycleDetail(false); setSelectedHistoryCycle(null); }
+    else if (overlay === "resultAction") setResultActionTarget(null);
+    else if (overlay === "resultsExport") setShowResultsExportModal(false);
+    else if (overlay === "templateAction") setTemplateActionTarget(null);
+    else if (overlay === "resultDetail") setShowResultDetail(false);
     else if (overlay === "storeDetails") setShowStoreDetails(false);
     else if (overlay === "create") setShowCreateModal(false);
     else if (overlay === "use") setShowUseModal(false);
@@ -235,7 +249,7 @@ export default function SurveysScreen() {
     else if (overlay === "closeCycle") setShowCloseCycleConfirm(false);
     else if (overlay === "addQuestion") setShowAddQuestion(false);
     return overlay !== null;
-  }, [showResultDetail, showStoreDetails, showCreateModal, showUseModal, showEditModal, showDeleteConfirm, showDeleteResultConfirm, showCloseCycleConfirm, showAddQuestion]);
+  }, [showResultDetail, showStoreDetails, showCreateModal, showUseModal, showEditModal, showDeleteConfirm, showDeleteResultConfirm, showCloseCycleConfirm, showAddQuestion, showSurveyError, pendingTemplateImport, showDeleteCycleMediaConfirm, showCycleDetail, resultActionTarget, showResultsExportModal, templateActionTarget]);
   useOverlayBackHandler(handleSurveyOverlayBack);
 
   const handleExportSurveys = async (format: "pdf" | "excel") => {

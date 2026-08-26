@@ -11,14 +11,16 @@ interface FloatingFormModalProps {
   backgroundColor: string;
   compactHeight?: boolean;
   isLoading?: boolean;
+  isDismissDisabled?: boolean;
   children: ReactNode;
 }
 
 /** غلاف موحد يحافظ على محتوى نماذج الإضافة ويعرضه كنافذة عائمة مناسبة للهاتف. */
-export function FloatingFormModal({ visible, onClose, backgroundColor, compactHeight = false, isLoading = false, children }: FloatingFormModalProps) {
-  return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+export function FloatingFormModal({ visible, onClose, backgroundColor, compactHeight = false, isLoading = false, isDismissDisabled = false, children }: FloatingFormModalProps) {
+  const requestClose = isDismissDisabled ? undefined : onClose;
+  return <Modal visible={visible} transparent animationType="fade" onRequestClose={requestClose}>
     <View style={styles.backdrop}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <Pressable style={StyleSheet.absoluteFill} onPress={requestClose} />
       <KeyboardAvoidingView behavior={getKeyboardAvoidingBehavior(Platform.OS)} style={styles.keyboard}>
         <View style={[styles.dialog, compactHeight && styles.compactDialog, { backgroundColor }]}>{isLoading ? <SkeletonForm /> : children}</View>
       </KeyboardAvoidingView>

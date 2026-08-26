@@ -112,7 +112,8 @@ export async function getItems<T>(key: string): Promise<T[]> {
   try {
     const data = await AsyncStorage.getItem(key);
     if (!data) return [];
-    return JSON.parse(data);
+    const parsed: unknown = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed as T[] : [];
   } catch {
     return [];
   }

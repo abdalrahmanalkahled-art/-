@@ -13,6 +13,13 @@ const closedState: SurveyOverlayState = {
   showDeleteResultConfirm: false,
   showCloseCycleConfirm: false,
   showAddQuestion: false,
+  showSurveyError: false,
+  hasPendingTemplateImport: false,
+  showDeleteCycleMediaConfirm: false,
+  showCycleDetail: false,
+  hasResultActionTarget: false,
+  showResultsExportModal: false,
+  hasTemplateActionTarget: false,
 };
 
 describe("تدفق زر الرجوع في الاستبيانات", () => {
@@ -33,5 +40,11 @@ describe("تدفق زر الرجوع في الاستبيانات", () => {
     expect(getSurveyOverlayToClose({ ...closedState, showEditModal: true })).toBe("edit");
     expect(getSurveyOverlayToClose({ ...closedState, showDeleteResultConfirm: true })).toBe("deleteResult");
     expect(getSurveyOverlayToClose({ ...closedState, showCloseCycleConfirm: true })).toBe("closeCycle");
+  });
+
+  it("يغلق إجراءات القوالب والتصدير وتأكيدات الدورة قبل الطبقات السفلية", () => {
+    expect(getSurveyOverlayToClose({ ...closedState, hasTemplateActionTarget: true })).toBe("templateAction");
+    expect(getSurveyOverlayToClose({ ...closedState, showResultsExportModal: true })).toBe("resultsExport");
+    expect(getSurveyOverlayToClose({ ...closedState, showCycleDetail: true, showDeleteCycleMediaConfirm: true })).toBe("deleteCycleMedia");
   });
 });
