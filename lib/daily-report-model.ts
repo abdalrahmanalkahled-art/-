@@ -11,6 +11,13 @@ export interface DailyReportSummary {
   photosCount: number;
 }
 
+export interface DailyReportBrandPresence {
+  brandName: string;
+  presentCount: number;
+  totalCount: number;
+  percentage: number;
+}
+
 export function toDateOnly(value: string | Date): string {
   const date = typeof value === "string" ? new Date(value) : value;
   return date.toISOString().slice(0, 10);

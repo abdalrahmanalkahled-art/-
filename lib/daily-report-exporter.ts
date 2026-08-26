@@ -4,7 +4,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { Alert, Platform } from "react-native";
 
 import { loadAppSettings } from "./app-settings";
-import { isWithinDateRange, type DailyReportDateRange, type DailyReportSummary } from "./daily-report-model";
+import { DEFAULT_DAILY_REPORT_SETTINGS, normalizeDailyReportSettings, type DailyReportSettings } from "./daily-report-settings-model";
+import { isWithinDateRange, type DailyReportBrandPresence, type DailyReportDateRange, type DailyReportSummary } from "./daily-report-model";
 import { ensureDirectoryExists, sanitizeFilename } from "./export-sanitizer";
 import { applyPdfReportTemplate } from "./pdf-report-templates";
 import { loadSharedPdfReportLogo, pdfLogoMarkup } from "./pdf-report-logo";
@@ -20,10 +21,12 @@ export interface DailyReportData {
   surveyResults: SurveyResult[];
   events: any[];
   summary: DailyReportSummary;
+  brandPresence: DailyReportBrandPresence[];
 }
 
 export interface DailyReportExportOptions {
   includeMedia?: boolean;
+  settings?: DailyReportSettings;
 }
 
 function escapeHtml(value: unknown): string {
@@ -52,20 +55,33 @@ export function buildDailyReportData(
   range: DailyReportDateRange,
   surveyResults: SurveyResult[],
   events: any[],
-  stores: Array<{ id: string; region?: string }> = [],
+  stores: { id: string; region?: string }[] = [],
+  products: { id: string; brandName?: string; competitorName?: string; name?: string }[] = [],
 ): DailyReportData {
   const regionsByStoreId = new Map(stores.map((store) => [store.id, String(store.region || "").trim()]));
+  const productBrandById = new Map<string, string>(products.map((product) => [product.id, String(product.brandName || product.competitorName || product.name || "").trim()]));
   const includedSurveys = surveyResults
     .filter((result) => isWithinDateRange(result.surveyDate || result.createdAt, range))
-    .map((result) => ({
-      ...result,
-      storeRegion: String(result.storeRegion || "").trim() || regionsByStoreId.get(result.storeId) || "",
-    }));
+    .map((result) => ({ ...result, storeRegion: String(result.storeRegion || "").trim() || regionsByStoreId.get(result.storeId) || "" }));
   const includedEvents = events.filter((event) => isWithinDateRange(event.eventDate || event.createdAt, range));
   const regions = [...new Set([
     ...includedSurveys.map((result) => result.storeRegion),
     ...includedEvents.map((event) => String(event.region || "").trim()),
   ].filter(Boolean))];
+  const brandCounters = new Map<string, { presentCount: number; totalCount: number }>();
+  for (const result of includedSurveys) {
+    for (const product of Array.isArray(result.data) ? result.data : []) {
+      const brandName = productBrandById.get(product.productId) || String(product.productName || "بدون ماركة").trim();
+      const current = brandCounters.get(brandName) || { presentCount: 0, totalCount: 0 };
+      current.totalCount += 1;
+      if (product.present) current.presentCount += 1;
+      brandCounters.set(brandName, current);
+    }
+  }
+  const brandPresence = [...brandCounters.entries()]
+    .map(([brandName, counts]) => ({ brandName, ...counts, percentage: counts.totalCount ? counts.presentCount * 100 / counts.totalCount : 0 }))
+    .sort((a, b) => b.percentage - a.percentage || a.brandName.localeCompare(b.brandName, "ar"));
+
   return {
     range,
     surveyResults: includedSurveys.sort((a, b) => String(a.surveyDate).localeCompare(String(b.surveyDate))),
@@ -77,6 +93,7 @@ export function buildDailyReportData(
       eventsCount: includedEvents.length,
       photosCount: includedSurveys.reduce((count, result) => count + surveyPhotoUris(result).length, 0),
     },
+    brandPresence,
   };
 }
 
@@ -86,11 +103,11 @@ async function imageDataUri(uri?: string): Promise<string | null> {
 
 function productsHtml(result: SurveyResult): string {
   const products = Array.isArray(result.data) ? result.data : [];
-  if (!products.length) return "<p class=\"muted\">لا توجد بيانات منتجات محفوظة لهذا الاستبيان.</p>";
-  return `<table><thead><tr><th>المنتج</th><th>الحالة</th><th>التواجد</th>${result.hasProductPrice ? "<th>السعر</th>" : ""}</tr></thead><tbody>${products.map((product) => `<tr><td>${escapeHtml(product.productName)}</td><td><span class=\"${product.present ? "present" : "missing"}\">${product.present ? "موجود" : "غير موجود"}</span></td><td>${result.hasShelfPercentage ? `${Math.round(product.shelfPercentage || 0)}%` : "—"}</td>${result.hasProductPrice ? `<td>${product.price ?? "—"}</td>` : ""}</tr>`).join("")}</tbody></table>`;
+  if (!products.length) return '<p class="muted">لا توجد بيانات منتجات محفوظة لهذا الاستبيان.</p>';
+  return `<table><thead><tr><th>المنتج</th><th>الحالة</th><th>التواجد</th>${result.hasProductPrice ? "<th>السعر</th>" : ""}</tr></thead><tbody>${products.map((product) => `<tr><td>${escapeHtml(product.productName)}</td><td><span class="${product.present ? "present" : "missing"}">${product.present ? "موجود" : "غير موجود"}</span></td><td>${result.hasShelfPercentage ? `${Math.round(product.shelfPercentage || 0)}%` : "—"}</td>${result.hasProductPrice ? `<td>${product.price ?? "—"}</td>` : ""}</tr>`).join("")}</tbody></table>`;
 }
 
-async function storeDetailHtml(result: SurveyResult, index: number, includeMedia: boolean, onMediaPrepared?: () => void): Promise<string> {
+async function storeDetailHtml(result: SurveyResult, index: number, includeMedia: boolean, settings: DailyReportSettings, onMediaPrepared?: () => void): Promise<string> {
   const photos: string[] = [];
   if (includeMedia) {
     for (const uri of surveyPhotoUris(result)) {
@@ -99,27 +116,43 @@ async function storeDetailHtml(result: SurveyResult, index: number, includeMedia
       onMediaPrepared?.();
     }
   }
-  const answers = result.questions?.length ? `<div class=\"notes\"><strong>إجابات الأسئلة</strong>${result.questions.map((question) => `<p><b>${escapeHtml(question.question)}:</b> ${escapeHtml(question.answer)}</p>`).join("")}</div>` : "";
-  const notes = result.notes ? `<div class=\"notes\"><strong>${result.noteType || "ملاحظات"}</strong><p>${escapeHtml(result.notes)}</p></div>` : "";
+  const answers = settings.includeQuestionAnswers && result.questions?.length ? `<div class="notes"><strong>إجابات الأسئلة</strong>${result.questions.map((question) => `<p><b>${escapeHtml(question.question)}:</b> ${escapeHtml(question.answer)}</p>`).join("")}</div>` : "";
+  const notes = settings.includeNotes && result.notes ? `<div class="notes"><strong>${result.noteType || "ملاحظات"}</strong><p>${escapeHtml(result.notes)}</p></div>` : "";
   const photosHtml = photos.length ? `<div class="store-photos" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px">${photos.map((photo, photoIndex) => `<img class="store-photo" style="display:block;width:100%;height:180px;margin:0;object-fit:cover" src="${photo}" alt="صورة المحل ${photoIndex + 1}"/>`).join("")}</div>` : "";
-  return `<section class="store"><div class="store-heading"><div><span class="store-number">${index + 1}</span><h2>${escapeHtml(result.storeName)}</h2></div><p>${escapeHtml(result.storeRegion || "بدون منطقة")} • ${formatDate(result.surveyDate)}</p></div>${photosHtml}<div class="survey-meta"><span>الاستبيان: ${escapeHtml(result.templateName)}</span>${result.cycleName ? `<span>الدورة: ${escapeHtml(result.cycleName)}</span>` : ""}${result.totalShelves ? `<span>رفوف المحل: ${result.totalShelves}</span>` : ""}</div>${productsHtml(result)}${answers}${notes}</section>`;
+  const storeHeading = `<div class="store-heading"><div><span class="store-number">${index + 1}</span><h2>${escapeHtml(result.storeName)}</h2></div><p>${escapeHtml(result.storeRegion || "بدون منطقة")} • ${formatDate(result.surveyDate)}</p></div>`;
+  const surveyMeta = settings.includeSurveyMeta ? `<div class="survey-meta"><span>الاستبيان: ${escapeHtml(result.templateName)}</span>${result.cycleName ? `<span>الدورة: ${escapeHtml(result.cycleName)}</span>` : ""}${result.totalShelves ? `<span>رفوف المحل: ${result.totalShelves}</span>` : ""}</div>` : "";
+  const detailBody = `${surveyMeta}${settings.includeProductTable ? productsHtml(result) : ""}${answers}${notes}`;
+  return `<section class="store">${storeHeading}${settings.storeInfoPosition === "afterPhotos" ? `${photosHtml}${detailBody}` : `${detailBody}${photosHtml}`}</section>`;
+}
+
+function brandPresenceHtml(brandPresence: DailyReportBrandPresence[]): string {
+  if (!brandPresence.length) return "";
+  return `<section class="brand-summary"><h2>نسب التواجد بحسب الماركة</h2><div class="brand-grid">${brandPresence.map((brand) => `<div class="brand-item"><b>${Math.round(brand.percentage)}%</b><span>${escapeHtml(brand.brandName)}</span><small>${brand.presentCount} من ${brand.totalCount} ظهوراً</small></div>`).join("")}</div></section>`;
 }
 
 async function buildDailyReportHtml(report: DailyReportData, options: DailyReportExportOptions = {}, onMediaPrepared?: (completed: number) => void): Promise<string> {
   const includeMedia = options.includeMedia !== false;
+  const reportSettings = normalizeDailyReportSettings(options.settings || DEFAULT_DAILY_REPORT_SETTINGS);
   const logoMarkup = pdfLogoMarkup(await loadSharedPdfReportLogo());
   const details: string[] = [];
   let preparedMedia = 0;
-  for (const [index, result] of report.surveyResults.entries()) details.push(await storeDetailHtml(result, index, includeMedia, () => { preparedMedia += 1; onMediaPrepared?.(preparedMedia); }));
-  const eventHtml = report.events.length ? `<section class=\"events\"><h2>الفعاليات المنفذة</h2>${report.events.map((event) => `<div class=\"event\"><b>${escapeHtml(event.title || "فعالية")}</b><span>${formatDate(event.eventDate || event.createdAt)}${event.region ? ` • ${escapeHtml(event.region)}` : ""}</span>${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}</div>`).join("")}</section>` : "";
+  if (reportSettings.includeStoreDetails) {
+    for (const [index, result] of report.surveyResults.entries()) {
+      details.push(await storeDetailHtml(result, index, includeMedia, reportSettings, () => { preparedMedia += 1; onMediaPrepared?.(preparedMedia); }));
+    }
+  }
+  const eventHtml = reportSettings.includeEvents && report.events.length ? `<section class="events"><h2>الفعاليات المنفذة</h2>${report.events.map((event) => `<div class="event"><b>${escapeHtml(event.title || "فعالية")}</b><span>${formatDate(event.eventDate || event.createdAt)}${event.region ? ` • ${escapeHtml(event.region)}` : ""}</span>${event.description ? `<p>${escapeHtml(event.description)}</p>` : ""}</div>`).join("")}</section>` : "";
   const summary = report.summary;
-  const executive = `<section class=\"executive\"><h2>الملخص التنفيذي</h2><p>خلال الفترة المحددة، شملت الأعمال الميدانية زيارة <b>${summary.storesVisited}</b> محل${summary.storesVisited === 1 ? "" : "اً"} عبر <b>${summary.regionsVisited.length}</b> منطقة، وتنفيذ <b>${summary.surveyResults}</b> استبيان${summary.surveyResults === 1 ? "" : "اً"}${summary.eventsCount ? ` وتنفيذ <b>${summary.eventsCount}</b> فعالية` : ""}. ${summary.regionsVisited.length ? `المناطق المغطاة: ${escapeHtml(summary.regionsVisited.join("، "))}.` : "لا توجد زيارات ميدانية ضمن هذه الفترة."}</p></section>`;
-  const base = `<!DOCTYPE html><html lang=\"ar\" dir=\"rtl\"><head><meta charset=\"utf-8\"/><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{direction:rtl;font-family:Tahoma,Arial,sans-serif;color:#172033;font-size:11px;line-height:1.7}.report-head{background:linear-gradient(135deg,#1455b8,#1d6cd1);color:#fff;border-radius:16px;padding:22px;margin-bottom:18px}.report-head h1{font-size:25px;margin:0 0 5px}.report-head p{margin:0;color:#dbeafe}.metrics{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.metric{flex:1;min-width:112px;border:1px solid #dbe7f6;border-radius:11px;padding:10px;background:#f8fbff;text-align:center}.metric b{display:block;font-size:21px;color:#1455b8}.metric span{font-size:10px;color:#64748b}.store,.events,.executive{break-inside:avoid;border:1px solid #e1e8f2;border-radius:14px;padding:14px;margin-top:14px}.store-heading{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #e8eef7;padding-bottom:8px}.store-heading h2,.events h2,.executive h2{margin:0;color:#1455b8;font-size:16px}.store-heading p{margin:0;color:#64748b;font-size:10px}.store-number{display:inline-flex;width:23px;height:23px;border-radius:12px;justify-content:center;align-items:center;background:#1455b8;color:#fff;margin-left:7px}.store-photo{display:block;max-width:100%;max-height:220px;margin:12px auto;border-radius:10px;object-fit:cover}.survey-meta{display:flex;gap:9px;flex-wrap:wrap;padding:10px 0;color:#475569;font-size:10px}.survey-meta span{background:#eff6ff;border-radius:8px;padding:3px 7px}table{width:100%;border-collapse:collapse;margin-top:6px}th{background:#1455b8;color:#fff}th,td{padding:7px;border-bottom:1px solid #e5edf7;text-align:right}.present{color:#15803d;font-weight:bold}.missing{color:#dc2626;font-weight:bold}.notes{margin-top:10px;padding:10px;border-right:3px solid #60a5fa;background:#f8fbff}.notes p{margin:4px 0}.event{padding:10px 0;border-bottom:1px solid #e5edf7}.event span{display:block;font-size:10px;color:#64748b}.event p{margin:4px 0}.executive{background:#eff6ff;border-color:#bfdbfe}.muted{color:#64748b}@media print{.store{break-inside:avoid}}</style></head><body><header class=\"report-head\"><h1>التقرير اليومي الميداني</h1><p>الفترة: ${dateLabel(report.range)} • تاريخ الإنشاء: ${formatDate(new Date().toISOString())}</p></header><section class=\"metrics\"><div class=\"metric\"><b>${summary.storesVisited}</b><span>محلات مزارة</span></div><div class=\"metric\"><b>${summary.surveyResults}</b><span>استبيانات منفذة</span></div><div class=\"metric\"><b>${summary.regionsVisited.length}</b><span>مناطق مغطاة</span></div><div class=\"metric\"><b>${summary.eventsCount}</b><span>فعاليات</span></div><div class=\"metric\"><b>${summary.photosCount}</b><span>صور محلات</span></div></section><h2>تفاصيل المحلات والاستبيانات</h2>${details.join("") || "<p class=\"muted\">لا توجد استبيانات ضمن الفترة المحددة.</p>"}${eventHtml}${executive}</body></html>`;
+  const executive = reportSettings.includeExecutiveSummary ? `<section class="executive"><h2>الملخص التنفيذي</h2><p>خلال الفترة المحددة، شملت الأعمال الميدانية زيارة <b>${summary.storesVisited}</b> محل${summary.storesVisited === 1 ? "" : "اً"} عبر <b>${summary.regionsVisited.length}</b> منطقة، وتنفيذ <b>${summary.surveyResults}</b> استبيان${summary.surveyResults === 1 ? "" : "اً"}${summary.eventsCount ? ` وتنفيذ <b>${summary.eventsCount}</b> فعالية` : ""}. ${summary.regionsVisited.length ? `المناطق المغطاة: ${escapeHtml(summary.regionsVisited.join("، "))}.` : "لا توجد زيارات ميدانية ضمن هذه الفترة."}</p></section>` : "";
+  const metrics = reportSettings.includeMetrics ? `<section class="metrics"><div class="metric"><b>${summary.storesVisited}</b><span>محلات مزارة</span></div><div class="metric"><b>${summary.surveyResults}</b><span>استبيانات منفذة</span></div><div class="metric"><b>${summary.regionsVisited.length}</b><span>مناطق مغطاة</span></div><div class="metric"><b>${summary.eventsCount}</b><span>فعاليات</span></div><div class="metric"><b>${summary.photosCount}</b><span>صور محلات</span></div></section>` : "";
+  const storesHtml = reportSettings.includeStoreDetails ? `<h2>تفاصيل المحلات والاستبيانات</h2>${details.join("") || '<p class="muted">لا توجد استبيانات ضمن الفترة المحددة.</p>'}` : "";
+  const brandsHtml = reportSettings.includeBrandPresenceSummary ? brandPresenceHtml(report.brandPresence) : "";
+  const base = `<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/><style>@page{size:A4;margin:12mm}*{box-sizing:border-box}body{direction:rtl;font-family:Tahoma,Arial,sans-serif;color:#172033;font-size:11px;line-height:1.7}.report-head{background:linear-gradient(135deg,#1455b8,#1d6cd1);color:#fff;border-radius:16px;padding:22px;margin-bottom:18px}.report-head h1{font-size:25px;margin:0 0 5px}.report-head p{margin:0;color:#dbeafe}.metrics{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.metric{flex:1;min-width:112px;border:1px solid #dbe7f6;border-radius:11px;padding:10px;background:#f8fbff;text-align:center}.metric b{display:block;font-size:21px;color:#1455b8}.metric span{font-size:10px;color:#64748b}.store,.events,.executive,.brand-summary{break-inside:avoid;border:1px solid #e1e8f2;border-radius:14px;padding:14px;margin-top:14px}.store-heading{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #e8eef7;padding-bottom:8px}.store-heading h2,.events h2,.executive h2,.brand-summary h2{margin:0;color:#1455b8;font-size:16px}.store-heading p{margin:0;color:#64748b;font-size:10px}.store-number{display:inline-flex;width:23px;height:23px;border-radius:12px;justify-content:center;align-items:center;background:#1455b8;color:#fff;margin-left:7px}.store-photo{display:block;max-width:100%;max-height:220px;margin:12px auto;border-radius:10px;object-fit:cover}.survey-meta{display:flex;gap:9px;flex-wrap:wrap;padding:10px 0;color:#475569;font-size:10px}.survey-meta span{background:#eff6ff;border-radius:8px;padding:3px 7px}table{width:100%;border-collapse:collapse;margin-top:6px}th{background:#1455b8;color:#fff}th,td{padding:7px;border-bottom:1px solid #e5edf7;text-align:right}.present{color:#15803d;font-weight:bold}.missing{color:#dc2626;font-weight:bold}.notes{margin-top:10px;padding:10px;border-right:3px solid #60a5fa;background:#f8fbff}.notes p{margin:4px 0}.event{padding:10px 0;border-bottom:1px solid #e5edf7}.event span{display:block;font-size:10px;color:#64748b}.event p{margin:4px 0}.executive{background:#eff6ff;border-color:#bfdbfe}.brand-summary{background:#f8fbff;border-color:#dbe7f6}.brand-grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.brand-item{flex:1;min-width:120px;border:1px solid #dbe7f6;border-radius:10px;padding:9px;background:#fff;text-align:center}.brand-item b{display:block;color:#1455b8;font-size:18px}.brand-item span{display:block;font-weight:bold;font-size:11px}.brand-item small{display:block;color:#64748b;font-size:9px;margin-top:3px}.muted{color:#64748b}@media print{.store{break-inside:avoid}}</style></head><body><header class="report-head"><h1>التقرير اليومي الميداني</h1><p>الفترة: ${dateLabel(report.range)} • تاريخ الإنشاء: ${formatDate(new Date().toISOString())}</p></header>${metrics}${brandsHtml}${storesHtml}${eventHtml}${executive}</body></html>`;
   const mediaMetric = `<div class="metric"><b>${summary.photosCount}</b><span>صور محلات</span></div>`;
-  const reportWithLogo = base.replace(".report-head h1", ".shared-report-logo{float:left;width:52px;height:52px;object-fit:contain;border-radius:11px;background:#fff;padding:4px}.report-head h1").replace("<header class=\"report-head\"><h1>", `<header class="report-head">${logoMarkup}<h1>`);
+  const reportWithLogo = base.replace(".report-head h1", ".shared-report-logo{float:left;width:52px;height:52px;object-fit:contain;border-radius:11px;background:#fff;padding:4px}.report-head h1").replace('<header class="report-head"><h1>', `<header class="report-head">${logoMarkup}<h1>`);
   const reportWithoutMediaMetric = includeMedia ? reportWithLogo : reportWithLogo.replace(mediaMetric, "");
-  const settings = await loadAppSettings();
-  return applyPdfReportTemplate(reportWithoutMediaMetric, settings.pdfTemplate, "التقرير اليومي الميداني", settings.pdfCustomization);
+  const appSettings = await loadAppSettings();
+  return applyPdfReportTemplate(reportWithoutMediaMetric, appSettings.pdfTemplate, "التقرير اليومي الميداني", appSettings.pdfCustomization);
 }
 
 async function destination(): Promise<{ uri: string; safeFilename: string }> {
@@ -131,12 +164,13 @@ async function destination(): Promise<{ uri: string; safeFilename: string }> {
 }
 
 export async function loadDailyReport(range: DailyReportDateRange): Promise<DailyReportData> {
-  const [surveyResults, events, stores] = await Promise.all([
+  const [surveyResults, events, stores, products] = await Promise.all([
     getItems<SurveyResult>(STORAGE_KEYS.SURVEY_RESULTS),
     getItems<any>(STORAGE_KEYS.EVENTS),
     getItems<{ id: string; region?: string }>(STORAGE_KEYS.STORES),
+    getItems<{ id: string; brandName?: string; competitorName?: string; name?: string }>(STORAGE_KEYS.PRODUCTS),
   ]);
-  return buildDailyReportData(range, surveyResults, events, stores);
+  return buildDailyReportData(range, surveyResults, events, stores, products);
 }
 
 export async function exportDailyReportPdf(report: DailyReportData, options: DailyReportExportOptions = {}): Promise<void> {

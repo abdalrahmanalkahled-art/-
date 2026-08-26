@@ -50,4 +50,19 @@ describe("التقرير اليومي", () => {
 
     expect(report.summary.photosCount).toBe(2);
   });
+
+  it("يحسب نسبة التواجد المجمعة للماركات من إجابات الاستبيانات", () => {
+    const report = buildDailyReportData(
+      { startDate: "2026-08-10", endDate: "2026-08-10" },
+      [{ id: "r1", storeId: "s1", storeName: "محل النور", storeRegion: "الشمال", surveyDate: "2026-08-10", createdAt: "2026-08-10", templateId: "t", templateName: "دراسة", data: [{ productId: "p1", productName: "مسحوق أ", present: true }, { productId: "p2", productName: "مسحوق ب", present: false }, { productId: "p3", productName: "حليب", present: true }] }] as any,
+      [],
+      [],
+      [{ id: "p1", brandName: "ماركة أ" }, { id: "p2", brandName: "ماركة أ" }, { id: "p3", brandName: "ماركة ب" }],
+    );
+
+    expect(report.brandPresence).toEqual([
+      { brandName: "ماركة ب", presentCount: 1, totalCount: 1, percentage: 100 },
+      { brandName: "ماركة أ", presentCount: 1, totalCount: 2, percentage: 50 },
+    ]);
+  });
 });
