@@ -1,6 +1,7 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -29,6 +30,10 @@ import { AUTH_CHECK_TIMEOUT_MS, shouldShowLoading } from "@/lib/auth-loading";
 // التخطيط البصري LTR في الهاتف والمعاينة، مع إبقاء النصوص العربية بمحاذاتها المحددة داخل مكوّناتها.
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
+
+if (Platform.OS !== "web") {
+  SplashScreen.setOptions({ duration: 280, fade: true });
+}
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
