@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ScreenContainer } from "@/components/screen-container";
@@ -29,6 +29,7 @@ export default function MoreScreen() {
   const colors = useColors();
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const { user, dispatch } = useApp();
+  const routeParams = useLocalSearchParams<{ module?: string }>();
   const canViewWarehouse = useHasPermission("warehouse");
   const canViewExpenses = useHasPermission("expenses");
   const canViewGoals = useHasPermission("goals");
@@ -42,6 +43,7 @@ export default function MoreScreen() {
   const [moduleOpened, setModuleOpened] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: screenWidth, height: screenHeight });
   const cardRefs = useRef<Partial<Record<MoreModuleId, View | null>>>({});
+  const handledModuleRequest = useRef<string | null>(null);
   const expansion = useRef(new Animated.Value(0)).current;
   const contentReveal = useRef(new Animated.Value(18)).current;
 
@@ -64,7 +66,7 @@ export default function MoreScreen() {
   const modules = MORE_MODULES.filter((module) => moduleAccess[module.id]);
   const activeModuleInfo = activeModule ? MORE_MODULES.find((module) => module.id === activeModule) : null;
 
-  const openModule = (moduleId: MoreModuleId) => {
+  const openModule = useCallback((moduleId: MoreModuleId) => {
     const card = cardRefs.current[moduleId];
     if (!card) return;
 
@@ -96,7 +98,20 @@ export default function MoreScreen() {
         });
       });
     });
-  };
+  }, [contentReveal, expansion]);
+
+  useEffect(() => {
+    const requestedModule = typeof routeParams.module === "string" ? routeParams.module : "";
+    if (!requestedModule || activeModule || handledModuleRequest.current === requestedModule) return;
+    if (!modules.some((module) => module.id === requestedModule)) return;
+    const timeout = setTimeout(() => {
+      const moduleId = requestedModule as MoreModuleId;
+      if (!cardRefs.current[moduleId]) return;
+      handledModuleRequest.current = requestedModule;
+      openModule(moduleId);
+    }, 80);
+    return () => clearTimeout(timeout);
+  }, [activeModule, modules, openModule, routeParams.module]);
 
   const closeModule = () => {
     if (!activeModule) return;
@@ -159,8 +174,13 @@ export default function MoreScreen() {
           <View style={[styles.userAvatar, { backgroundColor: "rgba(255,255,255,0.3)" }]}>{user?.avatarUri ? <Image source={{ uri: user.avatarUri }} style={styles.userAvatarImage} /> : <Text style={styles.userAvatarText}>{user?.name?.[0] || "م"}</Text>}</View>
         </View>
 
+        <TouchableOpacity style={[styles.searchEntry, { backgroundColor: colors.surface, borderColor: colors.primary + "2E" }]} activeOpacity={0.78} onPress={() => router.push("/search" as any)}>
+          <View style={[styles.searchEntryIcon, { backgroundColor: colors.primary + "14" }]}><MaterialIcons name="search" size={22} color={colors.primary} /></View>
+          <View style={styles.searchEntryCopy}><Text style={[styles.searchEntryTitle, { color: colors.foreground }]}>بحث في التطبيق</Text><Text style={[styles.searchEntrySubtitle, { color: colors.muted }]}>المحلات والفعاليات والمنتجات والتقارير…</Text></View>
+          <MaterialIcons name="chevron-left" size={22} color={colors.muted} />
+        </TouchableOpacity>
+
         <View style={styles.modulesSection}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>الوحدات</Text>
           <View style={styles.modulesGrid}>
             {modules.map((module) => (
               <TouchableOpacity
@@ -219,7 +239,8 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "700" as any }, scroll: { flex: 1 },
   userCard: { margin: 16, borderRadius: 16, padding: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, userInfo: { flex: 1 }, userName: { fontSize: 20, fontWeight: "800" as any, color: "#fff" }, userRole: { fontSize: 13, color: "rgba(255,255,255,0.8)", marginBottom: 4 }, userAvatar: { width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" },   userAvatarImage: { width: "100%", height: "100%" },
   userAvatarText: { fontSize: 22, fontWeight: "800" as any, color: "#fff" },
-  modulesSection: { paddingHorizontal: 16, marginBottom: 16 }, sectionTitle: { fontSize: 16, fontWeight: "700" as any, textAlign: "right", marginBottom: 12 }, modulesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, moduleCard: { width: "47%", borderRadius: 16, padding: 16, borderWidth: 1, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, moduleIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 10 }, moduleTitle: { fontSize: 14, fontWeight: "700" as any, textAlign: "center", marginBottom: 4 }, moduleSubtitle: { fontSize: 11, textAlign: "center" },
+  searchEntry: { minHeight: 68, marginHorizontal: 16, marginBottom: 13, borderWidth: 1, borderRadius: 17, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10 }, searchEntryIcon: { width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center" }, searchEntryCopy: { flex: 1, alignItems: "flex-end" }, searchEntryTitle: { fontSize: 14, fontWeight: "800" as any, textAlign: "right" }, searchEntrySubtitle: { fontSize: 10, marginTop: 3, textAlign: "right" },
+  modulesSection: { paddingHorizontal: 16, marginBottom: 16 }, modulesGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, moduleCard: { width: "47%", borderRadius: 16, padding: 16, borderWidth: 1, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 }, moduleIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 10 }, moduleTitle: { fontSize: 14, fontWeight: "700" as any, textAlign: "center", marginBottom: 4 }, moduleSubtitle: { fontSize: 11, textAlign: "center" },
   settingsSection: { marginHorizontal: 16, borderRadius: 16, borderWidth: 1, overflow: "hidden", marginBottom: 16 }, settingsItem: { flexDirection: "row", alignItems: "center", padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 }, settingsText: { flex: 1, fontSize: 15, fontWeight: "500" as any, textAlign: "right" }, bottomPadding: { height: 30 },
   transitionCanvas: { flex: 1 }, expandingCard: { position: "absolute", borderWidth: 1, elevation: 14 }, expandingHero: { position: "absolute", alignItems: "center", justifyContent: "center", zIndex: 1 }, expandedPage: { ...StyleSheet.absoluteFillObject }, moduleModalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 16, borderBottomWidth: StyleSheet.hairlineWidth }, moduleModalTitle: { fontSize: 17, fontWeight: "700" as any }, headerSpacer: { width: 24 }, moduleHero: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth }, moduleHeroIcon: { width: 46, height: 46, borderRadius: 15, alignItems: "center", justifyContent: "center" }, moduleHeroText: { flex: 1, alignItems: "flex-end" }, moduleHeroTitle: { fontSize: 16, fontWeight: "800" as any, textAlign: "right" }, moduleHeroSubtitle: { fontSize: 11, marginTop: 3, textAlign: "right" }, moduleCloseButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" }, moduleContent: { flex: 1 },
 });

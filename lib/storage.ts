@@ -119,6 +119,20 @@ export async function getItems<T>(key: string): Promise<T[]> {
   }
 }
 
+/** يقرأ مجموعات محلية متعددة في دفعة واحدة مع حماية كل قيمة تالفة أو غير قائمة. */
+export async function getItemsForKeys<T>(keys: string[]): Promise<Record<string, T[]>> {
+  const entries = await AsyncStorage.multiGet(keys);
+  return Object.fromEntries(entries.map(([key, raw]) => {
+    if (!raw) return [key, []];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      return [key, Array.isArray(parsed) ? parsed as T[] : []];
+    } catch {
+      return [key, []];
+    }
+  }));
+}
+
 export async function saveItems<T>(key: string, items: T[]): Promise<void> {
   await AsyncStorage.setItem(key, JSON.stringify(items));
 }
