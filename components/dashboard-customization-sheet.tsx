@@ -25,6 +25,8 @@ const SECTION_OPTIONS: Option<DashboardSectionId>[] = [
   { id: "metrics", title: "المؤشرات الأساسية", subtitle: "الفعاليات والمحلات والاستبيانات والتواجد", icon: "insights", color: "#7C3AED" },
   { id: "charts", title: "مخططات المتابعة", subtitle: "عرض المخططات التي تختارها أدناه", icon: "show-chart", color: "#0E9F6E" },
   { id: "alerts", title: "تنبيهات اليوم", subtitle: "المخزون والمهام والفعاليات", icon: "notifications-active", color: "#D97706" },
+  { id: "fieldPriority", title: "أولوية اليوم", subtitle: "المتابعات التسويقية وفجوات التغطية", icon: "priority-high", color: "#DC2626" },
+  { id: "coverage", title: "تغطية المناطق", subtitle: "المناطق التي تحتاج زيارة ميدانية", icon: "map", color: "#7C3AED" },
   { id: "quickActions", title: "إجراءات سريعة", subtitle: "اختصارات الإدخال الميداني", icon: "bolt", color: "#DB2777" },
   { id: "goals", title: "الأولويات والأهداف", subtitle: "تقدم الخطة التسويقية", icon: "flag", color: "#0891B2" },
   { id: "activity", title: "آخر النشاطات", subtitle: "الزيارات والفعاليات الأخيرة", icon: "history", color: "#64748B" },

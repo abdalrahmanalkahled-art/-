@@ -1,4 +1,4 @@
-export const DASHBOARD_SECTION_IDS = ["dailyFocus", "metrics", "charts", "alerts", "quickActions", "goals", "activity"] as const;
+export const DASHBOARD_SECTION_IDS = ["dailyFocus", "metrics", "charts", "alerts", "fieldPriority", "coverage", "quickActions", "goals", "activity"] as const;
 export const DASHBOARD_CHART_IDS = ["presence", "activity"] as const;
 export const DASHBOARD_QUICK_ACTION_IDS = ["survey", "event", "store", "dailyReport"] as const;
 
@@ -14,7 +14,7 @@ export interface DashboardSettings {
 }
 
 export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
-  enabledSections: ["dailyFocus", "metrics", "charts", "alerts", "quickActions", "goals", "activity"],
+  enabledSections: ["dailyFocus", "metrics", "charts", "alerts", "fieldPriority", "coverage", "quickActions", "goals", "activity"],
   enabledCharts: ["presence", "activity"],
   enabledQuickActions: ["survey", "event", "store", "dailyReport"],
 };

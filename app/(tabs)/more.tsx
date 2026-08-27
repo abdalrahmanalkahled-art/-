@@ -62,6 +62,7 @@ export default function MoreScreen() {
     products: canViewProducts,
     brands_regions: canViewProducts,
     analytics: canViewAnalytics,
+    "field-intelligence": canViewAnalytics,
   };
   const modules = MORE_MODULES.filter((module) => moduleAccess[module.id]);
   const activeModuleInfo = activeModule ? MORE_MODULES.find((module) => module.id === activeModule) : null;

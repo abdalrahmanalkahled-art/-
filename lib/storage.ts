@@ -213,4 +213,10 @@ export const STORAGE_KEYS = {
   MARKET_VISIT_REPORT_TEMPLATES: "madar_market_visit_report_templates",
   MARKET_VISIT_REPORT_SETTINGS: "madar_market_visit_report_settings",
   EXTERNAL_ANALYTICS_PACKAGES: "madar_external_analytics_packages",
+  FIELD_COMPETITOR_OBSERVATIONS: "madar_field_competitor_observations",
+  FIELD_EXECUTION_ASSESSMENTS: "madar_field_execution_assessments",
+  FIELD_CHECKLIST_RUNS: "madar_field_checklist_runs",
+  FIELD_VISIT_DRAFTS: "madar_field_visit_drafts",
+  SEARCH_RECENTS: "madar_search_recents",
+  SURVEY_DRAFTS: "madar_survey_drafts",
 };

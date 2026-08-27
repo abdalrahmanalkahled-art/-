@@ -27,6 +27,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useHasPermission } from "@/lib/app-context";
 import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { deleteSurveyCycleMedia, deleteSurveyResultCascade, deleteSurveyTemplateCascade, loadSurveyScreenData, saveSurveyTemplateWithActiveCycleSync } from "@/lib/survey-storage";
+import { clearSurveyDraft, loadSurveyDraft, saveSurveyDraft, surveyDraftId } from "@/lib/survey-draft";
 import { SurveyAnalyticsModule } from "@/components/modules/survey-analytics-module";
 import { ReportFab } from "@/components/report-fab";
 import { usePaginatedData } from "@/hooks/use-paginated-data";
@@ -127,6 +128,7 @@ export default function SurveysScreen() {
   const [storePhotoUris, setStorePhotoUris] = useState<string[]>([]);
   const [surveyNotes, setSurveyNotes] = useState("");
   const [surveyNoteType, setSurveyNoteType] = useState<SurveyNoteType>("positive");
+  const restoredSurveyDraftId = useRef<string | null>(null);
   
   // Edit Template Modal
   const [showEditModal, setShowEditModal] = useState(false);
@@ -461,6 +463,7 @@ export default function SurveysScreen() {
 
   // Use Template
   const handleStartSurvey = useCallback((template: SurveyTemplate) => {
+    restoredSurveyDraftId.current = null;
     setSelectedTemplate(template);
     setSelectedStore(null);
     setSurveyData(new Map());
@@ -512,6 +515,32 @@ export default function SurveysScreen() {
     }
     setSelectedStore(store);
   };
+
+  useEffect(() => {
+    if (!showUseModal || isEditingResult || !selectedTemplate || !selectedStore) return;
+    const id = surveyDraftId(selectedTemplate.id, selectedStore.id);
+    if (restoredSurveyDraftId.current === id) return;
+    restoredSurveyDraftId.current = id;
+    void loadSurveyDraft(selectedTemplate.id, selectedStore.id).then((draft) => {
+      if (!draft) return;
+      setSurveyData(new Map(draft.surveyData));
+      setNumericDrafts(new Map(draft.numericDrafts));
+      setTotalShelves(draft.totalShelves);
+      setStorePhotoUris(draft.storePhotoUris);
+      setSurveyNotes(draft.notes);
+      setSurveyNoteType(draft.noteType);
+    });
+  }, [isEditingResult, selectedStore, selectedTemplate, showUseModal]);
+
+  useEffect(() => {
+    if (!showUseModal || isEditingResult || !selectedTemplate || !selectedStore) return;
+    const id = surveyDraftId(selectedTemplate.id, selectedStore.id);
+    if (restoredSurveyDraftId.current !== id) return;
+    const timer = setTimeout(() => {
+      void saveSurveyDraft({ templateId: selectedTemplate.id, storeId: selectedStore.id, surveyData: [...surveyData.entries()], numericDrafts: [...numericDrafts.entries()], totalShelves, storePhotoUris, notes: surveyNotes, noteType: surveyNoteType });
+    }, 650);
+    return () => clearTimeout(timer);
+  }, [isEditingResult, numericDrafts, selectedStore, selectedTemplate, showUseModal, storePhotoUris, surveyData, surveyNoteType, surveyNotes, totalShelves]);
 
   const requestCloseSurveyCycle = (template: SurveyTemplate) => {
     setTemplateToCloseCycle(template);
@@ -669,6 +698,7 @@ export default function SurveysScreen() {
       })();
     }
 
+    if (!isEditingResult) await clearSurveyDraft(selectedTemplate.id, selectedStore.id);
     setShowSurveySuccess(true);
     setShowUseModal(false);
     setSurveyData(new Map());

@@ -1,5 +1,5 @@
 import { getReportHistory } from "./report-history";
-import { getItemsForKeys, STORAGE_KEYS } from "./storage";
+import { getItems, getItemsForKeys, saveItems, STORAGE_KEYS } from "./storage";
 import type { PermissionModule } from "./user-permissions-model";
 
 export type SearchCategory = "field" | "planning" | "management" | "reports";
@@ -169,3 +169,16 @@ export function searchGlobalIndex(index: GlobalSearchResult[], query: string, ca
   if (normalizedQuery.length < 2) return [];
   return index.filter((result) => (category === "all" || result.category === category) && result.searchText.includes(normalizedQuery)).slice(0, limit);
 }
+
+export async function getRecentSearches(): Promise<RecentSearch[]> { return getItems<RecentSearch>(STORAGE_KEYS.SEARCH_RECENTS); }
+
+export async function recordRecentSearch(query: string): Promise<RecentSearch[]> {
+  const normalized = query.trim();
+  if (normalizeSearchText(normalized).length < 2) return getRecentSearches();
+  const previous = await getRecentSearches();
+  const next = [{ query: normalized, usedAt: new Date().toISOString() }, ...previous.filter((item) => normalizeSearchText(item.query) !== normalizeSearchText(normalized))].slice(0, 5);
+  await saveItems(STORAGE_KEYS.SEARCH_RECENTS, next);
+  return next;
+}
+
+export interface RecentSearch { query: string; usedAt: string; }

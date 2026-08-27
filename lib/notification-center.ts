@@ -22,6 +22,7 @@ interface DashboardNotificationSource {
   maintenanceTools: { id: string; name: string; condition: string }[];
   roadsideContracts?: RoadsideContract[];
   roadsideReminderDays?: number;
+  fieldPriorities?: { id: string; title: string; description: string; severity: "high" | "medium" | "low" }[];
 }
 
 const MAX_NOTIFICATIONS = 100;
@@ -95,6 +96,7 @@ export function buildDashboardNotifications(source: DashboardNotificationSource,
         isRead: false, targetRoute: "/roadside-contract-details", targetId: contract.id,
       }];
     }),
+    ...(source.fieldPriorities || []).filter((item) => item.severity !== "low").map((item) => ({ id: createNotificationId("system", item.id), type: "system" as const, title: item.title, message: item.description, createdAt, isRead: false, targetRoute: "/(tabs)/more", targetId: item.id })),
   ];
   return alerts;
 }
