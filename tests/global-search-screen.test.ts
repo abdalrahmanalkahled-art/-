@@ -16,6 +16,8 @@ describe("بطاقة البحث الموحد", () => {
     const model = source("lib/global-search.ts");
     expect(screen).toContain("ابحث في المحلات والفعاليات والمنتجات");
     expect(screen).toContain("searchGlobalIndex");
+    expect(screen).toContain("filtersList: { height: 42 }");
+    expect(screen).toContain("filter: { height: 34");
     expect(model).toContain("limit = 30");
   });
 });
