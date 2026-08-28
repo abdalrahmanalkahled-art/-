@@ -12,6 +12,10 @@ describe("منتقيات أدوات التنفيذ الميداني", () => {
     expect(source).toContain('openPicker(scope === "stores" ? "checklistStores" : "checklistRegions")');
     expect(source).toContain("setQuery");
     expect(source).toContain("setTargets");
+    expect(source).toContain("FieldActionMenu");
+    expect(source).toContain("إضافة رصد منافس");
+    expect(source).toContain("تقييم جودة التنفيذ");
+    expect(source).toContain("تشغيل قالب ميداني");
   });
 
   it("يحتفظ بنطاق القالب وأسماء العناصر المتعددة مع نص السجل المتوافق", () => {
