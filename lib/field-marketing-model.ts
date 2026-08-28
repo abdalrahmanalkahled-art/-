@@ -32,6 +32,8 @@ export interface FieldChecklistRun {
   templateId: string;
   templateName: string;
   subjectName: string;
+  scope?: "stores" | "regions";
+  subjectNames?: string[];
   completedItemIds: string[];
   createdAt: string;
 }
