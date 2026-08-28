@@ -16,9 +16,10 @@ describe("بطاقة البحث الموحد", () => {
     const model = source("lib/global-search.ts");
     expect(screen).toContain("ابحث في المحلات والفعاليات والمنتجات");
     expect(screen).toContain("searchGlobalIndex");
-    expect(screen).toContain("filtersList: { height: 42 }");
+    expect(screen).toContain("filtersList: { height: 42, minHeight: 42, maxHeight: 42, flexGrow: 0, flexShrink: 0, marginBottom: 0 }");
     expect(screen).toContain("filter: { height: 34");
-    expect(screen).toContain("results: { padding: 14, paddingTop: 2");
+    expect(screen).toContain("resultsList: { flex: 1, marginTop: 0 }");
+    expect(screen).toContain("results: { padding: 14, paddingTop: 0");
     expect(model).toContain("limit = 30");
   });
 });
