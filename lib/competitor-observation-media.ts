@@ -12,6 +12,16 @@ export function isCompetitorObservationMediaUri(uri?: string): boolean {
 }
 
 /** ينسخ صورة الرصد إلى مساحة دائمة مرتبطة بسجل الملاحظة. */
+export async function removeCompetitorObservationImages(uris: string[] = []): Promise<void> {
+  await Promise.all(uris.filter(isCompetitorObservationMediaUri).map(async (uri) => {
+    try {
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+    } catch {
+      // الملف قد يكون أُزيل سابقاً؛ لا نفشل حذف السجل بسبب ذلك.
+    }
+  }));
+}
+
 export async function persistCompetitorObservationImage(sourceUri: string): Promise<string> {
   const base = FileSystem.documentDirectory;
   if (!base) throw new Error("تعذر الوصول إلى مساحة صور الرصد المحلية.");
