@@ -10,15 +10,16 @@ import { useColors } from "@/hooks/use-colors";
 import { restoreFullBackup, type BackupPreview } from "@/lib/backup-restore";
 import type { FullBackupPayload } from "@/lib/full-backup";
 import type { MarketVisitReportTemplate } from "@/lib/market-visit-report-model";
-import { deleteLocalBackup, deleteStorageExternalAnalyticsPackage, deleteStorageSignageMedia, deleteStorageStorePhoto, deleteStorageTemplate, listLocalBackups, listStorageExternalAnalyticsPackages, listStorageSignageMedia, listStorageStorePhotos, listStorageTemplates, previewLocalBackup, type LocalBackupFile, type StorageDetailBucketId, type StorageExternalAnalyticsPackage, type StorageSignageMedia, type StorageStorePhoto } from "@/lib/storage-detail-manager";
+import { deleteLocalBackup, deleteStorageCompetitorObservationPhoto, deleteStorageExternalAnalyticsPackage, deleteStorageSignageMedia, deleteStorageStorePhoto, deleteStorageTemplate, listLocalBackups, listStorageCompetitorObservationPhotos, listStorageExternalAnalyticsPackages, listStorageSignageMedia, listStorageStorePhotos, listStorageTemplates, previewLocalBackup, type LocalBackupFile, type StorageCompetitorObservationPhoto, type StorageDetailBucketId, type StorageExternalAnalyticsPackage, type StorageSignageMedia, type StorageStorePhoto } from "@/lib/storage-detail-manager";
 import { formatStorageBytes } from "@/lib/storage-space-model";
 import { closeTopOverlay, useOverlayBackHandler } from "@/lib/use-overlay-back-handler";
 
-type Item = StorageStorePhoto | StorageSignageMedia | MarketVisitReportTemplate | LocalBackupFile | StorageExternalAnalyticsPackage;
-type PendingDelete = { type: "photo"; items: StorageStorePhoto[] } | { type: "signageMedia"; items: StorageSignageMedia[] } | { type: "template"; items: MarketVisitReportTemplate[] } | { type: "backup"; items: LocalBackupFile[] } | { type: "externalAnalytics"; items: StorageExternalAnalyticsPackage[] };
+type Item = StorageStorePhoto | StorageCompetitorObservationPhoto | StorageSignageMedia | MarketVisitReportTemplate | LocalBackupFile | StorageExternalAnalyticsPackage;
+type PendingDelete = { type: "photo"; items: StorageStorePhoto[] } | { type: "competitorPhoto"; items: StorageCompetitorObservationPhoto[] } | { type: "signageMedia"; items: StorageSignageMedia[] } | { type: "template"; items: MarketVisitReportTemplate[] } | { type: "backup"; items: LocalBackupFile[] } | { type: "externalAnalytics"; items: StorageExternalAnalyticsPackage[] };
 
 const DETAILS: Record<StorageDetailBucketId, { title: string; subtitle: string; icon: keyof typeof MaterialIcons.glyphMap; color: string; empty: string }> = {
   storePhotos: { title: "صور المحلات", subtitle: "صور الاستبيانات المحفوظة على هذا الجهاز", icon: "photo-library", color: "#0E9F6E", empty: "لا توجد صور محلات محفوظة حالياً." },
+  competitorPhotos: { title: "صور رصد المنافسين", subtitle: "صور الملاحظات الميدانية المرتبطة برصد المنافسين", icon: "photo-camera", color: "#2563EB", empty: "لا توجد صور رصد منافسين محفوظة حالياً." },
   signageMedia: { title: "وسائط اللوحات والستاندات", subtitle: "صور اللوحات والستاندات والأرفف والسيارات والعقود المؤرشفة", icon: "perm-media", color: "#EA580C", empty: "لا توجد وسائط أصول إعلانية محفوظة حالياً." },
   templates: { title: "قوالب زيارة السوق", subtitle: "قوالب PowerPoint المحفوظة للتقارير", icon: "slideshow", color: "#7C3AED", empty: "لا توجد قوالب زيارة سوق محفوظة حالياً." },
   backups: { title: "النسخ الاحتياطية", subtitle: "نسخ محلية من بيانات التطبيق ووسائطه", icon: "backup", color: "#0891B2", empty: "لا توجد نسخ احتياطية داخل التطبيق حالياً." },
@@ -26,7 +27,7 @@ const DETAILS: Record<StorageDetailBucketId, { title: string; subtitle: string; 
 };
 
 function isBucket(value: string | string[] | undefined): value is StorageDetailBucketId {
-  return value === "storePhotos" || value === "signageMedia" || value === "templates" || value === "backups" || value === "externalAnalytics";
+  return value === "storePhotos" || value === "competitorPhotos" || value === "signageMedia" || value === "templates" || value === "backups" || value === "externalAnalytics";
 }
 
 export default function StorageDetailsScreen() {
@@ -66,6 +67,7 @@ export default function StorageDetailsScreen() {
     setLoading(true);
     try {
       if (bucket === "storePhotos") setItems(await listStorageStorePhotos());
+      else if (bucket === "competitorPhotos") setItems(await listStorageCompetitorObservationPhotos());
       else if (bucket === "signageMedia") setItems(await listStorageSignageMedia());
       else if (bucket === "templates") setItems(await listStorageTemplates());
       else if (bucket === "externalAnalytics") setItems(await listStorageExternalAnalyticsPackages());
@@ -75,7 +77,7 @@ export default function StorageDetailsScreen() {
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const totalBytes = useMemo(() => items.reduce((total, item) => total + (typeof item.size === "number" ? item.size : 0), 0), [items]);
-  const isSelectable = bucket === "storePhotos" || bucket === "signageMedia" || bucket === "templates" || bucket === "externalAnalytics";
+  const isSelectable = bucket === "storePhotos" || bucket === "competitorPhotos" || bucket === "signageMedia" || bucket === "templates" || bucket === "externalAnalytics";
   const isSelected = (uri: string) => selectedUris.includes(uri);
   const toggleSelection = (uri: string) => setSelectedUris((current) => current.includes(uri) ? current.filter((item) => item !== uri) : [...current, uri]);
   const startSelection = (uri: string) => { if (isSelectable) { setSelectionMode(true); setSelectedUris((current) => current.includes(uri) ? current : [...current, uri]); } };
@@ -102,6 +104,7 @@ export default function StorageDetailsScreen() {
   const requestSelectedDelete = () => {
     if (!selectedUris.length) return;
     if (bucket === "storePhotos") setPendingDelete({ type: "photo", items: items.filter((item): item is StorageStorePhoto => "storeName" in item && selectedUris.includes(item.uri)) });
+    else if (bucket === "competitorPhotos") setPendingDelete({ type: "competitorPhoto", items: items.filter((item): item is StorageCompetitorObservationPhoto => "competitorName" in item && selectedUris.includes(item.uri)) });
     else if (bucket === "signageMedia") setPendingDelete({ type: "signageMedia", items: items.filter((item): item is StorageSignageMedia => "subtitle" in item && selectedUris.includes(item.uri)) });
     else if (bucket === "templates") setPendingDelete({ type: "template", items: items.filter((item): item is MarketVisitReportTemplate => "fileName" in item && selectedUris.includes(item.uri)) });
     else if (bucket === "externalAnalytics") setPendingDelete({ type: "externalAnalytics", items: items.filter((item): item is StorageExternalAnalyticsPackage => "sourceTemplateName" in item && selectedUris.includes(item.uri)) });
@@ -112,6 +115,7 @@ export default function StorageDetailsScreen() {
     setBusy(true);
     try {
       if (pendingDelete.type === "photo") await Promise.all(pendingDelete.items.map((item) => deleteStorageStorePhoto(item.uri)));
+      else if (pendingDelete.type === "competitorPhoto") await Promise.all(pendingDelete.items.map((item) => deleteStorageCompetitorObservationPhoto(item.uri)));
       else if (pendingDelete.type === "signageMedia") await Promise.all(pendingDelete.items.map((item) => deleteStorageSignageMedia(item.uri)));
       else if (pendingDelete.type === "template") await Promise.all(pendingDelete.items.map((item) => deleteStorageTemplate(item)));
       else if (pendingDelete.type === "externalAnalytics") await Promise.all(pendingDelete.items.map((item) => deleteStorageExternalAnalyticsPackage(item)));
@@ -131,6 +135,15 @@ export default function StorageDetailsScreen() {
         {selectionMode ? <View style={[styles.check, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : "transparent" }]}>{selected ? <MaterialIcons name="check" size={16} color="#fff" /> : null}</View> : <Image source={{ uri: photo.uri }} style={styles.photo} />}
         <View style={styles.rowCopy}><Text style={[styles.rowTitle, { color: colors.foreground }]}>{photo.storeName}</Text><Text style={[styles.rowSubtitle, { color: colors.muted }]}>{photo.storeRegion} • {photo.surveyDate}</Text><Text style={[styles.rowMeta, { color: colors.muted }]}>{formatStorageBytes(photo.size)}</Text></View>
         {!selectionMode ? <TouchableOpacity accessibilityLabel="حذف صورة المحل" onPress={() => setPendingDelete({ type: "photo", items: [photo] })} style={[styles.iconButton, { backgroundColor: colors.error + "14" }]}><MaterialIcons name="delete-outline" size={21} color={colors.error} /></TouchableOpacity> : null}
+      </TouchableOpacity>;
+    }
+    if (bucket === "competitorPhotos") {
+      const photo = item as StorageCompetitorObservationPhoto;
+      const selected = isSelected(photo.uri);
+      return <TouchableOpacity onLongPress={() => startSelection(photo.uri)} onPress={() => selectionMode && toggleSelection(photo.uri)} activeOpacity={0.82} style={[styles.photoRow, { backgroundColor: colors.surface, borderColor: selected ? colors.primary : colors.border }]}>
+        {selectionMode ? <View style={[styles.check, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : "transparent" }]}>{selected ? <MaterialIcons name="check" size={16} color="#fff" /> : null}</View> : <Image source={{ uri: photo.uri }} style={styles.photo} />}
+        <View style={styles.rowCopy}><Text style={[styles.rowTitle, { color: colors.foreground }]}>{photo.competitorName}</Text><Text style={[styles.rowSubtitle, { color: colors.muted }]}>{photo.storeName} • {photo.region}</Text><Text style={[styles.rowMeta, { color: colors.muted }]}>{formatStorageBytes(photo.size)} • {new Date(photo.createdAt).toLocaleString("en-US")}</Text></View>
+        {!selectionMode ? <TouchableOpacity accessibilityLabel="حذف صورة رصد المنافس" onPress={() => setPendingDelete({ type: "competitorPhoto", items: [photo] })} style={[styles.iconButton, { backgroundColor: colors.error + "14" }]}><MaterialIcons name="delete-outline" size={21} color={colors.error} /></TouchableOpacity> : null}
       </TouchableOpacity>;
     }
     if (bucket === "signageMedia") {
@@ -159,8 +172,8 @@ export default function StorageDetailsScreen() {
     return <View style={[styles.fileRow, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={styles.backupActions}><TouchableOpacity accessibilityLabel="حذف النسخة الاحتياطية" onPress={() => setPendingDelete({ type: "backup", items: [backup] })} style={[styles.iconButton, { backgroundColor: colors.error + "14" }]}><MaterialIcons name="delete-outline" size={21} color={colors.error} /></TouchableOpacity><TouchableOpacity accessibilityLabel="استعادة النسخة الاحتياطية" disabled={busy} onPress={() => void requestRestore(backup)} style={[styles.iconButton, { backgroundColor: detail.color + "16" }]}>{busy ? <ActivityIndicator size="small" color={detail.color} /> : <MaterialIcons name="restore" size={21} color={detail.color} />}</TouchableOpacity></View><View style={styles.rowCopy}><Text style={[styles.rowTitle, { color: colors.foreground }]} numberOfLines={1}>{backup.filename}</Text><Text style={[styles.rowSubtitle, { color: colors.muted }]}>{new Date(backup.createdAt).toLocaleString("en-US")}</Text><Text style={[styles.rowMeta, { color: colors.muted }]}>{formatStorageBytes(backup.size)} • JSON</Text></View><View style={[styles.fileIcon, { backgroundColor: detail.color + "18" }]}><MaterialIcons name="backup" size={23} color={detail.color} /></View></View>;
   };
 
-  const deleteTitle = pendingDelete?.type === "photo" ? `حذف ${pendingDelete.items.length} صورة` : pendingDelete?.type === "signageMedia" ? `حذف ${pendingDelete.items.length} وسيط إعلاني` : pendingDelete?.type === "template" ? `حذف ${pendingDelete.items.length} قالب` : pendingDelete?.type === "externalAnalytics" ? `حذف ${pendingDelete.items.length} تحليل محفوظ` : "حذف النسخة الاحتياطية";
-  const deleteMessage = pendingDelete?.type === "photo" ? "ستُحذف الصور المحددة وتُزال مراجعها من نتائج الاستبيانات. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "signageMedia" ? "ستُحذف الوسائط المحددة من الجهاز وتُزال من اللوحات أو الستاندات أو الأرشيف المرتبط بها. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "template" ? "ستُحذف قوالب PowerPoint المحددة من الجهاز ومن قائمة القوالب. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "externalAnalytics" ? "ستُحذف الحزم التحليلية المحددة وملفاتها المحلية نهائياً. لا يمكن استعادتها بعد الحذف." : "سيُحذف ملف النسخة الاحتياطية من الجهاز فقط. لا تتأثر بيانات التطبيق الحالية.";
+  const deleteTitle = pendingDelete?.type === "photo" ? `حذف ${pendingDelete.items.length} صورة` : pendingDelete?.type === "competitorPhoto" ? `حذف ${pendingDelete.items.length} صورة رصد` : pendingDelete?.type === "signageMedia" ? `حذف ${pendingDelete.items.length} وسيط إعلاني` : pendingDelete?.type === "template" ? `حذف ${pendingDelete.items.length} قالب` : pendingDelete?.type === "externalAnalytics" ? `حذف ${pendingDelete.items.length} تحليل محفوظ` : "حذف النسخة الاحتياطية";
+  const deleteMessage = pendingDelete?.type === "photo" ? "ستُحذف الصور المحددة وتُزال مراجعها من نتائج الاستبيانات. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "competitorPhoto" ? "ستُحذف صور الرصد المحددة وتُزال مراجعها من سجلات رصد المنافسين. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "signageMedia" ? "ستُحذف الوسائط المحددة من الجهاز وتُزال من اللوحات أو الستاندات أو الأرشيف المرتبط بها. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "template" ? "ستُحذف قوالب PowerPoint المحددة من الجهاز ومن قائمة القوالب. لا يمكن استعادتها بعد الحذف." : pendingDelete?.type === "externalAnalytics" ? "ستُحذف الحزم التحليلية المحددة وملفاتها المحلية نهائياً. لا يمكن استعادتها بعد الحذف." : "سيُحذف ملف النسخة الاحتياطية من الجهاز فقط. لا تتأثر بيانات التطبيق الحالية.";
 
   return <ScreenContainer containerClassName="bg-background">
     <View style={[styles.header, { borderBottomColor: colors.border }]}><TouchableOpacity onPress={() => { if (!handleOverlayBack()) router.back(); }} style={[styles.back, { backgroundColor: colors.surface }]}><MaterialIcons name={selectionMode ? "close" : "arrow-forward"} size={22} color={colors.foreground} /></TouchableOpacity><View style={styles.headerCopy}><Text style={[styles.headerTitle, { color: colors.foreground }]}>{selectionMode ? `${selectedUris.length} عنصر محدد` : detail.title}</Text><Text style={[styles.headerSubtitle, { color: colors.muted }]}>{selectionMode ? "اضغط العناصر لتحديدها أو إلغاء تحديدها" : detail.subtitle}</Text></View></View>

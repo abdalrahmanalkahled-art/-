@@ -11,11 +11,13 @@ import type { AdvertisingVehicle } from "@/lib/advertising-vehicles";
 import type { RoadsideContract } from "@/lib/roadside-contracts";
 import type { ShelfInstallation } from "@/lib/shelves";
 import type { SurveyResult } from "@/lib/types/survey-types";
+import type { CompetitorObservation } from "@/lib/field-marketing-model";
+import { isCompetitorObservationMediaUri } from "@/lib/competitor-observation-media";
 
 const STORE_PHOTOS_DIRECTORY = "survey-store-photos/";
 const BACKUPS_DIRECTORY = "backups/";
 
-export type StorageDetailBucketId = "storePhotos" | "signageMedia" | "templates" | "backups" | "externalAnalytics";
+export type StorageDetailBucketId = "storePhotos" | "competitorPhotos" | "signageMedia" | "templates" | "backups" | "externalAnalytics";
 
 export interface StorageStorePhoto {
   uri: string;
@@ -23,6 +25,15 @@ export interface StorageStorePhoto {
   storeName: string;
   storeRegion: string;
   surveyDate: string;
+}
+
+export interface StorageCompetitorObservationPhoto {
+  uri: string;
+  size: number;
+  competitorName: string;
+  storeName: string;
+  region: string;
+  createdAt: string;
 }
 
 export interface LocalBackupFile {
@@ -83,6 +94,43 @@ export async function deleteStorageStorePhoto(uri: string): Promise<void> {
     };
   });
   await saveItems(STORAGE_KEYS.SURVEY_RESULTS, updated);
+  await FileSystem.deleteAsync(uri, { idempotent: true });
+}
+
+export async function listStorageCompetitorObservationPhotos(): Promise<StorageCompetitorObservationPhoto[]> {
+  const observations = await getItems<CompetitorObservation>(STORAGE_KEYS.FIELD_COMPETITOR_OBSERVATIONS);
+  const unique = new Map<string, Omit<StorageCompetitorObservationPhoto, "size">>();
+  observations.forEach((observation) => {
+    (observation.photoUris || []).forEach((uri) => {
+      if (!isCompetitorObservationMediaUri(uri) || unique.has(uri)) return;
+      unique.set(uri, {
+        uri,
+        competitorName: observation.competitorName || "منافس غير مسمى",
+        storeName: observation.storeName || "محل غير مسمى",
+        region: observation.region || "منطقة غير محددة",
+        createdAt: observation.createdAt,
+      });
+    });
+  });
+  const entries = await Promise.all([...unique.values()].map(async (photo) => {
+    const info = await FileSystem.getInfoAsync(photo.uri).catch(() => null);
+    return info?.exists && !info.isDirectory ? { ...photo, size: typeof info.size === "number" ? info.size : 0 } : null;
+  }));
+  return entries.filter((entry): entry is StorageCompetitorObservationPhoto => entry !== null).sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export async function deleteStorageCompetitorObservationPhoto(uri: string): Promise<void> {
+  if (!isCompetitorObservationMediaUri(uri)) throw new Error("لا يمكن حذف صورة خارج مساحة صور رصد المنافسين.");
+  const observations = await getItems<CompetitorObservation>(STORAGE_KEYS.FIELD_COMPETITOR_OBSERVATIONS);
+  const updated = observations.map((observation) => {
+    const nextUris = (observation.photoUris || []).filter((item) => item !== uri);
+    if (nextUris.length === (observation.photoUris || []).length) return observation;
+    return {
+      ...observation,
+      photoUris: nextUris.length ? nextUris : undefined,
+    };
+  });
+  await saveItems(STORAGE_KEYS.FIELD_COMPETITOR_OBSERVATIONS, updated);
   await FileSystem.deleteAsync(uri, { idempotent: true });
 }
 
@@ -156,7 +204,7 @@ export async function deleteStorageSignageMedia(uri: string): Promise<void> {
 
 export async function listStorageTemplates(): Promise<MarketVisitReportTemplate[]> {
   const templates = await getItems<MarketVisitReportTemplate>(STORAGE_KEYS.MARKET_VISIT_REPORT_TEMPLATES);
-  const available: Array<MarketVisitReportTemplate | null> = await Promise.all(templates.map(async (template) => {
+  const available: (MarketVisitReportTemplate | null)[] = await Promise.all(templates.map(async (template) => {
     const info = await FileSystem.getInfoAsync(template.uri).catch(() => null);
     return info?.exists && !info.isDirectory ? { ...template, size: typeof info.size === "number" ? info.size : template.size } as MarketVisitReportTemplate : null;
   }));

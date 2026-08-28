@@ -12,8 +12,8 @@ import { formatStorageBytes, type StorageBucketId, type StorageBucketUsage, type
 
 type CleanTarget = "temporary" | "unused";
 
-const BUCKET_ICONS: Record<StorageBucketUsage["id"], keyof typeof MaterialIcons.glyphMap> = { reports: "description", storePhotos: "photo-library", signageMedia: "perm-media", eventMedia: "videocam", templates: "slideshow", backups: "backup", exports: "file-upload", analytics: "insert-photo", externalAnalytics: "analytics", other: "folder", temporary: "cleaning-services" };
-const DETAIL_BUCKETS: StorageBucketId[] = ["storePhotos", "signageMedia", "templates", "backups", "externalAnalytics"];
+const BUCKET_ICONS: Record<StorageBucketUsage["id"], keyof typeof MaterialIcons.glyphMap> = { reports: "description", storePhotos: "photo-library", competitorPhotos: "photo-camera", signageMedia: "perm-media", eventMedia: "videocam", templates: "slideshow", backups: "backup", exports: "file-upload", analytics: "insert-photo", externalAnalytics: "analytics", other: "folder", temporary: "cleaning-services" };
+const DETAIL_BUCKETS: StorageBucketId[] = ["storePhotos", "competitorPhotos", "signageMedia", "templates", "backups", "externalAnalytics"];
 
 export default function StorageManagementScreen() {
   const colors = useColors();

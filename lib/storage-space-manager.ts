@@ -10,6 +10,7 @@ export interface StorageCleanupResult { removedBytes: number; removedFiles: numb
 const CLEANABLE_PREFIXES = [
   "reports/",
   "survey-store-photos/",
+  "competitor-observations/",
   "event_documentation/",
   "analytics/",
   "external-analytics-packages/",
@@ -21,6 +22,7 @@ function bucketFor(uri: string, base: string): StorageBucketId {
   const relative = uri.slice(base.length);
   if (relative.startsWith("reports/") || relative.startsWith("market-visit-reports/generated/")) return "reports";
   if (relative.startsWith("survey-store-photos/")) return "storePhotos";
+  if (relative.startsWith("competitor-observations/")) return "competitorPhotos";
   if (relative.startsWith("signage-media/")) return "signageMedia";
   if (relative.startsWith("event_documentation/")) return "eventMedia";
   if (relative.startsWith("market-visit-reports/templates/")) return "templates";
@@ -54,7 +56,7 @@ async function deleteFiles(files: LocalFile[]): Promise<StorageCleanupResult> {
 
 async function managedReferences(base: string): Promise<Set<string>> {
   const values = await AsyncStorage.multiGet(BACKUP_DATA_KEYS);
-  const data = Object.fromEntries(values.filter(([, value]) => value !== null) as Array<[string, string]>);
+  const data = Object.fromEntries(values.filter(([, value]) => value !== null) as [string, string][]);
   return new Set(collectManagedMediaUris(data, base));
 }
 

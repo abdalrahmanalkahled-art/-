@@ -11,6 +11,7 @@ export interface CompetitorObservation {
   visibilityScore: number;
   executionScore: number;
   notes?: string;
+  photoUris?: string[];
   createdAt: string;
 }
 

@@ -37,7 +37,7 @@ const LOCAL_RUNTIME_KEYS = [
   LAST_RESTORE_HISTORY_KEY,
 ] as const;
 
-const sharedDirectories = ["reports/", "survey-store-photos/", "signage-media/", "event_documentation/", "analytics/", "external-analytics-packages/", "market-visit-reports/generated/", "market-visit-reports/templates/", "survey-template-exports/"];
+const sharedDirectories = ["reports/", "survey-store-photos/", "competitor-observations/", "signage-media/", "event_documentation/", "analytics/", "external-analytics-packages/", "market-visit-reports/generated/", "market-visit-reports/templates/", "survey-template-exports/"];
 
 const ALL_DATA_KEYS = [...new Set([...BACKUP_DATA_KEYS, ...LOCAL_RUNTIME_KEYS])];
 

@@ -18,6 +18,7 @@ export interface StorageOverview {
 export const STORAGE_BUCKET_META: Record<StorageBucketId, Pick<StorageBucketUsage, "label">> = {
   reports: { label: "التقارير" },
   storePhotos: { label: "صور المحلات" },
+  competitorPhotos: { label: "صور رصد المنافسين" },
   signageMedia: { label: "وسائط اللوحات والستاندات" },
   eventMedia: { label: "توثيق الفعاليات" },
   templates: { label: "قوالب زيارة السوق" },
