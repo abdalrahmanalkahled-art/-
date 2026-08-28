@@ -18,6 +18,7 @@ describe("بطاقة البحث الموحد", () => {
     expect(screen).toContain("searchGlobalIndex");
     expect(screen).toContain("filtersList: { height: 42 }");
     expect(screen).toContain("filter: { height: 34");
+    expect(screen).toContain("results: { padding: 14, paddingTop: 2");
     expect(model).toContain("limit = 30");
   });
 });
