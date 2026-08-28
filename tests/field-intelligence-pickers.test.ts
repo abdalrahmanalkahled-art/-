@@ -4,11 +4,14 @@ import path from "node:path";
 import type { FieldChecklistRun } from "@/lib/field-marketing-model";
 
 describe("منتقيات أدوات التنفيذ الميداني", () => {
-  it("يستخدم قوائم قابلة للبحث للمنافس والمحل والمنطقة وللنطاق المتعدد", () => {
+  it("يستخدم قوائم قابلة للبحث للمنافس والمحل وللنطاق المتعدد، مع تاريخ رصد مستقل", () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), "components/modules/field-intelligence-module.tsx"), "utf8");
     expect(source).toContain('openPicker("competitor")');
     expect(source).toContain('openPicker("store")');
-    expect(source).toContain('openPicker("region")');
+    expect(source).toContain('label="تاريخ الرصد"');
+    expect(source).toContain('title="تاريخ الرصد"');
+    expect(source).toContain('المنطقة: {form.region || "تُحدد تلقائياً عند اختيار المحل"}');
+    expect(source).not.toContain('<PickerField label="المنطقة"');
     expect(source).toContain('openPicker(scope === "stores" ? "checklistStores" : "checklistRegions")');
     expect(source).toContain("setQuery");
     expect(source).toContain("setTargets");
