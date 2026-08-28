@@ -69,6 +69,11 @@ describe("صفحات أدوات التنفيذ الميداني", () => {
     expect(source).toContain("resolveCompetitorObservationImageUri");
     expect(source).toContain("isCompetitorObservationMediaUri");
     expect(source).toContain("idempotent: true");
-    expect(read("app/field/observations/[id].tsx")).toContain("resolveCompetitorObservationImageUri");
+    const observationDetailSource = read("app/field/observations/[id].tsx");
+    expect(observationDetailSource).toContain("resolveCompetitorObservationImageUri");
+    expect(observationDetailSource).toContain("selectedPhotoUri");
+    expect(observationDetailSource).toContain("<Modal");
+    expect(observationDetailSource).toContain("onRequestClose");
+    expect(observationDetailSource).toContain("تكبير صورة الرصد");
   });
 });
