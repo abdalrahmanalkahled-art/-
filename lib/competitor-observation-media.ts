@@ -11,6 +11,26 @@ export function isCompetitorObservationMediaUri(uri?: string): boolean {
   return Boolean(uri && FileSystem.documentDirectory && uri.startsWith(`${FileSystem.documentDirectory}${COMPETITOR_OBSERVATION_MEDIA_DIRECTORY}`));
 }
 
+/** يعيد URI صالحاً للعرض، بما في ذلك مراجع النسخ السابقة التي تحفظ الاسم فقط أو مساراً نسبياً. */
+export async function resolveCompetitorObservationImageUri(uri?: string): Promise<string | null> {
+  if (!uri) return null;
+  const base = FileSystem.documentDirectory;
+  const clean = uri.split("?")[0];
+  const filename = clean.split("/").pop();
+  const candidates = [
+    uri,
+    clean,
+    filename && base ? `${base}${COMPETITOR_OBSERVATION_MEDIA_DIRECTORY}${filename}` : "",
+    !clean.includes("://") && base ? `${base}${clean.replace(/^\/+/, "")}` : "",
+  ].filter(Boolean);
+  for (const candidate of [...new Set(candidates)]) {
+    const info = await FileSystem.getInfoAsync(candidate).catch(() => null);
+    if (info?.exists && !info.isDirectory) return candidate;
+  }
+  if (/^(file|content|ph|https?):\/\//i.test(uri)) return uri;
+  return null;
+}
+
 /** ينسخ صورة الرصد إلى مساحة دائمة مرتبطة بسجل الملاحظة. */
 export async function removeCompetitorObservationImages(uris: string[] = []): Promise<void> {
   await Promise.all(uris.filter(isCompetitorObservationMediaUri).map(async (uri) => {

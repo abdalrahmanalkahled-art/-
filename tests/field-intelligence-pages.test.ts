@@ -66,7 +66,9 @@ describe("صفحات أدوات التنفيذ الميداني", () => {
   it("يقيد حذف صور الرصد بمجلده الدائم ويجعله idempotent", () => {
     const source = read("lib/competitor-observation-media.ts");
     expect(source).toContain("removeCompetitorObservationImages");
+    expect(source).toContain("resolveCompetitorObservationImageUri");
     expect(source).toContain("isCompetitorObservationMediaUri");
     expect(source).toContain("idempotent: true");
+    expect(read("app/field/observations/[id].tsx")).toContain("resolveCompetitorObservationImageUri");
   });
 });

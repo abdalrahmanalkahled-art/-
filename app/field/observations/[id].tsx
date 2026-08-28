@@ -8,6 +8,7 @@ import { FieldDetailSection, FieldInfoRow, FieldLoadingState, FieldScoreGrid, fo
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { fieldObservationKindLabel, type CompetitorObservation } from "@/lib/field-marketing-model";
+import { resolveCompetitorObservationImageUri } from "@/lib/competitor-observation-media";
 import { getItems, STORAGE_KEYS } from "@/lib/storage";
 
 export default function FieldObservationDetailsScreen() {
@@ -15,11 +16,15 @@ export default function FieldObservationDetailsScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const observationId = typeof params.id === "string" ? params.id : "";
   const [item, setItem] = useState<CompetitorObservation | null>(null);
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const items = await getItems<CompetitorObservation>(STORAGE_KEYS.FIELD_COMPETITOR_OBSERVATIONS);
-    setItem(items.find((entry) => entry.id === observationId) || null);
+    const found = items.find((entry) => entry.id === observationId) || null;
+    setItem(found);
+    const resolved = await Promise.all((found?.photoUris || []).map((uri) => resolveCompetitorObservationImageUri(uri)));
+    setPhotoUris(resolved.filter((uri): uri is string => Boolean(uri)));
     setLoading(false);
   }, [observationId]);
   useEffect(() => { void load(); }, [load]);
@@ -35,7 +40,11 @@ export default function FieldObservationDetailsScreen() {
       <FieldDetailSection title="مؤشرات الرصد" icon="analytics"><FieldScoreGrid scores={[{ label: "وضوح الظهور", value: item.visibilityScore, color: colors.warning }, { label: "جودة التنفيذ", value: item.executionScore, color: colors.primary }]} /></FieldDetailSection>
       {item.message ? <FieldDetailSection title="الرسالة الظاهرة" icon="campaign"><Text style={[styles.body, { color: colors.foreground }]}>{item.message}</Text></FieldDetailSection> : null}
       {item.notes ? <FieldDetailSection title="ملاحظات إضافية" icon="notes"><Text style={[styles.body, { color: colors.foreground }]}>{item.notes}</Text></FieldDetailSection> : null}
-      {item.photoUris?.length ? <FieldDetailSection title={`صور الرصد (${item.photoUris.length})`} icon="photo-library"><View style={styles.photoGrid}>{item.photoUris.map((uri) => <Image key={uri} source={{ uri }} style={styles.photo} resizeMode="cover" />)}</View></FieldDetailSection> : null}
+      {photoUris.length ? (
+        <FieldDetailSection title={`صور الرصد (${photoUris.length})`} icon="photo-library"><View style={styles.photoGrid}>{photoUris.map((uri) => <Image key={uri} source={{ uri }} style={styles.photo} resizeMode="cover" onError={() => setPhotoUris((current) => current.filter((value) => value !== uri))} />)}</View></FieldDetailSection>
+      ) : item.photoUris?.length ? (
+        <FieldDetailSection title="صور الرصد" icon="photo-library"><Text style={[styles.body, { color: colors.muted }]}>تعذر الوصول إلى ملفات الصور المرتبطة بهذا السجل. افتح التعديل لإعادة إرفاقها.</Text></FieldDetailSection>
+      ) : null}
       <Text style={[styles.footerHint, { color: colors.muted }]}>يمكن تعديل هذا السجل أو حذفه من قائمة الرصد عبر الضغط المطوّل على بطاقته.</Text>
     </ScrollView>
   </ScreenContainer>;
