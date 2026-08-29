@@ -396,6 +396,17 @@ export default function EventsScreen() {
       const allEvents = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
       const removedEvent = allEvents.find((event) => event.id === eventId);
       await saveItems(STORAGE_KEYS.EVENTS, allEvents.filter((event) => event.id !== eventId));
+      if (removedEvent?.status === "completed" && removedEvent.goalId) {
+        const goals = await getItems<any>(STORAGE_KEYS.MARKETING_GOALS);
+        const updatedGoals = goals.map((goal: any) => {
+          if (goal.id !== removedEvent.goalId) return goal;
+          const currentValue = Math.max(0, Number(goal.currentValue || 0) - 1);
+          const targetValue = Number(goal.targetValue || 0);
+          const completionPercentage = targetValue > 0 ? Math.min((currentValue / targetValue) * 100, 100) : 0;
+          return { ...goal, currentValue, completionPercentage };
+        });
+        await saveItems(STORAGE_KEYS.MARKETING_GOALS, updatedGoals);
+      }
       await logAudit("DELETE", "الفعاليات", `تم حذف الفعالية: ${removedEvent?.title || "غير معروفة"}`);
       setDeleteConfirmation({ visible: false, eventId: "" });
       loadEvents();

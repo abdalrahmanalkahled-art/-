@@ -6,7 +6,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { CardActionModal } from "@/components/card-action-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -129,7 +129,9 @@ export default function GoalsModule() {
     await loadData();
   }, [loadData]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useFocusEffect(useCallback(() => {
+    void loadData();
+  }, [loadData]));
 
   const loadBrandOptions = useCallback(async () => {
     const catalog = await loadBrandRegionCatalog();
