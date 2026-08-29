@@ -27,6 +27,7 @@ import { getItems, saveItems, STORAGE_KEYS } from "@/lib/storage";
 import { exportTabReportExcel, exportTabReportPdf } from "@/lib/tab-report-exporter";
 import { ReportFab } from "@/components/report-fab";
 import { SuccessModal } from "@/components/success-modal";
+import { MoreModuleFilterChips } from "@/components/more-module-ui";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CardActionModal } from "@/components/card-action-modal";
 import { EventDetailsModal } from "@/components/event-details-modal";
@@ -39,6 +40,7 @@ import { hasUnsavedFormChanges, snapshotFormState } from "@/lib/form-state";
 import { useSingleFlight } from "@/lib/use-single-flight";
 import { UnsavedChangesDialog } from "@/components/unsaved-changes-dialog";
 import { logAudit } from "@/lib/audit-log";
+import { loadBrandRegionCatalog } from "@/lib/brand-region-repository";
 
 interface EventItem {
   id: string;
@@ -95,6 +97,11 @@ const STATUS_OPTIONS = [
 const toIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const fromIsoDate = (value: string) => value ? new Date(`${value}T12:00:00`) : null;
 const createEmptyEventForm = (): EventForm => ({ title: "", eventDate: new Date().toISOString().split("T")[0], region: "", detailedAddress: "", giftsDistributed: "", attendeesCount: "", status: "planned", notes: "", imageUri: "", mediaUris: [], goalId: "", brandName: "" });
+const eventDateValue = (value?: string): number => {
+  if (!value) return Number.NEGATIVE_INFINITY;
+  const date = fromIsoDate(value.slice(0, 10));
+  return date && !Number.isNaN(date.getTime()) ? date.getTime() : Number.NEGATIVE_INFINITY;
+};
 
 export default function EventsScreen() {
   const colors = useColors();
@@ -106,7 +113,8 @@ export default function EventsScreen() {
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterBrand, setFilterBrand] = useState<string>("all");
+  const [brands, setBrands] = useState<string[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [showImagePickerModal, setShowImagePickerModal] = useState(false);
@@ -128,7 +136,7 @@ export default function EventsScreen() {
   const loadEvents = useCallback(async () => {
     try {
       const data = await getItems<EventItem>(STORAGE_KEYS.EVENTS);
-      setEvents(data.map((event) => ({ ...event, eventDate: event.eventDate || event.startDate || event.endDate || "" })).sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()));
+      setEvents(data.map((event) => ({ ...event, eventDate: event.eventDate || event.startDate || event.endDate || "" })).sort((a, b) => eventDateValue(b.eventDate) - eventDateValue(a.eventDate)));
     } finally { setIsInitialLoading(false); }
   }, []);
 
@@ -157,6 +165,8 @@ export default function EventsScreen() {
       try {
         const goalsData = await getItems<any>(STORAGE_KEYS.MARKETING_GOALS);
         setGoals(goalsData);
+        const catalog = await loadBrandRegionCatalog();
+        setBrands(catalog.brands.filter((brand) => brand.isActive).map((brand) => brand.name));
         
         const savedRegions = await AsyncStorage.getItem('store_regions');
         if (savedRegions) {
@@ -175,8 +185,8 @@ export default function EventsScreen() {
 
   const filtered = events.filter((e) => {
     const matchSearch = e.title.includes(search) || e.region.includes(search) || (e.detailedAddress || "").includes(search);
-    const matchStatus = filterStatus === "all" || e.status === filterStatus;
-    return matchSearch && matchStatus;
+    const matchBrand = filterBrand === "all" || (e.brandName || "غير محددة") === filterBrand;
+    return matchSearch && matchBrand;
   });
 
   const resetEventForm = useCallback(() => {
@@ -597,17 +607,11 @@ export default function EventsScreen() {
         <MaterialIcons name="search" size={20} color={colors.muted} />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterContent}>
-        {[{ value: "all", label: "الكل" }, ...STATUS_OPTIONS].map((opt) => (
-          <TouchableOpacity
-            key={opt.value}
-            style={[styles.filterChip, filterStatus === opt.value && { backgroundColor: colors.primary }]}
-            onPress={() => setFilterStatus(opt.value)}
-          >
-            <Text style={[styles.filterChipText, { color: filterStatus === opt.value ? "#fff" : colors.muted }]}>{opt.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <MoreModuleFilterChips
+        items={[{ id: "all", label: "كل الماركات" }, ...brands.map((brand) => ({ id: brand, label: brand }))]}
+        selectedId={filterBrand}
+        onSelect={setFilterBrand}
+      />
 
       <FlatList
         data={filtered}
