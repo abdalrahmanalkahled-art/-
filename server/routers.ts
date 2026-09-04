@@ -13,10 +13,17 @@ export const appRouter = router({
         question: z.string().trim().min(1).max(3000),
         context: z.string().max(30000).default(""),
         history: z.array(z.object({ role: z.enum(["user", "model"]), text: z.string().max(4000) })).max(12).default([]),
+        attachments: z.array(z.object({ name: z.string().min(1).max(180), mimeType: z.string().min(1).max(120), data: z.string().max(9000000) })).max(5).default([]),
       }))
       .mutation(async ({ input }) => {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) throw new Error("مفتاح Gemini غير مهيأ");
+
+        const supportedMimeTypes = /^(image\/(jpeg|png|webp|heic|heif)|application\/pdf|text\/plain|text\/csv|text\/markdown)$/i;
+        const totalAttachmentSize = input.attachments.reduce((total, file) => total + file.data.length, 0);
+        if (totalAttachmentSize > 24000000) throw new Error("حجم المرفقات الإجمالي كبير. أرفق ملفات أصغر أو عدداً أقل.");
+        if (input.attachments.some((file) => !supportedMimeTypes.test(file.mimeType))) throw new Error("نوع ملف غير مدعوم للتحليل. استخدم صورة أو PDF أو ملفاً نصياً.");
+        const attachmentParts = input.attachments.map((file) => ({ inlineData: { mimeType: file.mimeType, data: file.data } }));
 
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
@@ -29,7 +36,7 @@ export const appRouter = router({
               },
               contents: [
                 ...input.history.map((message) => ({ role: message.role, parts: [{ text: message.text }] })),
-                { role: "user", parts: [{ text: `السياق المحلي للتطبيق:\n${input.context || "لا يوجد سياق محدد."}\n\nسؤال المستخدم:\n${input.question}` }] },
+                { role: "user", parts: [{ text: `السياق المحلي للتطبيق:\n${input.context || "لا يوجد سياق محدد."}\n\nسؤال المستخدم:\n${input.question}` }, ...attachmentParts] },
               ],
               generationConfig: { temperature: 0.35, maxOutputTokens: 1200 },
             }),

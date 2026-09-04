@@ -23,6 +23,15 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain("لا تُرسل الصور تلقائياً");
   });
 
+  it("يمرر الملفات إلى Gemini بصيغة inlineData ويتحقق من النوع والحجم", () => {
+    expect(serverSource).toContain("attachments:");
+    expect(serverSource).toContain("inlineData");
+    expect(serverSource).toContain("supportedMimeTypes");
+    expect(serverSource).toContain("totalAttachmentSize > 24000000");
+    expect(moduleSource).toContain("readAttachment");
+    expect(moduleSource).toContain("attachments });");
+  });
+
   it("يستدعي Gemini من الخادم فقط ويحدد حجم الطلب", () => {
     expect(serverSource).toContain("process.env.GEMINI_API_KEY");
     expect(serverSource).toContain("gemini-3.6-flash:generateContent");
