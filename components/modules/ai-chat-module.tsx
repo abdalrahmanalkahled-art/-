@@ -179,7 +179,7 @@ export default function AIChatModule() {
     setSelectedFiles([]);
     setIsStreaming(true);
     try {
-      const response = await aiChatMutation.mutateAsync({ question: text, context, history, attachments });
+      const response = await aiChatMutation.mutateAsync({ question: text, context, history, attachments, model: aiModel });
       setMessages((current) => current.map((item) => item.id === modelMessageId ? { ...item, text: response.text } : item));
     } catch (error) {
       const message = error instanceof Error ? error.message : "تعذر الحصول على إجابة حالياً";

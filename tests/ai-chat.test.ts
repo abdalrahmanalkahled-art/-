@@ -38,13 +38,15 @@ describe("الحديث مع الذكاء الصناعي", () => {
 
   it("يستدعي Gemini من الخادم فقط ويحدد حجم الطلب", () => {
     expect(serverSource).toContain("process.env.GEMINI_API_KEY");
-    expect(serverSource).toContain("gemini-3.6-flash:generateContent");
+    expect(serverSource).toContain("models/${input.model}:generateContent");
+    expect(serverSource).toContain('model: z.enum(["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"])');
     expect(serverSource).toContain("max(3000)");
     expect(serverSource).toContain("max(30000)");
     expect(serverSource).toContain("maxOutputTokens: 3000");
     expect(moduleSource).not.toContain("GEMINI_API_KEY");
     expect(moduleSource).toContain("loadAiModel");
     expect(moduleSource).toContain("aiChatMutation.mutateAsync");
+    expect(moduleSource).toContain("model: aiModel");
   });
 
   it("يوفر نموذجاً اقتصادياً افتراضياً وخيارات نموذج محفوظة محلياً", () => {

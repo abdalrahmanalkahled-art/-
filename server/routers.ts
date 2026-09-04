@@ -14,6 +14,7 @@ export const appRouter = router({
         context: z.string().max(30000).default(""),
         history: z.array(z.object({ role: z.enum(["user", "model"]), text: z.string().max(4000) })).max(12).default([]),
         attachments: z.array(z.object({ name: z.string().min(1).max(180), mimeType: z.string().min(1).max(120), data: z.string().max(9000000) })).max(5).default([]),
+        model: z.enum(["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"]).default("gemini-2.5-flash-lite"),
       }))
       .mutation(async ({ input }) => {
         const apiKey = process.env.GEMINI_API_KEY;
@@ -26,7 +27,7 @@ export const appRouter = router({
         const attachmentParts = input.attachments.map((file) => ({ inlineData: { mimeType: file.mimeType, data: file.data } }));
 
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:generateContent?key=${encodeURIComponent(apiKey)}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
