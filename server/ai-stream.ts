@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
 import { z } from "zod";
 
+const supportedModels = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"] as const;
 const aiChatInputSchema = z.object({
+  model: z.enum(supportedModels).default("gemini-2.5-flash-lite"),
   question: z.string().trim().min(1).max(3000),
   context: z.string().max(30000).default(""),
   history: z.array(z.object({ role: z.enum(["user", "model"]), text: z.string().max(4000) })).max(12).default([]),
@@ -63,7 +65,7 @@ export async function handleAiStream(req: Request, res: Response) {
 
   try {
     const upstream = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${input.model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },

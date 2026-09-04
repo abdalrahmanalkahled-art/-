@@ -56,3 +56,12 @@
 - https://ai.google.dev/gemini-api/docs/streaming
 - https://ai.google.dev/api/generate-content
 - https://docs.expo.dev/versions/latest/sdk/expo/
+
+## تقييم تبديل نموذج Gemini
+
+تظهر قائمة Google الرسمية الحالية نماذج Gemini 3.6 Flash و3.5 Flash و3.5 Flash-Lite و3.1 Flash-Lite، إضافة إلى Gemini 2.5 Flash وGemini 2.5 Flash-Lite. لم يظهر نموذج رسمي باسم Gemini 2.6 في القائمة التي تمت مراجعتها. الحصص تُطبق على مستوى المشروع، وتختلف حسب النموذج وطبقة الاستخدام، لذلك تبديل النموذج لا يضمن تجاوز الحصة إلا إذا كان النموذج الآخر متاحاً وله حصة منفصلة فعلياً في المشروع.
+
+المصادر:
+- https://ai.google.dev/gemini-api/docs/models/gemini
+- https://ai.google.dev/gemini-api/docs/rate-limits
+- https://ai.google.dev/pricing

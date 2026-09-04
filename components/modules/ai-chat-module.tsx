@@ -11,6 +11,7 @@ import { useColors } from "@/hooks/use-colors";
 import { getItemsForKeys, STORAGE_KEYS } from "@/lib/storage";
 import * as Auth from "@/lib/_core/auth";
 import { getApiBaseUrl } from "@/constants/oauth";
+import { DEFAULT_AI_MODEL, loadAiModel, type AiModelId } from "@/lib/ai-model-settings";
 
 type ChatAttachment = { name: string; mimeType: string; data: string };
 type ChatMessage = { id: string; role: "user" | "model"; text: string; attachmentNames?: string[] };
@@ -57,7 +58,7 @@ async function buildLocalContext(scopeIds: string[]): Promise<string> {
 
 const WELCOME: ChatMessage = { id: "welcome", role: "model", text: "مرحباً، أنا مساعدك للتسويق الميداني. اختر نطاق البيانات من اللوحة الجانبية، ثم اطرح سؤالك." };
 
-type StreamRequest = { question: string; context: string; history: { role: "user" | "model"; text: string }[]; attachments: ChatAttachment[] };
+type StreamRequest = { model: AiModelId; question: string; context: string; history: { role: "user" | "model"; text: string }[]; attachments: ChatAttachment[] };
 
 async function streamChatResponse(request: StreamRequest, signal: AbortSignal, onDelta: (text: string) => void) {
   const token = await Auth.getSessionToken();
@@ -155,6 +156,7 @@ export default function AIChatModule() {
   const [question, setQuestion] = useState("");
   const [context, setContext] = useState("");
   const [contextLoading, setContextLoading] = useState(true);
+  const [aiModel, setAiModel] = useState<AiModelId>(DEFAULT_AI_MODEL);
   const [selectedScopes, setSelectedScopes] = useState<string[]>(DEFAULT_SCOPE_IDS);
   const [scopeHydrated, setScopeHydrated] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
@@ -170,6 +172,10 @@ export default function AIChatModule() {
   const refreshContext = useCallback(async (scopeIds: string[]) => {
     setContextLoading(true);
     try { setContext(await buildLocalContext(scopeIds)); } catch { setContext(""); } finally { setContextLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    void loadAiModel().then(setAiModel).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -255,7 +261,7 @@ export default function AIChatModule() {
     abortControllerRef.current = controller;
     setIsStreaming(true);
     try {
-      await streamChatResponse({ question: text, context, history, attachments }, controller.signal, (delta) => {
+      await streamChatResponse({ model: aiModel, question: text, context, history, attachments }, controller.signal, (delta) => {
         setMessages((current) => current.map((message) => message.id === modelMessageId ? { ...message, text: message.text + delta } : message));
       });
     } catch (error) {
@@ -269,7 +275,7 @@ export default function AIChatModule() {
       if (abortControllerRef.current === controller) abortControllerRef.current = null;
       setIsStreaming(false);
     }
-  }, [context, history, isStreaming, question, selectedFiles]);
+  }, [aiModel, context, history, isStreaming, question, selectedFiles]);
 
   const deleteConversation = useCallback(async () => {
     if (!deleteTarget) return;
@@ -291,17 +297,7 @@ export default function AIChatModule() {
           <MaterialIcons name="add" size={19} color={colors.foreground} />
           <Text style={[styles.newButtonText, { color: colors.foreground }]}>محادثة جديدة</Text>
         </TouchableOpacity>
-      </View>
-
-      <View style={[styles.activeScope, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <MaterialIcons name="dataset" size={17} color={colors.primary} />
-        <Text style={[styles.activeScopeText, { color: colors.muted }]} numberOfLines={1}>النطاق: {SCOPE_OPTIONS.filter((option) => selectedScopes.includes(option.id)).map((option) => option.title).join("، ")}</Text>
-      </View>
-
-      <View style={[styles.privacyNote, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "2A" }]}>
-        <MaterialIcons name="lock-outline" size={17} color={colors.primary} />
-        <Text style={[styles.privacyText, { color: colors.muted }]}>تُرسل فقط البيانات الواقعة ضمن النطاق المختار، ولا تُرسل الصور تلقائياً.</Text>
-      </View>
+            </View>
 
       <FlatList ref={messageListRef} data={messages} keyExtractor={(item) => item.id} style={styles.messages} contentContainerStyle={styles.messagesContent} keyboardShouldPersistTaps="handled" nestedScrollEnabled removeClippedSubviews={false} onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: true })} renderItem={({ item }) => (
         <View style={[styles.messageRow, item.role === "user" && styles.userRow]}>

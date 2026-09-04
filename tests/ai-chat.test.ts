@@ -21,7 +21,8 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain("STORAGE_KEYS.EVENTS");
     expect(moduleSource).toContain("STORAGE_KEYS.MARKETING_GOALS");
     expect(moduleSource).toContain("STORAGE_KEYS.FIELD_COMPETITOR_OBSERVATIONS");
-    expect(moduleSource).toContain("لا تُرسل الصور تلقائياً");
+    expect(moduleSource).toContain("selectedFiles");
+    expect(moduleSource).toContain("readAttachment");
   });
 
   it("يمرر الملفات إلى Gemini بصيغة inlineData ويتحقق من النوع والحجم", () => {
@@ -33,7 +34,7 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain("streamChatResponse");
     expect(moduleSource).toContain("new XMLHttpRequest()");
     expect(moduleSource).not.toContain("response.body.getReader");
-    expect(moduleSource).toContain("attachments }, controller.signal");
+    expect(moduleSource).toContain("model: aiModel");
   });
 
   it("يستدعي Gemini من الخادم فقط ويحدد حجم الطلب", () => {
@@ -42,13 +43,29 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(serverSource).toContain("max(3000)");
     expect(serverSource).toContain("max(30000)");
     expect(serverSource).toContain("maxOutputTokens: 3000");
-    expect(streamSource).toContain("/v1beta/models/gemini-3.6-flash:streamGenerateContent");
+    expect(streamSource).toContain("/v1beta/models/${input.model}:streamGenerateContent");
     expect(streamSource).toContain("text/event-stream");
     expect(streamSource).toContain("upstreamController.abort");
     expect(streamSource).toContain("dataLines");
     expect(streamSource).toContain("consumeProviderBuffer");
     expect(streamSource).toContain("replace(/\\r\\n/g");
     expect(moduleSource).not.toContain("GEMINI_API_KEY");
+    expect(moduleSource).toContain("model: aiModel");
+    expect(moduleSource).toContain("loadAiModel");
+  });
+
+  it("يوفر نموذجاً اقتصادياً افتراضياً وخيارات نموذج محفوظة محلياً", () => {
+    const modelSource = read("lib/ai-model-settings.ts");
+    expect(modelSource).toContain('DEFAULT_AI_MODEL = "gemini-2.5-flash-lite"');
+    expect(modelSource).toContain("AI_MODEL_OPTIONS");
+    expect(modelSource).toContain("AsyncStorage");
+    expect(modelSource).toContain("saveAiModel");
+  });
+
+  it("يبقي شريط المحادثة مختصراً ويترك النطاق والأرشيف داخل اللوحة الجانبية", () => {
+    expect(moduleSource).toContain("النطاق والأرشيف");
+    expect(moduleSource).not.toContain("النطاق: {SCOPE_OPTIONS");
+    expect(moduleSource).not.toContain("تُرسل فقط البيانات الواقعة ضمن النطاق المختار");
   });
 
   it("يحافظ على الردود الطويلة ويثبت محرر الإرسال مع لوحة المفاتيح", () => {

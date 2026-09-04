@@ -25,6 +25,7 @@ import { useThemeContext } from "@/lib/theme-provider";
 import { useAppCustomization } from "@/lib/app-customization-context";
 import { chooseMarketingManagerLocation, loadMarketingManagerLocation, type MarketingManagerLocation } from "@/lib/marketing-manager-storage";
 import { ProfileSettingsModal } from "@/components/profile-settings-modal";
+import { AI_MODEL_OPTIONS, DEFAULT_AI_MODEL, loadAiModel, saveAiModel, type AiModelId } from "@/lib/ai-model-settings";
 
 interface SettingRowProps {
   icon: keyof typeof MaterialIcons.glyphMap;
@@ -67,15 +68,18 @@ export default function SettingsScreen() {
   const [showRoadReminderPicker, setShowRoadReminderPicker] = useState(false);
   const [marketingManagerLocation, setMarketingManagerLocation] = useState<MarketingManagerLocation | null>(null);
   const [showProfileSettings, setShowProfileSettings] = useState(false);
+  const [aiModel, setAiModel] = useState<AiModelId>(DEFAULT_AI_MODEL);
+  const [showAiModelPicker, setShowAiModelPicker] = useState(false);
 
   const load = useCallback(async () => {
-    const [settings, storedPreferences, products, storageLocation] = await Promise.all([loadAppSettings(), getNotificationPreferences(), getItems<{ id: string; name: string }>(STORAGE_KEYS.PRODUCTS), loadMarketingManagerLocation()]);
+    const [settings, storedPreferences, products, storageLocation, storedAiModel] = await Promise.all([loadAppSettings(), getNotificationPreferences(), getItems<{ id: string; name: string }>(STORAGE_KEYS.PRODUCTS), loadMarketingManagerLocation(), loadAiModel()]);
     setPdfCustomization(settings.pdfCustomization);
     setDashboard(settings.dashboard);
     setDashboardProducts(products);
     setPreferences(storedPreferences);
     setRoadReminderDays(settings.roadsideContractReminderDays);
     setMarketingManagerLocation(storageLocation);
+    setAiModel(storedAiModel);
   }, []);
   useEffect(() => { void load(); }, [load]);
   useFocusEffect(useCallback(() => { void load(); }, [load]));
@@ -115,6 +119,11 @@ export default function SettingsScreen() {
     if (!dashboard) return;
     setShowPresenceProductPicker(false);
     void saveDashboardCustomization({ ...dashboard, presenceProductId: product.id });
+  };
+  const selectAiModel = async (model: AiModelId) => {
+    await saveAiModel(model);
+    setAiModel(model);
+    setShowAiModelPicker(false);
   };
   const chooseMarketingManagerFolder = async () => {
     try {
@@ -170,6 +179,11 @@ export default function SettingsScreen() {
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <SettingRow icon="manage-accounts" title="إدارة الملف الشخصي" subtitle={`${user?.name || "المستخدم الرئيسي"} · ${user?.username || "admin"}`} color="#9333EA" onPress={() => setShowProfileSettings(true)} />
       </View>
+      <Text style={[styles.sectionTitle, { color: colors.muted }]}>الذكاء الاصطناعي</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
+        <SettingRow icon="smart-toy" title="نموذج الذكاء الاصطناعي" subtitle={AI_MODEL_OPTIONS.find((option) => option.id === aiModel)?.subtitle || aiModel} color="#7C3AED" onPress={() => setShowAiModelPicker(true)} />
+      </View>
+
       <Text style={[styles.sectionTitle, { color: colors.muted }]}>المظهر</Text>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
         <SettingRow icon={colorScheme === "dark" ? "dark-mode" : "light-mode"} title="الوضع الليلي" subtitle="تغيير المظهر دون التأثير في البيانات" color={colors.primary} right={<Switch value={colorScheme === "dark"} onValueChange={(value) => setColorScheme(value ? "dark" : "light")} trackColor={{ false: colors.border, true: colors.primary }} thumbColor={colors.surface} />} />
@@ -228,6 +242,7 @@ export default function SettingsScreen() {
     <PdfCustomizationSheet visible={showPdfCustomization} value={pdfCustomization} onClose={() => setShowPdfCustomization(false)} onSave={(next) => void savePdfCustomization(next)} />
     <AppCustomizationSheet visible={showAppCustomization} username={user?.username} value={customization} onClose={() => setShowAppCustomization(false)} onSave={saveCustomization} />
     <ProfileSettingsModal visible={showProfileSettings} user={user} onClose={() => setShowProfileSettings(false)} onSaved={(updated) => dispatch({ type: "SET_USER", payload: updated })} />
+    <Modal transparent visible={showAiModelPicker} animationType="fade" onRequestClose={() => setShowAiModelPicker(false)}><View style={styles.pickerOverlay}><Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAiModelPicker(false)} /><View style={[styles.reminderDialog, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={styles.reminderHeader}><TouchableOpacity onPress={() => setShowAiModelPicker(false)} style={[styles.reminderClose, { backgroundColor: colors.background }]}><MaterialIcons name="close" size={20} color={colors.foreground} /></TouchableOpacity><View style={styles.reminderCopy}><Text style={[styles.reminderTitle, { color: colors.foreground }]}>نموذج الذكاء الاصطناعي</Text><Text style={[styles.reminderSubtitle, { color: colors.muted }]}>اختر النموذج المناسب للسرعة أو عمق التحليل.</Text></View></View>{AI_MODEL_OPTIONS.map((option) => { const selected = option.id === aiModel; const optionColor = option.tone === "success" ? colors.success : option.tone === "accent" ? colors.accent : colors.primary; return <TouchableOpacity key={option.id} onPress={() => void selectAiModel(option.id)} style={[styles.reminderOption, { borderColor: selected ? optionColor : colors.border, backgroundColor: selected ? optionColor + "10" : colors.background }]}><View style={[styles.reminderRadio, { borderColor: selected ? optionColor : colors.border }]}>{selected ? <View style={[styles.reminderRadioDot, { backgroundColor: optionColor }]} /> : null}</View><View style={styles.reminderOptionCopy}><Text style={[styles.reminderOptionTitle, { color: colors.foreground }]}>{option.title}</Text><Text style={[styles.reminderOptionSubtitle, { color: colors.muted }]}>{option.subtitle}</Text></View></TouchableOpacity>; })}</View></View></Modal>
     <Modal transparent visible={showRoadReminderPicker} animationType="fade" onRequestClose={() => setShowRoadReminderPicker(false)}><View style={styles.pickerOverlay}><Pressable style={StyleSheet.absoluteFill} onPress={() => setShowRoadReminderPicker(false)} /><View style={[styles.reminderDialog, { backgroundColor: colors.surface, borderColor: colors.border }]}><View style={styles.reminderHeader}><TouchableOpacity onPress={() => setShowRoadReminderPicker(false)} style={[styles.reminderClose, { backgroundColor: colors.background }]}><MaterialIcons name="close" size={20} color={colors.foreground} /></TouchableOpacity><View style={styles.reminderCopy}><Text style={[styles.reminderTitle, { color: colors.foreground }]}>مدة تذكير عقود اللوحات</Text><Text style={[styles.reminderSubtitle, { color: colors.muted }]}>يُعاد جدولة تنبيهات الهاتف للعقود النشطة تلقائياً.</Text></View></View>{([15, 30, 60] as const).map((days) => <TouchableOpacity key={days} onPress={() => void saveRoadReminderDays(days)} style={[styles.reminderOption, { borderColor: roadReminderDays === days ? colors.primary : colors.border, backgroundColor: roadReminderDays === days ? colors.primary + "10" : colors.background }]}><View style={[styles.reminderRadio, { borderColor: roadReminderDays === days ? colors.primary : colors.border }]}>{roadReminderDays === days ? <View style={[styles.reminderRadioDot, { backgroundColor: colors.primary }]} /> : null}</View><View style={styles.reminderOptionCopy}><Text style={[styles.reminderOptionTitle, { color: colors.foreground }]}>{days} يوماً قبل نهاية العقد</Text><Text style={[styles.reminderOptionSubtitle, { color: colors.muted }]}>{days === 15 ? "تنبيه قريب ومركز" : days === 30 ? "الخيار المتوازن" : "تنبيه مبكر للتخطيط"}</Text></View></TouchableOpacity>)}</View></View></Modal>
   </ScreenContainer>;
 }
