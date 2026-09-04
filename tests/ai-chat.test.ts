@@ -71,7 +71,9 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain("Math.max(insets.top, 10)");
     expect(moduleSource).toContain("statusBarTranslucent={false}");
     expect(moduleSource).toContain("translateX");
-    expect(moduleSource).toContain('width: "70%"');
+    expect(moduleSource).toContain('width: "75%"');
+    expect(moduleSource).toContain('drawer: { width: "75%"');
+    expect(moduleSource).not.toContain('drawer: { flex: 1, width:');
     expect(moduleSource).toContain('justifyContent: "flex-end"');
   });
 
