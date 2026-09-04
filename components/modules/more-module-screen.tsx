@@ -7,6 +7,7 @@ import { ProductsModule } from "@/components/modules/products-module";
 import { AdvancedAnalyticsModule } from "@/components/modules/advanced-analytics-module";
 import { BrandsRegionsModule } from "@/components/modules/brands-regions-module";
 import { FieldIntelligenceModule } from "@/components/modules/field-intelligence-module";
+import AIChatModule from "@/components/modules/ai-chat-module";
 
 export const MORE_MODULES = [
   { id: "warehouse", title: "إدارة المستودع", subtitle: "المخزون والحركة", icon: "inventory", color: "#0E9F6E" },
@@ -18,6 +19,7 @@ export const MORE_MODULES = [
   { id: "brands_regions", title: "الماركات والمناطق", subtitle: "البيانات المرجعية والتقييم", icon: "map", color: "#9333EA" },
   { id: "analytics", title: "التحليلات المتقدمة", subtitle: "تحليل البيانات والتقارير", icon: "analytics", color: "#2563EB" },
   { id: "field-intelligence", title: "أدوات التنفيذ الميداني", subtitle: "الجودة والمنافسون والتغطية", icon: "radar", color: "#7C3AED" },
+  { id: "ai-chat", title: "الحديث مع الذكاء الصناعي", subtitle: "تحليل بيانات التسويق الميداني", icon: "auto-awesome", color: "#2563EB" },
 ] as const;
 
 export type MoreModuleId = (typeof MORE_MODULES)[number]["id"];
@@ -33,5 +35,6 @@ export function MoreModuleContent({ moduleId }: { moduleId: MoreModuleId }) {
     case "brands_regions": return <BrandsRegionsModule />;
     case "analytics": return <AdvancedAnalyticsModule />;
     case "field-intelligence": return <FieldIntelligenceModule />;
+    case "ai-chat": return <AIChatModule />;
   }
 }
