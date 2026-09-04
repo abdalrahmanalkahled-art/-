@@ -63,6 +63,14 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).not.toContain("تُرسل فقط البيانات الواقعة ضمن النطاق المختار");
   });
 
+  it("يستخدم أيقونة قائمة واحدة وبطاقة محادثة جديدة داخل اللوحة", () => {
+    expect(moduleSource).toContain('name="menu"');
+    expect(moduleSource).toContain("فتح النطاق والأرشيف");
+    expect(moduleSource).toContain("newConversationCard");
+    expect(moduleSource).toContain("drawerListWrap");
+    expect(moduleSource).toContain("Math.max(insets.top, 10)");
+  });
+
   it("يعرض تنسيق الإجابات وإجراءات النسخ والمشاركة", () => {
     expect(moduleSource).toContain("markdownBold");
     expect(moduleSource).toContain("نسخ الإجابة");
