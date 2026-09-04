@@ -97,31 +97,44 @@ export async function handleAiStream(req: Request, res: Response) {
     let buffer = "";
     let emittedText = false;
 
-    const consumeEvent = (rawEvent: string) => {
-      const data = rawEvent.split("\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
-      if (!data || data === "[DONE]") return;
-      try {
-        const chunk = JSON.parse(data) as GeminiChunk;
-        const text = chunk.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
-        if (text) {
-          emittedText = true;
-          writeEvent(res, { type: "delta", text });
+    const consumeProviderRecord = (rawRecord: string) => {
+      const lines = rawRecord.replace(/\r/g, "").split("\n").map((line) => line.trim()).filter(Boolean);
+      if (!lines.length) return;
+      const dataLines = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim());
+      const candidates = dataLines.length ? dataLines : lines;
+      candidates.forEach((candidate) => {
+        if (!candidate || candidate === "[DONE]") return;
+        try {
+          const chunk = JSON.parse(candidate) as GeminiChunk;
+          const text = chunk.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+          if (text) {
+            emittedText = true;
+            writeEvent(res, { type: "delta", text });
+          }
+        } catch {
+          // An incomplete JSON frame remains in the buffer and is retried after the next network chunk.
         }
-      } catch {
-        // Ignore incomplete or provider metadata events; the next SSE frame completes the payload.
+      });
+    };
+    const consumeProviderBuffer = (incoming: string, flush = false) => {
+      buffer += incoming.replace(/\r\n/g, "\n");
+      const blocks = buffer.split("\n\n");
+      buffer = flush ? "" : (blocks.pop() || "");
+      blocks.forEach(consumeProviderRecord);
+      if (!flush && !blocks.length && buffer.includes("\n")) {
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        lines.forEach(consumeProviderRecord);
       }
     };
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split("\n\n");
-      buffer = events.pop() || "";
-      events.forEach(consumeEvent);
+      consumeProviderBuffer(decoder.decode(value, { stream: true }));
     }
-    buffer += decoder.decode();
-    if (buffer.trim()) consumeEvent(buffer);
+    consumeProviderBuffer(decoder.decode(), true);
+    if (buffer.trim()) consumeProviderRecord(buffer);
     if (!emittedText) writeEvent(res, { type: "error", message: "لم تُرجع Gemini إجابة قابلة للعرض" });
     else writeEvent(res, { type: "done" });
     finished = true;

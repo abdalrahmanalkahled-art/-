@@ -45,6 +45,9 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(streamSource).toContain("/v1beta/models/gemini-3.6-flash:streamGenerateContent");
     expect(streamSource).toContain("text/event-stream");
     expect(streamSource).toContain("upstreamController.abort");
+    expect(streamSource).toContain("dataLines");
+    expect(streamSource).toContain("consumeProviderBuffer");
+    expect(streamSource).toContain("replace(/\\r\\n/g");
     expect(moduleSource).not.toContain("GEMINI_API_KEY");
   });
 
