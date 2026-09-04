@@ -7,6 +7,12 @@ const read = (file: string) => readFileSync(resolve(process.cwd(), file), "utf8"
 describe("أرشيف وإعدادات محادثة الذكاء الاصطناعي", () => {
   const source = read("components/modules/ai-chat-module.tsx");
 
+  it("يفصل التهيئة الأولية عن حفظ النطاق لمنع الوميض", () => {
+    expect(source).toContain("scopeHydrated");
+    expect(source).toContain("if (!scopeHydrated) return;");
+    expect(source).toContain("}, []);");
+  });
+
   it("يحفظ نطاقات البيانات والمحادثات على الجهاز", () => {
     expect(source).toContain('const SCOPE_KEY = "madar_ai_chat_scope"');
     expect(source).toContain('const ARCHIVE_KEY = "madar_ai_chat_archive"');

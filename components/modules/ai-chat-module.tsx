@@ -58,6 +58,7 @@ export default function AIChatModule() {
   const [context, setContext] = useState("");
   const [contextLoading, setContextLoading] = useState(true);
   const [selectedScopes, setSelectedScopes] = useState<string[]>(DEFAULT_SCOPE_IDS);
+  const [scopeHydrated, setScopeHydrated] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([WELCOME]);
   const [archive, setArchive] = useState<ChatArchiveItem[]>([]);
   const [conversationId, setConversationId] = useState(() => `conversation-${Date.now()}`);
@@ -83,14 +84,16 @@ export default function AIChatModule() {
           if (Array.isArray(parsed) && parsed.length) setSelectedScopes(parsed.filter((id) => DEFAULT_SCOPE_IDS.includes(id)));
         } catch { /* use defaults */ }
       }
-    }).finally(() => { if (mounted) void refreshContext(selectedScopes); });
+      setScopeHydrated(true);
+    });
     return () => { mounted = false; };
-  }, [refreshContext, selectedScopes]);
+  }, []);
 
   useEffect(() => {
+    if (!scopeHydrated) return;
     void refreshContext(selectedScopes);
     void AsyncStorage.setItem(SCOPE_KEY, JSON.stringify(selectedScopes));
-  }, [refreshContext, selectedScopes]);
+  }, [refreshContext, scopeHydrated, selectedScopes]);
 
   useEffect(() => {
     if (messages.length <= 1) return;
