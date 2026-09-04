@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -57,6 +58,30 @@ async function buildLocalContext(scopeIds: string[]): Promise<string> {
 
 const WELCOME: ChatMessage = { id: "welcome", role: "model", text: "مرحباً، أنا مساعدك للتسويق الميداني. اختر نطاق البيانات من اللوحة الجانبية، ثم اطرح سؤالك." };
 
+function renderInlineMarkdown(line: string): ReactNode[] {
+  const pattern = /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\*[^*]+\*|_[^_]+_)/g;
+  return line.split(pattern).map((part, index) => {
+    if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
+      return <Text key={`bold-${index}`} style={styles.markdownBold}>{part.slice(2, -2)}</Text>;
+    }
+    if ((part.startsWith("*") && part.endsWith("*")) || (part.startsWith("_") && part.endsWith("_"))) {
+      return <Text key={`italic-${index}`} style={styles.markdownItalic}>{part.slice(1, -1)}</Text>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <Text key={`code-${index}`} style={styles.markdownCode}>{part.slice(1, -1)}</Text>;
+    }
+    return part;
+  });
+}
+
+function MarkdownMessage({ text }: { text: string }) {
+  return <Text>{text.split("\n").map((line, index, lines) => {
+    const bullet = /^\s*[-*]\s+/.test(line);
+    const content = bullet ? line.replace(/^\s*[-*]\s+/, "") : line;
+    return <Text key={`line-${index}`}>{bullet ? "• " : ""}{renderInlineMarkdown(content)}{index < lines.length - 1 ? "\n" : ""}</Text>;
+  })}</Text>;
+}
+
 async function readAttachment(asset: DocumentPicker.DocumentPickerAsset): Promise<ChatAttachment> {
   const mimeType = asset.mimeType || "application/octet-stream";
   if (asset.size && asset.size > 6500000) throw new Error(`الملف «${asset.name}» أكبر من الحد المسموح (6 MB).`);
@@ -90,6 +115,7 @@ export default function AIChatModule() {
   const [deleteTarget, setDeleteTarget] = useState<ChatArchiveItem | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messageListRef = useRef<FlatList<ChatMessage>>(null);
   const aiChatMutation = trpc.ai.chat.useMutation();
 
@@ -189,6 +215,16 @@ export default function AIChatModule() {
     }
   }, [aiChatMutation, aiModel, context, history, isStreaming, question, selectedFiles]);
 
+  const copyMessage = useCallback(async (messageId: string, text: string) => {
+    await Clipboard.setStringAsync(text);
+    setCopiedMessageId(messageId);
+    setTimeout(() => setCopiedMessageId((current) => current === messageId ? null : current), 1600);
+  }, []);
+
+  const shareMessage = useCallback(async (text: string) => {
+    await Share.share({ message: text, title: "إجابة مساعد التسويق الميداني" });
+  }, []);
+
   const deleteConversation = useCallback(async () => {
     if (!deleteTarget) return;
     const next = archive.filter((item) => item.id !== deleteTarget.id);
@@ -199,7 +235,7 @@ export default function AIChatModule() {
   }, [archive, conversationId, deleteTarget, startNewConversation]);
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}>
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}>
         <TouchableOpacity style={[styles.toolbarButton, { backgroundColor: colors.primary + "12" }]} onPress={() => setDrawerVisible(true)} activeOpacity={0.75}>
           <MaterialIcons name="tune" size={20} color={colors.primary} />
@@ -215,7 +251,8 @@ export default function AIChatModule() {
         <View style={[styles.messageRow, item.role === "user" && styles.userRow]}>
           <View style={[styles.messageBubble, { backgroundColor: item.role === "user" ? colors.primary : colors.surface, borderColor: item.role === "user" ? colors.primary : colors.border }]}>
             {item.attachmentNames?.length ? <View style={styles.messageAttachments}>{item.attachmentNames.map((name) => <Text key={name} style={[styles.messageAttachment, { color: item.role === "user" ? "#fff" : colors.primary }]} numberOfLines={1}>📎 {name}</Text>)}</View> : null}
-            <Text style={[styles.messageText, { color: item.role === "user" ? "#fff" : colors.foreground }]}>{item.text}</Text>
+            <Text style={[styles.messageText, { color: item.role === "user" ? "#fff" : colors.foreground }]}>{item.role === "model" ? <MarkdownMessage text={item.text} /> : item.text}</Text>
+            {item.role === "model" && item.id !== "welcome" && item.text.trim() ? <View style={styles.messageActions}><TouchableOpacity accessibilityRole="button" accessibilityLabel="نسخ الإجابة" style={[styles.messageAction, { borderColor: colors.border, backgroundColor: colors.background }]} onPress={() => void copyMessage(item.id, item.text)} activeOpacity={0.75}><MaterialIcons name={copiedMessageId === item.id ? "check" : "content-copy"} size={15} color={copiedMessageId === item.id ? colors.success : colors.primary} /><Text style={[styles.messageActionText, { color: copiedMessageId === item.id ? colors.success : colors.foreground }]}>{copiedMessageId === item.id ? "تم النسخ" : "نسخ"}</Text></TouchableOpacity><TouchableOpacity accessibilityRole="button" accessibilityLabel="مشاركة الإجابة" style={[styles.messageAction, { borderColor: colors.border, backgroundColor: colors.background }]} onPress={() => void shareMessage(item.text)} activeOpacity={0.75}><MaterialIcons name="share" size={15} color={colors.primary} /><Text style={[styles.messageActionText, { color: colors.foreground }]}>مشاركة</Text></TouchableOpacity></View> : null}
           </View>
         </View>
       )} ListFooterComponent={isStreaming ? <View style={styles.typing}><ActivityIndicator size="small" color={colors.primary} /><Text style={[styles.typingText, { color: colors.muted }]}>يكتب الآن…</Text></View> : null} />
@@ -247,5 +284,5 @@ export default function AIChatModule() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 }, toolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth }, toolbarButton: { minHeight: 42, borderRadius: 13, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 }, toolbarButtonText: { fontSize: 12, fontWeight: "700" as any }, newButton: { minHeight: 42, borderRadius: 13, paddingHorizontal: 11, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 5 }, newButtonText: { fontSize: 12, fontWeight: "600" as any }, activeScope: { flexDirection: "row", alignItems: "center", gap: 7, marginHorizontal: 16, marginTop: 10, paddingHorizontal: 10, minHeight: 34, borderRadius: 10, borderWidth: 1 }, activeScopeText: { flex: 1, textAlign: "right", fontSize: 11 }, privacyNote: { flexDirection: "row", alignItems: "center", gap: 7, marginHorizontal: 16, marginTop: 8, padding: 10, borderRadius: 12, borderWidth: 1 }, privacyText: { flex: 1, textAlign: "right", fontSize: 11, lineHeight: 18 }, messages: { flex: 1 }, messagesContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8, gap: 10 }, messageRow: { alignItems: "flex-start" }, userRow: { alignItems: "flex-end" }, messageBubble: { maxWidth: "86%", borderRadius: 16, borderWidth: 1, paddingHorizontal: 13, paddingVertical: 10 },   messageText: { flexShrink: 1, textAlign: "right", fontSize: 14, lineHeight: 22, includeFontPadding: true }, messageAttachments: { gap: 4, marginBottom: 6 }, messageAttachment: { textAlign: "right", fontSize: 10 }, typing: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 10 }, typingText: { fontSize: 12 }, quickPrompts: { paddingHorizontal: 16, paddingBottom: 9 }, quickTitle: { textAlign: "right", fontSize: 12, marginBottom: 7 }, quickWrap: { gap: 7 }, quickChip: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9 }, quickText: { textAlign: "right", fontSize: 12 },   composer: { marginHorizontal: 12, marginBottom: 10, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 20, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 4 }, composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 }, fileStrip: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 }, fileChip: { maxWidth: "100%", minHeight: 32, borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 5 }, fileName: { maxWidth: 150, fontSize: 10 }, attachButton: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" }, input: { flex: 1, minHeight: 44, maxHeight: 110, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 9, fontSize: 14 }, sendButton: { minWidth: 44, height: 44, borderRadius: 14, paddingHorizontal: 10, flexDirection: "row", gap: 4, alignItems: "center", justifyContent: "center" }, stopText: { color: "#fff", fontSize: 11, fontWeight: "700" as any }, disabled: { opacity: 0.45 }, drawerOverlay: { flex: 1, flexDirection: "row", backgroundColor: "rgba(15,23,42,0.28)" }, drawerBackdrop: { flex: 1 }, drawer: { width: "87%", maxWidth: 390, paddingTop: 10, elevation: 12, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: -4, height: 0 } }, drawerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 13, borderBottomWidth: StyleSheet.hairlineWidth }, drawerTitle: { textAlign: "right", fontSize: 18, fontWeight: "800" as any }, drawerSubtitle: { textAlign: "right", fontSize: 11, marginTop: 4 }, closeButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" }, scopeSection: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 9 }, sectionTitle: { textAlign: "right", fontSize: 15, fontWeight: "800" as any }, sectionHint: { textAlign: "right", fontSize: 11, lineHeight: 18, marginTop: 4 }, scopeCard: { marginHorizontal: 16, marginBottom: 8, minHeight: 66, borderRadius: 15, borderWidth: 1, padding: 10, flexDirection: "row", alignItems: "center", gap: 9 }, scopeIcon: { width: 37, height: 37, borderRadius: 11, alignItems: "center", justifyContent: "center" }, scopeCopy: { flex: 1, alignItems: "flex-end" }, scopeTitle: { textAlign: "right", fontSize: 13, fontWeight: "700" as any }, scopeSubtitle: { textAlign: "right", fontSize: 10, marginTop: 3 }, archiveSection: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 30 }, archiveTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }, archiveCount: { fontSize: 12 }, emptyArchive: { textAlign: "right", fontSize: 12, paddingVertical: 12 }, archiveCard: { minHeight: 62, borderWidth: 1, borderRadius: 14, marginBottom: 8, paddingHorizontal: 10, flexDirection: "row", alignItems: "center" }, archiveMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 9 }, archiveCopy: { flex: 1, alignItems: "flex-end" }, archiveItemTitle: { textAlign: "right", fontSize: 12, fontWeight: "700" as any }, archiveDate: { textAlign: "right", fontSize: 10, marginTop: 3 }, archiveDelete: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  container: { flex: 1 }, markdownBold: { fontWeight: "800" as any }, markdownItalic: { fontStyle: "italic" }, markdownCode: { fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", fontSize: 13 }, messageActions: { flexDirection: "row", justifyContent: "flex-start", gap: 7, marginTop: 9, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(107,114,128,0.22)" }, messageAction: { minHeight: 32, borderRadius: 10, borderWidth: 1, paddingHorizontal: 9, flexDirection: "row", alignItems: "center", gap: 5 }, messageActionText: { fontSize: 11, fontWeight: "700" as any }, toolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth }, toolbarButton: { minHeight: 42, borderRadius: 13, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 }, toolbarButtonText: { fontSize: 12, fontWeight: "700" as any }, newButton: { minHeight: 42, borderRadius: 13, paddingHorizontal: 11, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 5 }, newButtonText: { fontSize: 12, fontWeight: "600" as any }, activeScope: { flexDirection: "row", alignItems: "center", gap: 7, marginHorizontal: 16, marginTop: 10, paddingHorizontal: 10, minHeight: 34, borderRadius: 10, borderWidth: 1 }, activeScopeText: { flex: 1, textAlign: "right", fontSize: 11 }, privacyNote: { flexDirection: "row", alignItems: "center", gap: 7, marginHorizontal: 16, marginTop: 8, padding: 10, borderRadius: 12, borderWidth: 1 }, privacyText: { flex: 1, textAlign: "right", fontSize: 11, lineHeight: 18 }, messages: { flex: 1 }, messagesContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8, gap: 10 }, messageRow: { alignItems: "flex-start" }, userRow: { alignItems: "flex-end" }, messageBubble: { maxWidth: "86%", borderRadius: 16, borderWidth: 1, paddingHorizontal: 13, paddingVertical: 10 },   messageText: { flexShrink: 1, textAlign: "right", fontSize: 14, lineHeight: 22, includeFontPadding: true }, messageAttachments: { gap: 4, marginBottom: 6 }, messageAttachment: { textAlign: "right", fontSize: 10 }, typing: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 10 }, typingText: { fontSize: 12 }, quickPrompts: { paddingHorizontal: 16, paddingBottom: 9 }, quickTitle: { textAlign: "right", fontSize: 12, marginBottom: 7 }, quickWrap: { gap: 7 }, quickChip: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9 }, quickText: { textAlign: "right", fontSize: 12 },   composer: { marginHorizontal: 12, marginBottom: 10, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 20, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 4 }, composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 }, fileStrip: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 }, fileChip: { maxWidth: "100%", minHeight: 32, borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 5 }, fileName: { maxWidth: 150, fontSize: 10 }, attachButton: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" }, input: { flex: 1, minHeight: 44, maxHeight: 110, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 9, fontSize: 14 }, sendButton: { minWidth: 44, height: 44, borderRadius: 14, paddingHorizontal: 10, flexDirection: "row", gap: 4, alignItems: "center", justifyContent: "center" }, stopText: { color: "#fff", fontSize: 11, fontWeight: "700" as any }, disabled: { opacity: 0.45 }, drawerOverlay: { flex: 1, flexDirection: "row", backgroundColor: "rgba(15,23,42,0.28)" }, drawerBackdrop: { flex: 1 }, drawer: { width: "87%", maxWidth: 390, paddingTop: 10, elevation: 12, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: -4, height: 0 } }, drawerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 13, borderBottomWidth: StyleSheet.hairlineWidth }, drawerTitle: { textAlign: "right", fontSize: 18, fontWeight: "800" as any }, drawerSubtitle: { textAlign: "right", fontSize: 11, marginTop: 4 }, closeButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" }, scopeSection: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 9 }, sectionTitle: { textAlign: "right", fontSize: 15, fontWeight: "800" as any }, sectionHint: { textAlign: "right", fontSize: 11, lineHeight: 18, marginTop: 4 }, scopeCard: { marginHorizontal: 16, marginBottom: 8, minHeight: 66, borderRadius: 15, borderWidth: 1, padding: 10, flexDirection: "row", alignItems: "center", gap: 9 }, scopeIcon: { width: 37, height: 37, borderRadius: 11, alignItems: "center", justifyContent: "center" }, scopeCopy: { flex: 1, alignItems: "flex-end" }, scopeTitle: { textAlign: "right", fontSize: 13, fontWeight: "700" as any }, scopeSubtitle: { textAlign: "right", fontSize: 10, marginTop: 3 }, archiveSection: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 30 }, archiveTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }, archiveCount: { fontSize: 12 }, emptyArchive: { textAlign: "right", fontSize: 12, paddingVertical: 12 }, archiveCard: { minHeight: 62, borderWidth: 1, borderRadius: 14, marginBottom: 8, paddingHorizontal: 10, flexDirection: "row", alignItems: "center" }, archiveMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 9 }, archiveCopy: { flex: 1, alignItems: "flex-end" }, archiveItemTitle: { textAlign: "right", fontSize: 12, fontWeight: "700" as any }, archiveDate: { textAlign: "right", fontSize: 10, marginTop: 3 }, archiveDelete: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
 });

@@ -63,9 +63,19 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).not.toContain("تُرسل فقط البيانات الواقعة ضمن النطاق المختار");
   });
 
+  it("يعرض تنسيق الإجابات وإجراءات النسخ والمشاركة", () => {
+    expect(moduleSource).toContain("markdownBold");
+    expect(moduleSource).toContain("نسخ الإجابة");
+    expect(moduleSource).toContain("مشاركة الإجابة");
+    expect(moduleSource).toContain("text.split");
+  });
+
   it("يحافظ على الردود الطويلة ويثبت محرر الإرسال مع لوحة المفاتيح", () => {
     expect(moduleSource).toContain("removeClippedSubviews={false}");
-    expect(moduleSource).toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
+    expect(moduleSource).toContain('behavior="padding"');
+    expect(moduleSource).toContain("MarkdownMessage");
+    expect(moduleSource).toContain("Clipboard.setStringAsync");
+    expect(moduleSource).toContain("Share.share");
     expect(moduleSource).toContain("messageListRef.current?.scrollToEnd");
     expect(moduleSource).toContain("marginHorizontal: 12");
     expect(moduleSource).toContain("maxHeight: 110");

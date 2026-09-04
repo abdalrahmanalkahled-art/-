@@ -57,7 +57,7 @@ const config: ExpoConfig = {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
-    softwareKeyboardLayoutMode: "pan",
+    softwareKeyboardLayoutMode: "resize",
     package: env.androidPackage,
     permissions: ["POST_NOTIFICATIONS", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES", "CAMERA"],
     intentFilters: [
