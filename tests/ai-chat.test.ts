@@ -7,7 +7,6 @@ const read = (file: string) => readFileSync(resolve(process.cwd(), file), "utf8"
 describe("الحديث مع الذكاء الصناعي", () => {
   const moduleSource = read("components/modules/ai-chat-module.tsx");
   const serverSource = read("server/routers.ts");
-  const streamSource = read("server/ai-stream.ts");
   const moreSource = read("components/modules/more-module-screen.tsx");
 
   it("يظهر كوحدة مستقلة داخل صفحة المزيد", () => {
@@ -31,10 +30,10 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(serverSource).toContain("supportedMimeTypes");
     expect(serverSource).toContain("totalAttachmentSize > 24000000");
     expect(moduleSource).toContain("readAttachment");
-    expect(moduleSource).toContain("streamChatResponse");
-    expect(moduleSource).toContain("new XMLHttpRequest()");
+    expect(moduleSource).not.toContain("streamChatResponse");
+    expect(moduleSource).not.toContain("new XMLHttpRequest()");
     expect(moduleSource).not.toContain("response.body.getReader");
-    expect(moduleSource).toContain("model: aiModel");
+    expect(moduleSource).toContain("aiChatMutation.mutateAsync");
   });
 
   it("يستدعي Gemini من الخادم فقط ويحدد حجم الطلب", () => {
@@ -43,15 +42,9 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(serverSource).toContain("max(3000)");
     expect(serverSource).toContain("max(30000)");
     expect(serverSource).toContain("maxOutputTokens: 3000");
-    expect(streamSource).toContain("/v1beta/models/${input.model}:streamGenerateContent");
-    expect(streamSource).toContain("text/event-stream");
-    expect(streamSource).toContain("upstreamController.abort");
-    expect(streamSource).toContain("dataLines");
-    expect(streamSource).toContain("consumeProviderBuffer");
-    expect(streamSource).toContain("replace(/\\r\\n/g");
     expect(moduleSource).not.toContain("GEMINI_API_KEY");
-    expect(moduleSource).toContain("model: aiModel");
     expect(moduleSource).toContain("loadAiModel");
+    expect(moduleSource).toContain("aiChatMutation.mutateAsync");
   });
 
   it("يوفر نموذجاً اقتصادياً افتراضياً وخيارات نموذج محفوظة محلياً", () => {
@@ -74,9 +67,9 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain("messageListRef.current?.scrollToEnd");
     expect(moduleSource).toContain("marginHorizontal: 12");
     expect(moduleSource).toContain("maxHeight: 110");
-    expect(moduleSource).toContain("new AbortController()");
-    expect(moduleSource).toContain("abortControllerRef.current?.abort()");
-    expect(moduleSource).toContain("إيقاف توليد الإجابة");
-    expect(moduleSource).toContain("تم إيقاف التوليد.");
+    expect(moduleSource).not.toContain("new AbortController()");
+    expect(moduleSource).not.toContain("abortControllerRef");
+    expect(moduleSource).not.toContain("إيقاف توليد الإجابة");
+    expect(moduleSource).not.toContain("تم إيقاف التوليد.");
   });
 });

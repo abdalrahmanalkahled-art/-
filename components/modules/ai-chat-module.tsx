@@ -9,8 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useColors } from "@/hooks/use-colors";
 import { getItemsForKeys, STORAGE_KEYS } from "@/lib/storage";
-import * as Auth from "@/lib/_core/auth";
-import { getApiBaseUrl } from "@/constants/oauth";
+import { trpc } from "@/lib/trpc";
 import { DEFAULT_AI_MODEL, loadAiModel, type AiModelId } from "@/lib/ai-model-settings";
 
 type ChatAttachment = { name: string; mimeType: string; data: string };
@@ -58,81 +57,6 @@ async function buildLocalContext(scopeIds: string[]): Promise<string> {
 
 const WELCOME: ChatMessage = { id: "welcome", role: "model", text: "مرحباً، أنا مساعدك للتسويق الميداني. اختر نطاق البيانات من اللوحة الجانبية، ثم اطرح سؤالك." };
 
-type StreamRequest = { model: AiModelId; question: string; context: string; history: { role: "user" | "model"; text: string }[]; attachments: ChatAttachment[] };
-
-async function streamChatResponse(request: StreamRequest, signal: AbortSignal, onDelta: (text: string) => void) {
-  const token = await Auth.getSessionToken();
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    let settled = false;
-    let consumedLength = 0;
-    let buffer = "";
-    let receivedText = false;
-
-    const fail = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      signal.removeEventListener("abort", abort);
-      reject(error);
-    };
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      signal.removeEventListener("abort", abort);
-      if (buffer.trim()) consumeEvents(buffer, true);
-      if (!receivedText) { reject(new Error("لم تُرجع Gemini إجابة قابلة للعرض")); return; }
-      resolve();
-    };
-    const consumeEvent = (raw: string) => {
-      const data = raw.split("\\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\\n");
-      if (!data || data === "[DONE]") return;
-      let event: { type?: string; text?: string; message?: string };
-      try { event = JSON.parse(data) as { type?: string; text?: string; message?: string }; } catch { return; }
-      if (event.type === "error") { fail(new Error(event.message || "انقطع بث الإجابة")); return; }
-      if (event.type === "delta" && event.text) { receivedText = true; onDelta(event.text); }
-    };
-    const consumeEvents = (incoming: string, flush = false) => {
-      buffer += incoming;
-      const events = buffer.split("\\n\\n");
-      buffer = flush ? "" : (events.pop() || "");
-      events.forEach(consumeEvent);
-    };
-    const readProgress = () => {
-      if (xhr.readyState < 3 || settled) return;
-      const next = xhr.responseText.slice(consumedLength);
-      consumedLength = xhr.responseText.length;
-      if (next) consumeEvents(next);
-    };
-    const abort = () => {
-      xhr.abort();
-      fail(Object.assign(new Error("تم إيقاف التوليد."), { name: "AbortError" }));
-    };
-
-    xhr.open("POST", `${getApiBaseUrl()}/api/ai/chat-stream`);
-    xhr.withCredentials = true;
-    xhr.setRequestHeader("Content-Type", "application/json");
-    xhr.setRequestHeader("Accept", "text/event-stream");
-    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.onprogress = readProgress;
-    xhr.onreadystatechange = readProgress;
-    xhr.onerror = () => fail(new Error("تعذر الاتصال بخدمة Gemini"));
-    xhr.onabort = () => { if (!settled) fail(Object.assign(new Error("تم إيقاف التوليد."), { name: "AbortError" })); };
-    xhr.onload = () => {
-      readProgress();
-      if (xhr.status < 200 || xhr.status >= 300) {
-        let message = "تعذر الاتصال بخدمة Gemini";
-        try { message = (JSON.parse(xhr.responseText) as { error?: string }).error || message; } catch { /* keep fallback */ }
-        fail(new Error(message));
-        return;
-      }
-      finish();
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    if (signal.aborted) { abort(); return; }
-    xhr.send(JSON.stringify(request));
-  });
-}
-
 async function readAttachment(asset: DocumentPicker.DocumentPickerAsset): Promise<ChatAttachment> {
   const mimeType = asset.mimeType || "application/octet-stream";
   if (asset.size && asset.size > 6500000) throw new Error(`الملف «${asset.name}» أكبر من الحد المسموح (6 MB).`);
@@ -167,7 +91,7 @@ export default function AIChatModule() {
   const [selectedFiles, setSelectedFiles] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const messageListRef = useRef<FlatList<ChatMessage>>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const aiChatMutation = trpc.ai.chat.useMutation();
 
   const refreshContext = useCallback(async (scopeIds: string[]) => {
     setContextLoading(true);
@@ -237,10 +161,6 @@ export default function AIChatModule() {
     if (!result.canceled) setSelectedFiles((current) => [...current, ...result.assets].slice(0, 5));
   }, []);
 
-  const stopGeneration = useCallback(() => {
-    abortControllerRef.current?.abort();
-  }, []);
-
   const sendMessage = useCallback(async (preset?: string) => {
     const text = (preset ?? question).trim();
     if (!text || isStreaming) return;
@@ -257,25 +177,17 @@ export default function AIChatModule() {
     setMessages((current) => [...current, userMessage, { id: modelMessageId, role: "model", text: "" }]);
     setQuestion("");
     setSelectedFiles([]);
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
     setIsStreaming(true);
     try {
-      await streamChatResponse({ model: aiModel, question: text, context, history, attachments }, controller.signal, (delta) => {
-        setMessages((current) => current.map((message) => message.id === modelMessageId ? { ...message, text: message.text + delta } : message));
-      });
+      const response = await aiChatMutation.mutateAsync({ question: text, context, history, attachments });
+      setMessages((current) => current.map((item) => item.id === modelMessageId ? { ...item, text: response.text } : item));
     } catch (error) {
-      if ((error as Error).name !== "AbortError") {
-        const message = error instanceof Error ? error.message : "تعذر الحصول على إجابة حالياً";
-        setMessages((current) => current.map((item) => item.id === modelMessageId ? { ...item, text: item.text || `تعذر إكمال الطلب: ${message}` } : item));
-      } else {
-        setMessages((current) => current.map((item) => item.id === modelMessageId ? { ...item, text: item.text || "تم إيقاف التوليد." } : item));
-      }
+      const message = error instanceof Error ? error.message : "تعذر الحصول على إجابة حالياً";
+      setMessages((current) => current.map((item) => item.id === modelMessageId ? { ...item, text: `تعذر إكمال الطلب: ${message}` } : item));
     } finally {
-      if (abortControllerRef.current === controller) abortControllerRef.current = null;
       setIsStreaming(false);
     }
-  }, [aiModel, context, history, isStreaming, question, selectedFiles]);
+  }, [aiChatMutation, aiModel, context, history, isStreaming, question, selectedFiles]);
 
   const deleteConversation = useCallback(async () => {
     if (!deleteTarget) return;
@@ -315,7 +227,7 @@ export default function AIChatModule() {
         <View style={styles.composerRow}>
           <TouchableOpacity style={[styles.attachButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void pickFiles()} disabled={contextLoading || isStreaming} activeOpacity={0.75}><MaterialIcons name="attach-file" size={20} color={colors.primary} /></TouchableOpacity>
           <TextInput value={question} onChangeText={setQuestion} placeholder={contextLoading ? "يُجهّز نطاق البيانات…" : "اكتب سؤالك هنا"} placeholderTextColor={colors.muted} multiline maxLength={3000} editable={!contextLoading && !isStreaming} style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]} textAlign="right" onSubmitEditing={() => void sendMessage()} />
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={isStreaming ? "إيقاف توليد الإجابة" : "إرسال الرسالة"} style={[styles.sendButton, { backgroundColor: colors.primary }, !isStreaming && !question.trim() && styles.disabled]} onPress={isStreaming ? stopGeneration : () => void sendMessage()} disabled={contextLoading} activeOpacity={0.8}>{isStreaming ? <><MaterialIcons name="stop" size={20} color="#fff" /><Text style={styles.stopText}>إيقاف</Text></> : <MaterialIcons name="send" size={21} color="#fff" />}</TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="إرسال الرسالة" style={[styles.sendButton, { backgroundColor: colors.primary }, (isStreaming || !question.trim()) && styles.disabled]} onPress={() => void sendMessage()} disabled={contextLoading || isStreaming} activeOpacity={0.8}><MaterialIcons name="send" size={21} color="#fff" /></TouchableOpacity>
         </View>
       </View>
 

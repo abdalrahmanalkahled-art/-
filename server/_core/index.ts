@@ -6,7 +6,6 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { handleAiStream } from "../ai-stream";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -59,11 +58,6 @@ async function startServer() {
 
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
-  });
-
-  // Streaming endpoint for the AI chat. The API key remains server-side.
-  app.post("/api/ai/chat-stream", (req, res) => {
-    void handleAiStream(req, res);
   });
 
   app.use(
