@@ -7,6 +7,14 @@ const read = (file: string) => readFileSync(resolve(process.cwd(), file), "utf8"
 describe("أرشيف وإعدادات محادثة الذكاء الاصطناعي", () => {
   const source = read("components/modules/ai-chat-module.tsx");
 
+  it("يحمي اللوحة وبنر الإرسال من تداخل مناطق النظام", () => {
+    expect(source).toContain("useSafeAreaInsets");
+    expect(source).toContain("paddingTop: Math.max(insets.top, 10)");
+    expect(source).toContain("paddingBottom: Math.max(insets.bottom, 10)");
+    expect(source).toContain("DocumentPicker.getDocumentAsync");
+    expect(source).toContain('name="attach-file"');
+  });
+
   it("يفصل التهيئة الأولية عن حفظ النطاق لمنع الوميض", () => {
     expect(source).toContain("scopeHydrated");
     expect(source).toContain("if (!scopeHydrated) return;");
