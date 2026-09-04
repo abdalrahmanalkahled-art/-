@@ -16,6 +16,7 @@ web-build/
 # Documentation and presentation-only assets
 docs/
 presentation-assets/
+presentation-project/
 README*
 *.md
 
@@ -28,7 +29,11 @@ lib/__tests__/
 *.spec.tsx
 *.bak
 
-# Local archives and logs
+# Local archives, logs, and development-only metadata
+.manus/
+.github/
+expo-qr-code.png
+scripts/*.py
 *.zip
 *.tgz
 *.tar.gz

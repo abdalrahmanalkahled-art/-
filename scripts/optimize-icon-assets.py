@@ -14,8 +14,9 @@ ASSET_NAMES = (
 def optimize_icon(path: Path) -> None:
     with Image.open(path) as original:
         image = original.convert("RGB")
-        image.thumbnail((512, 512), Image.Resampling.LANCZOS)
-        optimized = image.quantize(colors=128, method=Image.Quantize.FASTOCTREE)
+        # Keep launcher/splash dimensions while reducing the embedded palette.
+        image.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+        optimized = image.quantize(colors=256, method=Image.Quantize.FASTOCTREE)
         temp_path = path.with_suffix(".optimized.png")
         optimized.save(temp_path, format="PNG", optimize=True, compress_level=9)
     temp_path.replace(path)
