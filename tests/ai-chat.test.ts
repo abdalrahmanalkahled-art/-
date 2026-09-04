@@ -25,7 +25,7 @@ describe("الحديث مع الذكاء الصناعي", () => {
 
   it("يستدعي Gemini من الخادم فقط ويحدد حجم الطلب", () => {
     expect(serverSource).toContain("process.env.GEMINI_API_KEY");
-    expect(serverSource).toContain("gemini-2.5-flash:generateContent");
+    expect(serverSource).toContain("gemini-3.6-flash:generateContent");
     expect(serverSource).toContain("max(3000)");
     expect(serverSource).toContain("max(30000)");
     expect(moduleSource).not.toContain("GEMINI_API_KEY");
