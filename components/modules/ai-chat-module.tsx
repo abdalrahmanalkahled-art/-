@@ -9,7 +9,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useColors } from "@/hooks/use-colors";
 import { getItemsForKeys, STORAGE_KEYS } from "@/lib/storage";
-import { trpc } from "@/lib/trpc";
+import * as Auth from "@/lib/_core/auth";
+import { getApiBaseUrl } from "@/constants/oauth";
 
 type ChatAttachment = { name: string; mimeType: string; data: string };
 type ChatMessage = { id: string; role: "user" | "model"; text: string; attachmentNames?: string[] };
@@ -56,6 +57,49 @@ async function buildLocalContext(scopeIds: string[]): Promise<string> {
 
 const WELCOME: ChatMessage = { id: "welcome", role: "model", text: "مرحباً، أنا مساعدك للتسويق الميداني. اختر نطاق البيانات من اللوحة الجانبية، ثم اطرح سؤالك." };
 
+type StreamRequest = { question: string; context: string; history: { role: "user" | "model"; text: string }[]; attachments: ChatAttachment[] };
+
+async function streamChatResponse(request: StreamRequest, signal: AbortSignal, onDelta: (text: string) => void) {
+  const token = await Auth.getSessionToken();
+  const response = await fetch(`${getApiBaseUrl()}/api/ai/chat-stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    credentials: "include",
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    let message = "تعذر الاتصال بخدمة Gemini";
+    try { message = (JSON.parse(body) as { error?: string }).error || message; } catch { /* keep fallback */ }
+    throw new Error(message);
+  }
+  if (!response.body) throw new Error("لا يدعم الاتصال الحالي البث المباشر");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let receivedText = false;
+  const consume = (raw: string) => {
+    const data = raw.split("\\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\\n");
+    if (!data || data === "[DONE]") return;
+    const event = JSON.parse(data) as { type?: string; text?: string; message?: string };
+    if (event.type === "error") throw new Error(event.message || "انقطع بث الإجابة");
+    if (event.type === "delta" && event.text) { receivedText = true; onDelta(event.text); }
+  };
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\\n\\n");
+    buffer = events.pop() || "";
+    events.forEach(consume);
+  }
+  buffer += decoder.decode();
+  if (buffer.trim()) consume(buffer);
+  if (!receivedText) throw new Error("لم تُرجع Gemini إجابة قابلة للعرض");
+}
+
 async function readAttachment(asset: DocumentPicker.DocumentPickerAsset): Promise<ChatAttachment> {
   const mimeType = asset.mimeType || "application/octet-stream";
   if (asset.size && asset.size > 6500000) throw new Error(`الملف «${asset.name}» أكبر من الحد المسموح (6 MB).`);
@@ -87,8 +131,9 @@ export default function AIChatModule() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ChatArchiveItem | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
   const messageListRef = useRef<FlatList<ChatMessage>>(null);
-  const chatMutation = trpc.ai.chat.useMutation();
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const refreshContext = useCallback(async (scopeIds: string[]) => {
     setContextLoading(true);
@@ -120,14 +165,14 @@ export default function AIChatModule() {
   }, [refreshContext, scopeHydrated, selectedScopes]);
 
   useEffect(() => {
-    if (messages.length <= 1) return;
+    if (messages.length <= 1 || isStreaming) return;
     const item: ChatArchiveItem = { id: conversationId, title: messages.find((message) => message.role === "user")?.text.slice(0, 48) || "محادثة جديدة", updatedAt: new Date().toISOString(), messages, scopeIds: selectedScopes };
     setArchive((current) => {
       const next = [item, ...current.filter((entry) => entry.id !== conversationId)].slice(0, 30);
       void AsyncStorage.setItem(ARCHIVE_KEY, JSON.stringify(next));
       return next;
     });
-  }, [conversationId, messages, selectedScopes]);
+  }, [conversationId, isStreaming, messages, selectedScopes]);
 
   const history = useMemo(() => messages.filter((message) => message.id !== "welcome").slice(-10).map(({ role, text }) => ({ role, text })), [messages]);
 
@@ -154,9 +199,13 @@ export default function AIChatModule() {
     if (!result.canceled) setSelectedFiles((current) => [...current, ...result.assets].slice(0, 5));
   }, []);
 
+  const stopGeneration = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
+
   const sendMessage = useCallback(async (preset?: string) => {
     const text = (preset ?? question).trim();
-    if (!text || chatMutation.isPending) return;
+    if (!text || isStreaming) return;
     let attachments: ChatAttachment[] = [];
     try {
       attachments = await Promise.all(selectedFiles.map(readAttachment));
@@ -166,17 +215,29 @@ export default function AIChatModule() {
       return;
     }
     const userMessage: ChatMessage = { id: `user-${Date.now()}`, role: "user", text, attachmentNames: attachments.map((file) => file.name) };
-    setMessages((current) => [...current, userMessage]);
+    const modelMessageId = `model-${Date.now()}`;
+    setMessages((current) => [...current, userMessage, { id: modelMessageId, role: "model", text: "" }]);
     setQuestion("");
     setSelectedFiles([]);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setIsStreaming(true);
     try {
-      const result = await chatMutation.mutateAsync({ question: text, context, history, attachments });
-      setMessages((current) => [...current, { id: `model-${Date.now()}`, role: "model", text: result.text }]);
+      await streamChatResponse({ question: text, context, history, attachments }, controller.signal, (delta) => {
+        setMessages((current) => current.map((message) => message.id === modelMessageId ? { ...message, text: message.text + delta } : message));
+      });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "تعذر الحصول على إجابة حالياً";
-      setMessages((current) => [...current, { id: `error-${Date.now()}`, role: "model", text: `تعذر إكمال الطلب: ${message}` }]);
+      if ((error as Error).name !== "AbortError") {
+        const message = error instanceof Error ? error.message : "تعذر الحصول على إجابة حالياً";
+        setMessages((current) => current.map((item) => item.id === modelMessageId ? { ...item, text: item.text || `تعذر إكمال الطلب: ${message}` } : item));
+      } else {
+        setMessages((current) => current.map((item) => item.id === modelMessageId ? { ...item, text: item.text || "تم إيقاف التوليد." } : item));
+      }
+    } finally {
+      if (abortControllerRef.current === controller) abortControllerRef.current = null;
+      setIsStreaming(false);
     }
-  }, [chatMutation, context, history, question, selectedFiles]);
+  }, [context, history, isStreaming, question, selectedFiles]);
 
   const deleteConversation = useCallback(async () => {
     if (!deleteTarget) return;
@@ -217,16 +278,16 @@ export default function AIChatModule() {
             <Text style={[styles.messageText, { color: item.role === "user" ? "#fff" : colors.foreground }]}>{item.text}</Text>
           </View>
         </View>
-      )} ListFooterComponent={chatMutation.isPending ? <View style={styles.typing}><ActivityIndicator size="small" color={colors.primary} /><Text style={[styles.typingText, { color: colors.muted }]}>يحلل البيانات…</Text></View> : null} />
+      )} ListFooterComponent={isStreaming ? <View style={styles.typing}><ActivityIndicator size="small" color={colors.primary} /><Text style={[styles.typingText, { color: colors.muted }]}>يكتب الآن…</Text></View> : null} />
 
-      {messages.length === 1 ? <View style={styles.quickPrompts}><Text style={[styles.quickTitle, { color: colors.muted }]}>أسئلة سريعة</Text><View style={styles.quickWrap}>{QUICK_PROMPTS.map((prompt) => <TouchableOpacity key={prompt} style={[styles.quickChip, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void sendMessage(prompt)} disabled={contextLoading || chatMutation.isPending} activeOpacity={0.75}><Text style={[styles.quickText, { color: colors.foreground }]}>{prompt}</Text></TouchableOpacity>)}</View></View> : null}
+      {messages.length === 1 ? <View style={styles.quickPrompts}><Text style={[styles.quickTitle, { color: colors.muted }]}>أسئلة سريعة</Text><View style={styles.quickWrap}>{QUICK_PROMPTS.map((prompt) => <TouchableOpacity key={prompt} style={[styles.quickChip, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void sendMessage(prompt)} disabled={contextLoading || isStreaming} activeOpacity={0.75}><Text style={[styles.quickText, { color: colors.foreground }]}>{prompt}</Text></TouchableOpacity>)}</View></View> : null}
 
       <View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.background }]}>
         {selectedFiles.length > 0 ? <View style={styles.fileStrip}>{selectedFiles.map((file) => <View key={`${file.uri}-${file.name}`} style={[styles.fileChip, { backgroundColor: colors.surface, borderColor: colors.border }]}><MaterialIcons name="insert-drive-file" size={16} color={colors.primary} /><Text style={[styles.fileName, { color: colors.foreground }]} numberOfLines={1}>{file.name}</Text><TouchableOpacity onPress={() => setSelectedFiles((current) => current.filter((item) => item.uri !== file.uri))} activeOpacity={0.75}><MaterialIcons name="close" size={15} color={colors.muted} /></TouchableOpacity></View>)}</View> : null}
         <View style={styles.composerRow}>
-          <TouchableOpacity style={[styles.attachButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void pickFiles()} disabled={contextLoading || chatMutation.isPending} activeOpacity={0.75}><MaterialIcons name="attach-file" size={20} color={colors.primary} /></TouchableOpacity>
-          <TextInput value={question} onChangeText={setQuestion} placeholder={contextLoading ? "يُجهّز نطاق البيانات…" : "اكتب سؤالك هنا"} placeholderTextColor={colors.muted} multiline maxLength={3000} editable={!contextLoading && !chatMutation.isPending} style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]} textAlign="right" onSubmitEditing={() => void sendMessage()} />
-          <TouchableOpacity style={[styles.sendButton, { backgroundColor: colors.primary }, (!question.trim() || contextLoading || chatMutation.isPending) && styles.disabled]} onPress={() => void sendMessage()} disabled={!question.trim() || contextLoading || chatMutation.isPending} activeOpacity={0.8}><MaterialIcons name="send" size={21} color="#fff" /></TouchableOpacity>
+          <TouchableOpacity style={[styles.attachButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void pickFiles()} disabled={contextLoading || isStreaming} activeOpacity={0.75}><MaterialIcons name="attach-file" size={20} color={colors.primary} /></TouchableOpacity>
+          <TextInput value={question} onChangeText={setQuestion} placeholder={contextLoading ? "يُجهّز نطاق البيانات…" : "اكتب سؤالك هنا"} placeholderTextColor={colors.muted} multiline maxLength={3000} editable={!contextLoading && !isStreaming} style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]} textAlign="right" onSubmitEditing={() => void sendMessage()} />
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={isStreaming ? "إيقاف توليد الإجابة" : "إرسال الرسالة"} style={[styles.sendButton, { backgroundColor: colors.primary }, !isStreaming && !question.trim() && styles.disabled]} onPress={isStreaming ? stopGeneration : () => void sendMessage()} disabled={contextLoading} activeOpacity={0.8}>{isStreaming ? <><MaterialIcons name="stop" size={20} color="#fff" /><Text style={styles.stopText}>إيقاف</Text></> : <MaterialIcons name="send" size={21} color="#fff" />}</TouchableOpacity>
         </View>
       </View>
 
@@ -246,5 +307,5 @@ export default function AIChatModule() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 }, toolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth }, toolbarButton: { minHeight: 42, borderRadius: 13, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 }, toolbarButtonText: { fontSize: 12, fontWeight: "700" as any }, newButton: { minHeight: 42, borderRadius: 13, paddingHorizontal: 11, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 5 }, newButtonText: { fontSize: 12, fontWeight: "600" as any }, activeScope: { flexDirection: "row", alignItems: "center", gap: 7, marginHorizontal: 16, marginTop: 10, paddingHorizontal: 10, minHeight: 34, borderRadius: 10, borderWidth: 1 }, activeScopeText: { flex: 1, textAlign: "right", fontSize: 11 }, privacyNote: { flexDirection: "row", alignItems: "center", gap: 7, marginHorizontal: 16, marginTop: 8, padding: 10, borderRadius: 12, borderWidth: 1 }, privacyText: { flex: 1, textAlign: "right", fontSize: 11, lineHeight: 18 }, messages: { flex: 1 }, messagesContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8, gap: 10 }, messageRow: { alignItems: "flex-start" }, userRow: { alignItems: "flex-end" }, messageBubble: { maxWidth: "86%", borderRadius: 16, borderWidth: 1, paddingHorizontal: 13, paddingVertical: 10 },   messageText: { flexShrink: 1, textAlign: "right", fontSize: 14, lineHeight: 22, includeFontPadding: true }, messageAttachments: { gap: 4, marginBottom: 6 }, messageAttachment: { textAlign: "right", fontSize: 10 }, typing: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 10 }, typingText: { fontSize: 12 }, quickPrompts: { paddingHorizontal: 16, paddingBottom: 9 }, quickTitle: { textAlign: "right", fontSize: 12, marginBottom: 7 }, quickWrap: { gap: 7 }, quickChip: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9 }, quickText: { textAlign: "right", fontSize: 12 },   composer: { marginHorizontal: 12, marginBottom: 10, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 20, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 4 }, composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 }, fileStrip: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 }, fileChip: { maxWidth: "100%", minHeight: 32, borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 5 }, fileName: { maxWidth: 150, fontSize: 10 }, attachButton: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" }, input: { flex: 1, minHeight: 44, maxHeight: 110, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 9, fontSize: 14 }, sendButton: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" }, disabled: { opacity: 0.45 }, drawerOverlay: { flex: 1, flexDirection: "row", backgroundColor: "rgba(15,23,42,0.28)" }, drawerBackdrop: { flex: 1 }, drawer: { width: "87%", maxWidth: 390, paddingTop: 10, elevation: 12, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: -4, height: 0 } }, drawerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 13, borderBottomWidth: StyleSheet.hairlineWidth }, drawerTitle: { textAlign: "right", fontSize: 18, fontWeight: "800" as any }, drawerSubtitle: { textAlign: "right", fontSize: 11, marginTop: 4 }, closeButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" }, scopeSection: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 9 }, sectionTitle: { textAlign: "right", fontSize: 15, fontWeight: "800" as any }, sectionHint: { textAlign: "right", fontSize: 11, lineHeight: 18, marginTop: 4 }, scopeCard: { marginHorizontal: 16, marginBottom: 8, minHeight: 66, borderRadius: 15, borderWidth: 1, padding: 10, flexDirection: "row", alignItems: "center", gap: 9 }, scopeIcon: { width: 37, height: 37, borderRadius: 11, alignItems: "center", justifyContent: "center" }, scopeCopy: { flex: 1, alignItems: "flex-end" }, scopeTitle: { textAlign: "right", fontSize: 13, fontWeight: "700" as any }, scopeSubtitle: { textAlign: "right", fontSize: 10, marginTop: 3 }, archiveSection: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 30 }, archiveTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }, archiveCount: { fontSize: 12 }, emptyArchive: { textAlign: "right", fontSize: 12, paddingVertical: 12 }, archiveCard: { minHeight: 62, borderWidth: 1, borderRadius: 14, marginBottom: 8, paddingHorizontal: 10, flexDirection: "row", alignItems: "center" }, archiveMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 9 }, archiveCopy: { flex: 1, alignItems: "flex-end" }, archiveItemTitle: { textAlign: "right", fontSize: 12, fontWeight: "700" as any }, archiveDate: { textAlign: "right", fontSize: 10, marginTop: 3 }, archiveDelete: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  container: { flex: 1 }, toolbar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth }, toolbarButton: { minHeight: 42, borderRadius: 13, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 }, toolbarButtonText: { fontSize: 12, fontWeight: "700" as any }, newButton: { minHeight: 42, borderRadius: 13, paddingHorizontal: 11, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 5 }, newButtonText: { fontSize: 12, fontWeight: "600" as any }, activeScope: { flexDirection: "row", alignItems: "center", gap: 7, marginHorizontal: 16, marginTop: 10, paddingHorizontal: 10, minHeight: 34, borderRadius: 10, borderWidth: 1 }, activeScopeText: { flex: 1, textAlign: "right", fontSize: 11 }, privacyNote: { flexDirection: "row", alignItems: "center", gap: 7, marginHorizontal: 16, marginTop: 8, padding: 10, borderRadius: 12, borderWidth: 1 }, privacyText: { flex: 1, textAlign: "right", fontSize: 11, lineHeight: 18 }, messages: { flex: 1 }, messagesContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8, gap: 10 }, messageRow: { alignItems: "flex-start" }, userRow: { alignItems: "flex-end" }, messageBubble: { maxWidth: "86%", borderRadius: 16, borderWidth: 1, paddingHorizontal: 13, paddingVertical: 10 },   messageText: { flexShrink: 1, textAlign: "right", fontSize: 14, lineHeight: 22, includeFontPadding: true }, messageAttachments: { gap: 4, marginBottom: 6 }, messageAttachment: { textAlign: "right", fontSize: 10 }, typing: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingBottom: 10 }, typingText: { fontSize: 12 }, quickPrompts: { paddingHorizontal: 16, paddingBottom: 9 }, quickTitle: { textAlign: "right", fontSize: 12, marginBottom: 7 }, quickWrap: { gap: 7 }, quickChip: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9 }, quickText: { textAlign: "right", fontSize: 12 },   composer: { marginHorizontal: 12, marginBottom: 10, paddingHorizontal: 10, paddingVertical: 9, borderWidth: 1, borderRadius: 20, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 4 }, composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 }, fileStrip: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 }, fileChip: { maxWidth: "100%", minHeight: 32, borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 5 }, fileName: { maxWidth: 150, fontSize: 10 }, attachButton: { width: 44, height: 44, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" }, input: { flex: 1, minHeight: 44, maxHeight: 110, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, paddingTop: 11, paddingBottom: 9, fontSize: 14 }, sendButton: { minWidth: 44, height: 44, borderRadius: 14, paddingHorizontal: 10, flexDirection: "row", gap: 4, alignItems: "center", justifyContent: "center" }, stopText: { color: "#fff", fontSize: 11, fontWeight: "700" as any }, disabled: { opacity: 0.45 }, drawerOverlay: { flex: 1, flexDirection: "row", backgroundColor: "rgba(15,23,42,0.28)" }, drawerBackdrop: { flex: 1 }, drawer: { width: "87%", maxWidth: 390, paddingTop: 10, elevation: 12, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: -4, height: 0 } }, drawerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 13, borderBottomWidth: StyleSheet.hairlineWidth }, drawerTitle: { textAlign: "right", fontSize: 18, fontWeight: "800" as any }, drawerSubtitle: { textAlign: "right", fontSize: 11, marginTop: 4 }, closeButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" }, scopeSection: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 9 }, sectionTitle: { textAlign: "right", fontSize: 15, fontWeight: "800" as any }, sectionHint: { textAlign: "right", fontSize: 11, lineHeight: 18, marginTop: 4 }, scopeCard: { marginHorizontal: 16, marginBottom: 8, minHeight: 66, borderRadius: 15, borderWidth: 1, padding: 10, flexDirection: "row", alignItems: "center", gap: 9 }, scopeIcon: { width: 37, height: 37, borderRadius: 11, alignItems: "center", justifyContent: "center" }, scopeCopy: { flex: 1, alignItems: "flex-end" }, scopeTitle: { textAlign: "right", fontSize: 13, fontWeight: "700" as any }, scopeSubtitle: { textAlign: "right", fontSize: 10, marginTop: 3 }, archiveSection: { paddingHorizontal: 16, paddingTop: 15, paddingBottom: 30 }, archiveTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }, archiveCount: { fontSize: 12 }, emptyArchive: { textAlign: "right", fontSize: 12, paddingVertical: 12 }, archiveCard: { minHeight: 62, borderWidth: 1, borderRadius: 14, marginBottom: 8, paddingHorizontal: 10, flexDirection: "row", alignItems: "center" }, archiveMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 9 }, archiveCopy: { flex: 1, alignItems: "flex-end" }, archiveItemTitle: { textAlign: "right", fontSize: 12, fontWeight: "700" as any }, archiveDate: { textAlign: "right", fontSize: 10, marginTop: 3 }, archiveDelete: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
 });
