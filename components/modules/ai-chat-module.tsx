@@ -61,43 +61,75 @@ type StreamRequest = { question: string; context: string; history: { role: "user
 
 async function streamChatResponse(request: StreamRequest, signal: AbortSignal, onDelta: (text: string) => void) {
   const token = await Auth.getSessionToken();
-  const response = await fetch(`${getApiBaseUrl()}/api/ai/chat-stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    credentials: "include",
-    body: JSON.stringify(request),
-    signal,
-  });
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    let message = "تعذر الاتصال بخدمة Gemini";
-    try { message = (JSON.parse(body) as { error?: string }).error || message; } catch { /* keep fallback */ }
-    throw new Error(message);
-  }
-  if (!response.body) throw new Error("لا يدعم الاتصال الحالي البث المباشر");
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let settled = false;
+    let consumedLength = 0;
+    let buffer = "";
+    let receivedText = false;
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let receivedText = false;
-  const consume = (raw: string) => {
-    const data = raw.split("\\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\\n");
-    if (!data || data === "[DONE]") return;
-    const event = JSON.parse(data) as { type?: string; text?: string; message?: string };
-    if (event.type === "error") throw new Error(event.message || "انقطع بث الإجابة");
-    if (event.type === "delta" && event.text) { receivedText = true; onDelta(event.text); }
-  };
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split("\\n\\n");
-    buffer = events.pop() || "";
-    events.forEach(consume);
-  }
-  buffer += decoder.decode();
-  if (buffer.trim()) consume(buffer);
-  if (!receivedText) throw new Error("لم تُرجع Gemini إجابة قابلة للعرض");
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", abort);
+      reject(error);
+    };
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", abort);
+      if (buffer.trim()) consumeEvents(buffer, true);
+      if (!receivedText) { reject(new Error("لم تُرجع Gemini إجابة قابلة للعرض")); return; }
+      resolve();
+    };
+    const consumeEvent = (raw: string) => {
+      const data = raw.split("\\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\\n");
+      if (!data || data === "[DONE]") return;
+      let event: { type?: string; text?: string; message?: string };
+      try { event = JSON.parse(data) as { type?: string; text?: string; message?: string }; } catch { return; }
+      if (event.type === "error") { fail(new Error(event.message || "انقطع بث الإجابة")); return; }
+      if (event.type === "delta" && event.text) { receivedText = true; onDelta(event.text); }
+    };
+    const consumeEvents = (incoming: string, flush = false) => {
+      buffer += incoming;
+      const events = buffer.split("\\n\\n");
+      buffer = flush ? "" : (events.pop() || "");
+      events.forEach(consumeEvent);
+    };
+    const readProgress = () => {
+      if (xhr.readyState < 3 || settled) return;
+      const next = xhr.responseText.slice(consumedLength);
+      consumedLength = xhr.responseText.length;
+      if (next) consumeEvents(next);
+    };
+    const abort = () => {
+      xhr.abort();
+      fail(Object.assign(new Error("تم إيقاف التوليد."), { name: "AbortError" }));
+    };
+
+    xhr.open("POST", `${getApiBaseUrl()}/api/ai/chat-stream`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("Content-Type", "application/json");
+    xhr.setRequestHeader("Accept", "text/event-stream");
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.onprogress = readProgress;
+    xhr.onreadystatechange = readProgress;
+    xhr.onerror = () => fail(new Error("تعذر الاتصال بخدمة Gemini"));
+    xhr.onabort = () => { if (!settled) fail(Object.assign(new Error("تم إيقاف التوليد."), { name: "AbortError" })); };
+    xhr.onload = () => {
+      readProgress();
+      if (xhr.status < 200 || xhr.status >= 300) {
+        let message = "تعذر الاتصال بخدمة Gemini";
+        try { message = (JSON.parse(xhr.responseText) as { error?: string }).error || message; } catch { /* keep fallback */ }
+        fail(new Error(message));
+        return;
+      }
+      finish();
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) { abort(); return; }
+    xhr.send(JSON.stringify(request));
+  });
 }
 
 async function readAttachment(asset: DocumentPicker.DocumentPickerAsset): Promise<ChatAttachment> {

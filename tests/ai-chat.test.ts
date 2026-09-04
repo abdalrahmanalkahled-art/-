@@ -31,6 +31,8 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(serverSource).toContain("totalAttachmentSize > 24000000");
     expect(moduleSource).toContain("readAttachment");
     expect(moduleSource).toContain("streamChatResponse");
+    expect(moduleSource).toContain("new XMLHttpRequest()");
+    expect(moduleSource).not.toContain("response.body.getReader");
     expect(moduleSource).toContain("attachments }, controller.signal");
   });
 
