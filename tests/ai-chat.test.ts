@@ -69,6 +69,10 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain("newConversationCard");
     expect(moduleSource).toContain("drawerListWrap");
     expect(moduleSource).toContain("Math.max(insets.top, 10)");
+    expect(moduleSource).toContain("statusBarTranslucent={false}");
+    expect(moduleSource).toContain("translateX");
+    expect(moduleSource).toContain('width: "92%"');
+    expect(moduleSource).toContain('justifyContent: "flex-end"');
   });
 
   it("يعرض تنسيق الإجابات وإجراءات النسخ والمشاركة", () => {
