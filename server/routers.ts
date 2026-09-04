@@ -38,7 +38,7 @@ export const appRouter = router({
                 ...input.history.map((message) => ({ role: message.role, parts: [{ text: message.text }] })),
                 { role: "user", parts: [{ text: `السياق المحلي للتطبيق:\n${input.context || "لا يوجد سياق محدد."}\n\nسؤال المستخدم:\n${input.question}` }, ...attachmentParts] },
               ],
-              generationConfig: { temperature: 0.35, maxOutputTokens: 1200 },
+              generationConfig: { temperature: 0.35, maxOutputTokens: 3000 },
             }),
           },
         );

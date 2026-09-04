@@ -37,6 +37,15 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(serverSource).toContain("gemini-3.6-flash:generateContent");
     expect(serverSource).toContain("max(3000)");
     expect(serverSource).toContain("max(30000)");
+    expect(serverSource).toContain("maxOutputTokens: 3000");
     expect(moduleSource).not.toContain("GEMINI_API_KEY");
+  });
+
+  it("يحافظ على الردود الطويلة ويثبت محرر الإرسال مع لوحة المفاتيح", () => {
+    expect(moduleSource).toContain("removeClippedSubviews={false}");
+    expect(moduleSource).toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
+    expect(moduleSource).toContain("messageListRef.current?.scrollToEnd");
+    expect(moduleSource).toContain("marginHorizontal: 12");
+    expect(moduleSource).toContain("maxHeight: 110");
   });
 });
