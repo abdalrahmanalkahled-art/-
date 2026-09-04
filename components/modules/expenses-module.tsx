@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 
 import { CategoryManagerModal } from "@/components/category-manager-modal";
-import { CardActionModal } from "@/components/card-action-modal";
+import { CardActionModal, type CardAction } from "@/components/card-action-modal";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DateRangePickerModal } from "@/components/date-range-picker-modal";
 import { ExpenseReportSettingsSheet } from "@/components/expense-report-settings-sheet";
@@ -281,9 +281,9 @@ export default function ExpensesModule() {
         onConfirm={() => void confirmDeleteExpense()}
       />
       <CardActionModal visible={Boolean(expenseActionTarget)} title={expenseActionTarget?.title || "إجراءات الصرفية"} onClose={() => setExpenseActionTarget(null)} actions={[
-        ...(canEdit ? [{ id: "edit", label: "تعديل الصرفية", icon: "edit", tone: "primary" as const, onPress: () => { const target = expenseActionTarget; setExpenseActionTarget(null); if (target) openExpenseEdit(target); } }] : []),
-        ...(canDelete ? [{ id: "delete", label: "حذف الصرفية", icon: "delete-outline", tone: "danger" as const, onPress: () => { const target = expenseActionTarget; setExpenseActionTarget(null); if (target) handleDeleteExpense(target.id); } }] : []),
-      ]} />
+        ...(canEdit ? [{ id: "edit", label: "تعديل الصرفية", icon: "edit" as const, tone: "primary" as const, onPress: () => { const target = expenseActionTarget; setExpenseActionTarget(null); if (target) openExpenseEdit(target); } }] : []),
+        ...(canDelete ? [{ id: "delete", label: "حذف الصرفية", icon: "delete-outline" as const, tone: "danger" as const, onPress: () => { const target = expenseActionTarget; setExpenseActionTarget(null); if (target) handleDeleteExpense(target.id); } }] : []),
+      ] satisfies CardAction[]} />
     </View>
   );
 }

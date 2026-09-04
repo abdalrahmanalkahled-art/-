@@ -1,4 +1,4 @@
-export type StorageBucketId = "reports" | "storePhotos" | "signageMedia" | "eventMedia" | "templates" | "backups" | "exports" | "analytics" | "externalAnalytics" | "other" | "temporary";
+export type StorageBucketId = "reports" | "storePhotos" | "competitorPhotos" | "signageMedia" | "eventMedia" | "templates" | "backups" | "exports" | "analytics" | "externalAnalytics" | "other" | "temporary";
 
 export interface StorageBucketUsage {
   id: StorageBucketId;

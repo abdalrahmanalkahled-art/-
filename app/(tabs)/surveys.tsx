@@ -163,6 +163,10 @@ export default function SurveysScreen() {
   const [showTemplateFilterMenu, setShowTemplateFilterMenu] = useState(false);
   const [selectedCycleId, setSelectedCycleId] = useState<string | null>(null);
   const [showCycleFilterMenu, setShowCycleFilterMenu] = useState(false);
+  const [selectedAnalysisTemplate, setSelectedAnalysisTemplate] = useState<string | null>(null);
+  const [showAnalysisTemplateMenu, setShowAnalysisTemplateMenu] = useState(false);
+  const [selectedAnalysisCycleId, setSelectedAnalysisCycleId] = useState<string | null>(null);
+  const [showAnalysisCycleMenu, setShowAnalysisCycleMenu] = useState(false);
   
   // سجل الدورات المنتهية
   const [selectedHistoryCycle, setSelectedHistoryCycle] = useState<SurveyCycle | null>(null);

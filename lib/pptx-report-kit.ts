@@ -30,7 +30,7 @@ export function createPptxPresentation(title: string) {
   return pptx;
 }
 
-export function addCoverSlide(pptx: PptxGenJS, title: string, subtitle: string, generatedAt: string, accent = PPTX_COLORS.violet) {
+export function addCoverSlide(pptx: PptxGenJS, title: string, subtitle: string, generatedAt: string, accent: string = PPTX_COLORS.violet) {
   const slide = pptx.addSlide();
   slide.background = { color: PPTX_COLORS.navy };
   slide.addShape(pptx.ShapeType.arc, { x: -1.25, y: -1.35, w: 6.6, h: 6.6, rotate: 34, line: { color: accent, transparency: 100 }, fill: { color: accent, transparency: 10 } });
@@ -44,7 +44,7 @@ export function addCoverSlide(pptx: PptxGenJS, title: string, subtitle: string, 
   return slide;
 }
 
-export function addMetricsSlide(pptx: PptxGenJS, title: string, description: string, metrics: PptxMetric[], accent = PPTX_COLORS.blue) {
+export function addMetricsSlide(pptx: PptxGenJS, title: string, description: string, metrics: PptxMetric[], accent: string = PPTX_COLORS.blue) {
   const slide = addStandardSlide(pptx, title, description, accent);
   const visible = metrics.slice(0, 6);
   const columns = visible.length > 4 ? 3 : 2;
@@ -67,7 +67,7 @@ export function addMetricsSlide(pptx: PptxGenJS, title: string, description: str
   return slide;
 }
 
-export function addBarChartSlide(pptx: PptxGenJS, title: string, description: string, bars: PptxBar[], accent = PPTX_COLORS.violet) {
+export function addBarChartSlide(pptx: PptxGenJS, title: string, description: string, bars: PptxBar[], accent: string = PPTX_COLORS.violet) {
   const slide = addStandardSlide(pptx, title, description, accent);
   const visible = bars.filter((bar) => Number.isFinite(bar.value) && bar.value >= 0).slice(0, 8);
   if (!visible.length) {
@@ -93,7 +93,7 @@ export function addBarChartSlide(pptx: PptxGenJS, title: string, description: st
   return slide;
 }
 
-export function addListSlide(pptx: PptxGenJS, title: string, description: string, items: PptxListItem[], accent = PPTX_COLORS.blue) {
+export function addListSlide(pptx: PptxGenJS, title: string, description: string, items: PptxListItem[], accent: string = PPTX_COLORS.blue) {
   const slide = addStandardSlide(pptx, title, description, accent);
   const visible = items.slice(0, 6);
   if (!visible.length) {
@@ -116,7 +116,7 @@ export function addListSlide(pptx: PptxGenJS, title: string, description: string
   return slide;
 }
 
-export function addMediaSlide(pptx: PptxGenJS, title: string, description: string, media: PreparedPptxMedia[], accent = PPTX_COLORS.violet) {
+export function addMediaSlide(pptx: PptxGenJS, title: string, description: string, media: PreparedPptxMedia[], accent: string = PPTX_COLORS.violet) {
   const slide = addStandardSlide(pptx, title, description, accent);
   const visible = media.slice(0, 6);
   if (!visible.length) {
@@ -145,7 +145,7 @@ export function addMediaSlide(pptx: PptxGenJS, title: string, description: strin
 }
 
 /** يوزع بطاقات الوسائط على شرائح متتابعة كي لا يتحول العرض إلى شبكة مزدحمة. */
-export function addPagedMediaSlides(pptx: PptxGenJS, title: string, description: string, media: PreparedPptxMedia[], accent = PPTX_COLORS.violet, perSlide = 6) {
+export function addPagedMediaSlides(pptx: PptxGenJS, title: string, description: string, media: PreparedPptxMedia[], accent: string = PPTX_COLORS.violet, perSlide = 6) {
   if (!media.length) return [addMediaSlide(pptx, title, description, [], accent)];
   const totalPages = Math.ceil(media.length / perSlide);
   return chunkPptxItems(media, perSlide).map((page, index) => addMediaSlide(pptx, totalPages > 1 ? `${title} (${index + 1}/${totalPages})` : title, description, page, accent));
@@ -161,7 +161,7 @@ export function groupPptxMediaForCards(media: PreparedPptxMedia[]): PreparedPptx
   return Array.from(groups.values()).flatMap((entries) => chunkPptxItems(entries, 4));
 }
 
-export function addGroupedStoreMediaSlides(pptx: PptxGenJS, title: string, description: string, media: PreparedPptxMedia[], accent = PPTX_COLORS.violet) {
+export function addGroupedStoreMediaSlides(pptx: PptxGenJS, title: string, description: string, media: PreparedPptxMedia[], accent: string = PPTX_COLORS.violet) {
   const cards = groupPptxMediaForCards(media);
   if (!cards.length) return [addMediaSlide(pptx, title, description, [], accent)];
   const pages = chunkPptxItems(cards, 2);

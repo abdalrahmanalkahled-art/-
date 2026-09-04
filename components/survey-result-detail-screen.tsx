@@ -29,7 +29,7 @@ interface SurveyResultItem {
     productId: string;
     productName: string;
     present: boolean;
-    shelfPercentage: number;
+    shelfPercentage?: number;
     shelfOccupied?: number;
     price?: number;
   }[];
@@ -237,7 +237,7 @@ export function SurveyResultDetailScreen({
                       style={[
                         styles.progressFill,
                         {
-                          width: `${product.shelfPercentage}%`,
+                          width: `${Math.max(0, Number(product.shelfPercentage) || 0)}%`,
                           backgroundColor: colors.primary,
                         },
                       ]}

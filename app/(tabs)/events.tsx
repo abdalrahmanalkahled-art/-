@@ -342,7 +342,7 @@ export default function EventsScreen() {
     if (editingEvent) {
       const updated = allEvents.map((e) =>
         e.id === editingEvent.id
-          ? (() => { const { startDate, endDate, period, ...withoutLegacyTimeline } = e; return { ...withoutLegacyTimeline, ...next }; })()
+          ? (() => { const { startDate, endDate, ...withoutLegacyTimeline } = e; return { ...withoutLegacyTimeline, ...next }; })()
           : e
       );
       await saveItems(STORAGE_KEYS.EVENTS, updated);
@@ -639,11 +639,11 @@ export default function EventsScreen() {
       />
       </>}
 
-      <FloatingFormModal visible={showModal} onClose={requestCloseEventForm} backgroundColor={colors.background} isLoading={isInitialLoading} isDismissDisabled={isSaving}>
+      <FloatingFormModal visible={showModal} onClose={() => requestCloseEventForm()} backgroundColor={colors.background} isLoading={isInitialLoading} isDismissDisabled={isSaving}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}> 
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={requestCloseEventForm} disabled={isSaving} accessibilityLabel="إغلاق نموذج الفعالية">
+            <TouchableOpacity onPress={() => requestCloseEventForm()} disabled={isSaving} accessibilityLabel="إغلاق نموذج الفعالية">
               <MaterialIcons name="close" size={24} color={colors.foreground} />
             </TouchableOpacity>
             <Text style={[styles.modalTitle, { color: colors.foreground }]}>
@@ -756,7 +756,7 @@ export default function EventsScreen() {
           </ScrollView>
           <View style={[styles.modalFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
             <TouchableOpacity 
-              onPress={requestCloseEventForm}
+              onPress={() => requestCloseEventForm()}
               disabled={isSaving}
               style={[styles.cancelBtn, { borderColor: colors.border }]}
             >

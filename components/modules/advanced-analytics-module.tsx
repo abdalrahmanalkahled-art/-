@@ -184,7 +184,7 @@ export function AdvancedAnalyticsModule({ externalPackageId, combinedExternal, o
       const store = stores.find((item) => item.id === result.storeId);
       const storeName = store?.name || result.storeName || "محل غير محدد";
       const region = store?.region || result.storeRegion || "غير محددة";
-      const category = store?.category || "غير مصنف";
+      const category = (store as typeof store & { category?: string })?.category || "غير مصنف";
       return [result.storePhotoUri, ...(result.storePhotoUris || [])].filter((uri): uri is string => Boolean(uri)).map((uri) => ({ uri, title: storeName, groupKey: result.storeId || storeName, metadata: { storeName, region, category } }));
     });
     const source = tab === "tracking" ? trackingMarketing : tab === "marketing" ? marketing : undefined;

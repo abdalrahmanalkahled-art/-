@@ -17,7 +17,7 @@ export interface ProductObservation {
   productId: string;
   productName: string;
   present: boolean;
-  shelfPercentage: number;
+  shelfPercentage?: number;
 }
 
 interface SurveyQuestionAnswer { questionId: string; question: string; answer: string; }
@@ -50,7 +50,7 @@ interface CategorySeed { company: Map<string, ProductSeed>; competitors: Map<str
 interface StoreSeed { storeId: string; storeName: string; storeRegion: string; surveys: SurveyResult[]; }
 
 const percentageFor = (items: ProductObservation[]) => items.length ? Math.round((items.filter((item) => item.present).length / items.length) * 100) : 0;
-const averageShelfFor = (items: ProductObservation[]) => items.length ? Math.round(items.reduce((total, item) => total + (item.present ? item.shelfPercentage : 0), 0) / items.length) : 0;
+const averageShelfFor = (items: ProductObservation[]) => items.length ? Math.round(items.reduce((total, item) => total + (item.present ? (item.shelfPercentage || 0) : 0), 0) / items.length) : 0;
 const average = (values: number[]) => values.length ? Math.round(values.reduce((total, value) => total + value, 0) / values.length) : 0;
 
 export function calculateSurveyAnalytics(surveys: SurveyResult[], products: Product[]): AnalyticsData {

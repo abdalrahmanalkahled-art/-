@@ -44,7 +44,7 @@ export interface SurveyResultProductData {
   productName: string;
   present: boolean;
   /** قيمة قديمة محفوظة للتوافق؛ تُحسب الجديدة من الرفوف المشغولة والإجمالي. */
-  shelfPercentage: number;
+  shelfPercentage?: number;
   shelfOccupied?: number;
   price?: number;
 }

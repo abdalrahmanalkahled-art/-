@@ -176,7 +176,7 @@ export function calculateCyclePresenceSeries(results: SurveyResult[], stores: St
         presencePercentage: rows.length ? Math.round((presentCount / rows.length) * 100) : 0,
         presentCount,
         sampleSize: rows.length,
-        averageShelfPercentage: shelfRows.length ? Math.round(shelfRows.reduce((sum, row) => sum + row.shelfPercentage, 0) / shelfRows.length) : undefined,
+        averageShelfPercentage: shelfRows.length ? Math.round(shelfRows.reduce((sum, row) => sum + (Number(row.shelfPercentage) || 0), 0) / shelfRows.length) : undefined,
         averagePrice: priceRows.length ? Math.round((priceRows.reduce((sum, row) => sum + (row.price || 0), 0) / priceRows.length) * 100) / 100 : undefined,
       } satisfies CycleProductPresence;
     });
