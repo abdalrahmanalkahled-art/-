@@ -15,11 +15,9 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moreSource).toContain("الحديث مع الذكاء الصناعي");
   });
 
-  it("يجمع سياقاً مختصراً من التخزين المحلي دون إرسال الصور تلقائياً", () => {
-    expect(moduleSource).toContain("getItemsForKeys");
-    expect(moduleSource).toContain("STORAGE_KEYS.EVENTS");
-    expect(moduleSource).toContain("STORAGE_KEYS.MARKETING_GOALS");
-    expect(moduleSource).toContain("STORAGE_KEYS.FIELD_COMPETITOR_OBSERVATIONS");
+  it("يبني سياقاً حديثاً من خريطة البيانات دون إرسال الصور تلقائياً", () => {
+    expect(moduleSource).toContain("buildSmartDataContext");
+    expect(moduleSource).toContain("selectedScopes");
     expect(moduleSource).toContain("selectedFiles");
     expect(moduleSource).toContain("readAttachment");
   });
@@ -63,9 +61,11 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).not.toContain("تُرسل فقط البيانات الواقعة ضمن النطاق المختار");
   });
 
-  it("يستخدم أيقونة قائمة واحدة وبطاقة محادثة جديدة داخل اللوحة", () => {
+  it("يستخدم أيقونة قائمة وإعدادات وبطاقة محادثة جديدة داخل اللوحة", () => {
     expect(moduleSource).toContain('name="menu"');
-    expect(moduleSource).toContain("فتح النطاق والأرشيف");
+    expect(moduleSource).toContain('name="settings"');
+    expect(moduleSource).toContain("فتح نطاق البيانات والأرشيف");
+    expect(moduleSource).toContain("إعدادات الذكاء الصناعي");
     expect(moduleSource).toContain("newConversationCard");
     expect(moduleSource).toContain("drawerListWrap");
     expect(moduleSource).toContain("Math.max(insets.top, 10)");
@@ -74,7 +74,10 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain('width: "75%"');
     expect(moduleSource).toContain('drawer: { width: "75%"');
     expect(moduleSource).not.toContain('drawer: { flex: 1, width:');
-    expect(moduleSource).toContain('justifyContent: "flex-end"');
+    expect(moduleSource).toContain('justifyContent: "space-between"');
+    expect(moduleSource).toContain("تنظيف السياق");
+    expect(moduleSource).toContain("تنظيف الأرشيف");
+    expect(moduleSource).toContain("settingsModal");
   });
 
   it("يعرض تنسيق الإجابات وإجراءات النسخ والمشاركة", () => {
