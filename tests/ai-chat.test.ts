@@ -86,7 +86,10 @@ describe("الحديث مع الذكاء الصناعي", () => {
 
   it("يحافظ على الردود الطويلة ويثبت محرر الإرسال مع لوحة المفاتيح", () => {
     expect(moduleSource).toContain("removeClippedSubviews={false}");
-    expect(moduleSource).toContain('behavior="padding"');
+    expect(moduleSource).toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
+    expect(moduleSource).toContain("SafeAreaView");
+    expect(moduleSource).toContain('edges={["top", "bottom"]}');
+    expect(moduleSource).toContain("navigationBarTranslucent={false}");
     expect(moduleSource).toContain("MarkdownMessage");
     expect(moduleSource).toContain("Clipboard.setStringAsync");
     expect(moduleSource).toContain("Share.share");

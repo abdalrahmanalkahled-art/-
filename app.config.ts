@@ -55,7 +55,6 @@ const config: ExpoConfig = {
       backgroundColor: "#FFFFFF",
       foregroundImage: "./assets/images/android-icon-foreground.png",
     },
-    edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     softwareKeyboardLayoutMode: "resize",
     package: env.androidPackage,
