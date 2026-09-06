@@ -27,17 +27,6 @@ import { PptxReportSettingsModal } from "@/components/pptx-report-settings-modal
 import { MARKETING_PLAN_PPTX_SECTIONS, MARKETING_PLAN_PPTX_SETTINGS_KEY, exportMarketingPlanPptx, type MarketingPlanPptxEvent } from "@/lib/marketing-plan-pptx-exporter";
 import { createDefaultPptxReportSettings, loadPptxReportSettings, savePptxReportSettings, type PptxReportSettings } from "@/lib/pptx-report-settings";
 
-interface MarketingTask {
-  id: string;
-  goalId: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  status: "pending" | "in_progress" | "completed" | "delayed";
-  assignedTo: string;
-  createdAt: string;
-}
-
 interface MarketingGoal {
   id: string;
   title: string;
@@ -51,7 +40,6 @@ interface MarketingGoal {
   currentValue: number;
   completionPercentage: number;
   status: StoredGoalStatus;
-  tasks: MarketingTask[];
   createdAt: string;
 }
 
@@ -70,13 +58,6 @@ const STATUS_OPTIONS = [
   { value: "cancelled", label: "ملغي", color: "#9CA3AF" },
 ];
 
-const TASK_STATUS = [
-  { value: "pending", label: "معلق", color: "#F59E0B" },
-  { value: "in_progress", label: "جاري", color: "#3B82F6" },
-  { value: "completed", label: "مكتمل", color: "#10B981" },
-  { value: "delayed", label: "متأخر", color: "#EF4444" },
-];
-
 const GOAL_REPORT_SETTINGS_KEY = "madar_marketing_goals_report_settings";
 type GoalReportSettings = { includeProgress: boolean; includeEvents: boolean; includeBeneficiaries: boolean; includeGifts: boolean; includeRegions: boolean; };
 const DEFAULT_GOAL_REPORT_SETTINGS: GoalReportSettings = { includeProgress: true, includeEvents: true, includeBeneficiaries: true, includeGifts: true, includeRegions: true };
@@ -84,13 +65,17 @@ const DEFAULT_MARKETING_PLAN_PPTX_SETTINGS = createDefaultPptxReportSettings("ع
 
 const toIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const fromIsoDate = (value: string) => value ? new Date(`${value}T12:00:00`) : null;
+type LegacyGoalRecord = MarketingGoal & { tasks?: unknown };
+const removeLegacyTasks = (goal: LegacyGoalRecord): MarketingGoal => {
+  const { tasks: _legacyTasks, ...cleanGoal } = goal;
+  return cleanGoal;
+};
 
 export default function GoalsModule() {
   const colors = useColors();
   const [goals, setGoals] = useState<MarketingGoal[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showGoalModal, setShowGoalModal] = useState(false);
-  const [showTaskModal, setShowTaskModal] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<MarketingGoal | null>(null);
   const [filterPeriod, setFilterPeriod] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -102,7 +87,6 @@ export default function GoalsModule() {
   const [brandNames, setBrandNames] = useState<string[]>([]);
   const [showBrandOptions, setShowBrandOptions] = useState(false);
   const [showGoalDateRange, setShowGoalDateRange] = useState(false);
-  const [showTaskDatePicker, setShowTaskDatePicker] = useState(false);
   const [exporting, setExporting] = useState<"pdf" | "excel" | "pptx" | null>(null);
   const [showReportSettings, setShowReportSettings] = useState(false);
   const [showPptxSettings, setShowPptxSettings] = useState(false);
@@ -113,13 +97,12 @@ export default function GoalsModule() {
     startDate: new Date().toISOString().split("T")[0],
     endDate: "", kpi: "", targetValue: "", currentValue: "0", status: "on_track" as MarketingGoal["status"],
   });
-  const [taskForm, setTaskForm] = useState({
-    title: "", description: "", dueDate: "", assignedTo: "", status: "pending" as MarketingTask["status"],
-  });
 
   const loadData = useCallback(async () => {
     try {
-      const data = await getItems<MarketingGoal>(STORAGE_KEYS.MARKETING_GOALS);
+      const storedGoals = await getItems<LegacyGoalRecord>(STORAGE_KEYS.MARKETING_GOALS);
+      const data = storedGoals.map(removeLegacyTasks);
+      if (storedGoals.some((goal) => Object.prototype.hasOwnProperty.call(goal, "tasks"))) await saveItems(STORAGE_KEYS.MARKETING_GOALS, data);
       setGoals(data.map((goal) => ({ ...goal, period: deriveGoalPeriod(goal.startDate, goal.endDate) })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } finally { setRefreshing(false); setIsInitialLoading(false); }
   }, []);
@@ -147,7 +130,7 @@ export default function GoalsModule() {
   const handleSaveGoal = async () => {
     if (!goalForm.title.trim()) { Alert.alert("خطأ", "أدخل عنوان الهدف"); return; }
     if (!goalForm.brandName.trim()) { Alert.alert("خطأ", "اختر الماركة المرتبطة بالهدف"); return; }
-    const allGoals = await getItems<MarketingGoal>(STORAGE_KEYS.MARKETING_GOALS);
+    const allGoals = (await getItems<LegacyGoalRecord>(STORAGE_KEYS.MARKETING_GOALS)).map(removeLegacyTasks);
     const target = parseFloat(goalForm.targetValue) || 0;
     const current = parseFloat(goalForm.currentValue) || 0;
     const completion = target > 0 ? Math.round((current / target) * 100) : 0;
@@ -173,7 +156,7 @@ export default function GoalsModule() {
       const newGoal: MarketingGoal = {
         id: Date.now().toString(), ...goalForm, period,
         targetValue: target, currentValue: current,
-        completionPercentage: completion, tasks: [],
+        completionPercentage: completion,
         createdAt: new Date().toISOString(),
       };
       await saveItems(STORAGE_KEYS.MARKETING_GOALS, [...allGoals, newGoal]);
@@ -195,39 +178,8 @@ export default function GoalsModule() {
     setGoalSuccess({ visible: true, message: "تم حذف الهدف بنجاح" });
   };
 
-  const handleSaveTask = async () => {
-    if (!taskForm.title.trim() || !selectedGoal) return;
-    const allGoals = await getItems<MarketingGoal>(STORAGE_KEYS.MARKETING_GOALS);
-    const newTask: MarketingTask = {
-      id: Date.now().toString(), goalId: selectedGoal.id,
-      ...taskForm, createdAt: new Date().toISOString(),
-    };
-    const updated = allGoals.map((g) =>
-      g.id === selectedGoal.id ? { ...g, tasks: [...(g.tasks || []), newTask] } : g
-    );
-    await saveItems(STORAGE_KEYS.MARKETING_GOALS, updated);
-    setShowTaskModal(false);
-    setTaskForm({ title: "", description: "", dueDate: "", assignedTo: "", status: "pending" });
-    await loadData();
-    setGoalSuccess({ visible: true, message: "تمت إضافة المهمة بنجاح" });
-  };
-
-  const updateTaskStatus = async (goalId: string, taskId: string, status: MarketingTask["status"]) => {
-    const allGoals = await getItems<MarketingGoal>(STORAGE_KEYS.MARKETING_GOALS);
-    const updated = allGoals.map((g) => {
-      if (g.id !== goalId) return g;
-      const updatedTasks = (g.tasks || []).map((t) => t.id === taskId ? { ...t, status } : t);
-      const completedCount = updatedTasks.filter((t) => t.status === "completed").length;
-      const completion = updatedTasks.length > 0 ? Math.round((completedCount / updatedTasks.length) * 100) : 0;
-      return { ...g, tasks: updatedTasks, completionPercentage: completion };
-    });
-    await saveItems(STORAGE_KEYS.MARKETING_GOALS, updated);
-    loadData();
-  };
-
   const getPeriodInfo = (p: string) => PERIOD_OPTIONS.find((o) => o.value === p) || PERIOD_OPTIONS[0];
   const getStatusInfo = (s: string) => STATUS_OPTIONS.find((o) => o.value === s) || STATUS_OPTIONS[0];
-  const getTaskStatusInfo = (s: string) => TASK_STATUS.find((o) => o.value === s) || TASK_STATUS[0];
 
   const openEditGoal = (goal: MarketingGoal) => {
     setSelectedGoal(goal);
@@ -313,7 +265,7 @@ export default function GoalsModule() {
               onLongPress={() => setGoalActionTarget(item)}
             >
               <View style={styles.goalHeader}>
-                <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "20" }]}> 
+                <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + "20" }]}>
                   <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
                 </View>
                 <View style={[styles.periodBadge, { backgroundColor: periodInfo.color + "20" }]}>
@@ -334,43 +286,6 @@ export default function GoalsModule() {
 
               <ProgressBar value={item.completionPercentage} label={`الإنجاز: ${item.currentValue}/${item.targetValue}`} />
 
-              {/* Tasks */}
-              {(item.tasks || []).length > 0 && (
-                <View style={styles.tasksSection}>
-                  <Text style={[styles.tasksTitle, { color: colors.foreground }]}>المهام ({item.tasks.length})</Text>
-                  {item.tasks.slice(0, 3).map((task) => {
-                    const tStatus = getTaskStatusInfo(task.status);
-                    return (
-                      <TouchableOpacity
-                        key={task.id}
-                        style={[styles.taskItem, { borderLeftColor: tStatus.color }]}
-                        onPress={() => {
-                          const nextStatus = task.status === "pending" ? "in_progress" : task.status === "in_progress" ? "completed" : "pending";
-                          updateTaskStatus(item.id, task.id, nextStatus as MarketingTask["status"]);
-                        }}
-                      >
-                        <Text style={[styles.taskStatus, { color: tStatus.color }]}>{tStatus.label}</Text>
-                        <Text style={[styles.taskTitle, { color: colors.foreground }]}>{task.title}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-
-              {/* Add Task Button */}
-              {selectedGoal?.id === item.id && (
-                <TouchableOpacity
-                  style={[styles.addTaskBtn, { borderColor: colors.primary }]}
-                  onPress={() => {
-                    setSelectedGoal(item);
-                    setTaskForm({ title: "", description: "", dueDate: "", assignedTo: "", status: "pending" });
-                    setShowTaskModal(true);
-                  }}
-                >
-                  <MaterialIcons name="add" size={16} color={colors.primary} />
-                  <Text style={[styles.addTaskBtnText, { color: colors.primary }]}>إضافة مهمة</Text>
-                </TouchableOpacity>
-              )}
             </AnimatedCard>
           );
         }}
@@ -380,7 +295,7 @@ export default function GoalsModule() {
       {/* Goal Modal */}
       <FloatingFormModal visible={showGoalModal} onClose={() => { setShowGoalModal(false); setIsEditing(false); setSelectedGoal(null); }} backgroundColor={colors.background} isLoading={isInitialLoading}>
         <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-            <View style={[styles.modal, { backgroundColor: colors.background }]}> 
+            <View style={[styles.modal, { backgroundColor: colors.background }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => {
                   setShowGoalModal(false);
@@ -518,72 +433,7 @@ export default function GoalsModule() {
         }}
       />
 
-      {/* Task Modal */}
-      <FloatingFormModal visible={showTaskModal} onClose={() => setShowTaskModal(false)} backgroundColor={colors.background}>
-        <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, backgroundColor: colors.background }}>
-            <View style={[styles.modal, { backgroundColor: colors.background }]}> 
-              <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => setShowTaskModal(false)}>
-                  <MaterialIcons name="close" size={24} color={colors.foreground} />
-                </TouchableOpacity>
-                <Text style={[styles.modalTitle, { color: colors.foreground }]}>مهمة جديدة</Text>
-                <View style={{ width: 24 }} />
-              </View>
-              <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
-                {[
-                  { key: "title", label: "عنوان المهمة *", placeholder: "أدخل عنوان المهمة" },
-                  { key: "description", label: "الوصف", placeholder: "وصف المهمة" },
-                  { key: "assignedTo", label: "المسؤول", placeholder: "اسم المسؤول" },
-                ].map((field) => (
-                  <View key={field.key} style={styles.formGroup}>
-                    <Text style={[styles.formLabel, { color: colors.foreground }]}>{field.label}</Text>
-                    <TextInput
-                      style={[styles.formInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]}
-                      value={(taskForm as any)[field.key]}
-                      onChangeText={(v) => setTaskForm((f) => ({ ...f, [field.key]: v }))}
-                      placeholder={field.placeholder}
-                      placeholderTextColor={colors.muted}
-                      textAlign="right"
-                    />
-                  </View>
-                ))}
-                <View style={styles.formGroup}>
-                  <Text style={[styles.formLabel, { color: colors.foreground }]}>تاريخ الاستحقاق</Text>
-                  <TouchableOpacity style={[styles.formInput, styles.brandPicker, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => setShowTaskDatePicker(true)}>
-                    <MaterialIcons name="calendar-today" size={20} color={colors.primary} />
-                    <Text style={[styles.brandPickerText, { color: taskForm.dueDate ? colors.foreground : colors.muted }]}>{taskForm.dueDate || "اختر تاريخ الاستحقاق"}</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-              <View style={[styles.modalFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
-                <TouchableOpacity
-                  style={[styles.footerBtn, styles.cancelBtn, { backgroundColor: colors.muted + "20" }]}
-                  onPress={() => setShowTaskModal(false)}
-                >
-                  <Text style={[styles.cancelBtnText, { color: colors.foreground }]}>إلغاء</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.footerBtn, styles.saveFooterBtn, { backgroundColor: colors.primary }]}
-                  onPress={handleSaveTask}
-                >
-                  <Text style={styles.saveBtnText}>حفظ</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-        </SafeAreaView>
-      </FloatingFormModal>
-      <DateRangePickerModal
-        visible={showTaskDatePicker}
-        startDate={fromIsoDate(taskForm.dueDate)}
-        endDate={fromIsoDate(taskForm.dueDate)}
-        selectionMode="single"
-        title="تاريخ استحقاق المهمة"
-        onCancel={() => setShowTaskDatePicker(false)}
-        onConfirm={(date) => {
-          setTaskForm((current) => ({ ...current, dueDate: toIsoDate(date) }));
-          setShowTaskDatePicker(false);
-        }}
-      />
+
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
@@ -602,7 +452,7 @@ export default function GoalsModule() {
       <ConfirmDialog
         visible={showDeleteConfirm}
         title="حذف الهدف"
-        message={`هل أنت متأكد من حذف الهدف "${selectedGoal?.title}"؟ سيتم حذف جميع المهام المرتبطة به أيضاً.`}
+        message={`هل أنت متأكد من حذف الهدف "${selectedGoal?.title}"؟ سيتم حذف الفعاليات المرتبطة به أيضاً.`}
         confirmText="حذف"
         cancelText="إلغاء"
         isDangerous={true}

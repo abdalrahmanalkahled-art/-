@@ -195,6 +195,7 @@ export const STORAGE_KEYS = {
   EXPENSE_CATEGORIES: "madar_expense_categories",
   BUDGETS: "madar_budgets",
   MARKETING_GOALS: "madar_marketing_goals",
+  /** مفتاح قديم للنسخ الاحتياطية فقط؛ لم يعد ميزة تطبيقية ولا يُقرأ في الخطة أو خريطة الذكاء. */
   MARKETING_TASKS: "madar_marketing_tasks",
   SIGNAGE_BOARDS: "madar_signage_boards",
   ROAD_SIGNAGE_CONTRACTS: "madar_road_signage_contracts",

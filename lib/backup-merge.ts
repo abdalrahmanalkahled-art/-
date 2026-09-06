@@ -60,7 +60,6 @@ const KEY_IDENTITY_FIELDS: Record<string, string[]> = {
   [STORAGE_KEYS.EXPENSE_CATEGORIES]: ["name", "label"],
   [STORAGE_KEYS.BUDGETS]: ["name", "title", "category"],
   [STORAGE_KEYS.MARKETING_GOALS]: ["title", "name"],
-  [STORAGE_KEYS.MARKETING_TASKS]: ["title", "name", "goalName"],
   [STORAGE_KEYS.SIGNAGE_BOARDS]: ["storeName", "brand", "type", "installDate"],
   [STORAGE_KEYS.ROAD_SIGNAGE_CONTRACTS]: ["name", "startDate", "endDate"],
   [STORAGE_KEYS.STANDS]: ["storeName", "brand", "installDate"],

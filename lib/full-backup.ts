@@ -45,7 +45,7 @@ export const BACKUP_SECTION_OPTIONS: Array<{ id: BackupSectionId; title: string;
   { id: "events", title: "الفعاليات", description: "الفعاليات وتوثيقها المحفوظ", keys: [STORAGE_KEYS.EVENTS] },
   { id: "warehouse", title: "المستودع", description: "المواد والحركات والأدوات والتصنيفات", keys: [STORAGE_KEYS.WAREHOUSE_ITEMS, STORAGE_KEYS.WAREHOUSE_MOVEMENTS, STORAGE_KEYS.WAREHOUSE_CATEGORIES, STORAGE_KEYS.WAREHOUSE_TOOLS] },
   { id: "expenses", title: "الصرفيات", description: "الصرفيات والتصنيفات والميزانيات", keys: [STORAGE_KEYS.EXPENSES, STORAGE_KEYS.EXPENSE_CATEGORIES, STORAGE_KEYS.BUDGETS] },
-  { id: "plans", title: "الخطة التسويقية", description: "الأهداف والمهام", keys: [STORAGE_KEYS.MARKETING_GOALS, STORAGE_KEYS.MARKETING_TASKS] },
+  { id: "plans", title: "الخطة التسويقية", description: "الأهداف والفعاليات المرتبطة", keys: [STORAGE_KEYS.MARKETING_GOALS, STORAGE_KEYS.EVENTS] },
   { id: "signage", title: "اللوحات والستاندات", description: "اللوحات والستاندات والأرفف والسيارات المعلنة وعقود اللوحات الطرقية وأنواعها وتقييماتها ووسائطها", keys: [STORAGE_KEYS.SIGNAGE_BOARDS, STORAGE_KEYS.ROAD_SIGNAGE_CONTRACTS, STORAGE_KEYS.ROAD_SIGNAGE_CATALOG, STORAGE_KEYS.STANDS, STORAGE_KEYS.SHELVES, STORAGE_KEYS.ADVERTISING_VEHICLES] },
   { id: "products", title: "المنتجات والمنافسون", description: "الأصناف والمنتجات والمنافسون", keys: [STORAGE_KEYS.PRODUCTS, STORAGE_KEYS.COMPANY_PRODUCTS, STORAGE_KEYS.COMPETITOR_PRODUCTS, STORAGE_KEYS.PRODUCT_CATEGORIES, STORAGE_KEYS.COMPETITORS] },
   { id: "brandsRegions", title: "الماركات وتقييم المناطق", description: "الماركات والمناطق وتقييماتها", keys: [STORAGE_KEYS.BRANDS, STORAGE_KEYS.REGIONS, STORAGE_KEYS.REGION_RATINGS] },
