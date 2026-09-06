@@ -92,11 +92,11 @@ describe("الحديث مع الذكاء الصناعي", () => {
   it("يحافظ على الردود الطويلة ويثبت محرر الإرسال مع لوحة المفاتيح", () => {
     expect(moduleSource).toContain("removeClippedSubviews={false}");
         expect(moduleSource).toContain("composerFloating");
-    expect(moduleSource).toContain("keyboardHeight");
-    expect(moduleSource).toContain("Keyboard.addListener");
-    expect(moduleSource).toContain('const composerKeyboardLift = Platform.OS === "ios" ? keyboardHeight : 0;');
-    expect(moduleSource).toContain("translateY: -composerKeyboardLift");
-    expect(moduleSource).toContain("softwareKeyboardLayoutMode=resize");
+    expect(moduleSource).toContain("KeyboardAvoidingView");
+    expect(moduleSource).toContain('behavior={Platform.OS === "ios" ? "padding" : undefined}');
+    expect(moduleSource).toContain("scrollToEnd({ animated: true })");
+    expect(moduleSource).not.toContain("translateY: -keyboardHeight");
+    expect(moduleSource).not.toContain("Keyboard.addListener");
     expect(moduleSource).toContain('keyboardShouldPersistTaps="always"');
     expect(moduleSource).toContain('keyboardDismissMode="none"');
     expect(moduleSource).toContain("SafeAreaView");
