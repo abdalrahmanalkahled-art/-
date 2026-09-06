@@ -10,7 +10,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useColors } from "@/hooks/use-colors";
 import { STORAGE_KEYS } from "@/lib/storage";
-import { buildSmartDataContext } from "@/lib/ai-data-map";
+import { AI_DATA_ALL_SCOPE_ID, buildSmartDataContext } from "@/lib/ai-data-map";
 import { trpc } from "@/lib/trpc";
 import { DEFAULT_AI_MODEL, loadAiModel, type AiModelId } from "@/lib/ai-model-settings";
 
@@ -28,12 +28,13 @@ const QUICK_PROMPTS = [
   "ما أهم فرص تحسين التنفيذ الميداني؟",
 ];
 const SCOPE_OPTIONS: ScopeOption[] = [
+  { id: AI_DATA_ALL_SCOPE_ID, title: "جميع بيانات التطبيق", subtitle: "كل الوحدات والتواريخ والعلاقات", icon: "apps", keys: Object.values(STORAGE_KEYS) },
   { id: "field", title: "الميدان", subtitle: "الفعاليات ورصد المنافسين والجودة", icon: "location-on", keys: [STORAGE_KEYS.EVENTS, STORAGE_KEYS.FIELD_COMPETITOR_OBSERVATIONS, STORAGE_KEYS.FIELD_EXECUTION_ASSESSMENTS] },
   { id: "plan", title: "الخطة التسويقية", subtitle: "الأهداف والنتائج المرتبطة", icon: "flag", keys: [STORAGE_KEYS.MARKETING_GOALS] },
   { id: "surveys", title: "الاستبيانات", subtitle: "نتائج الزيارات والاستبيانات", icon: "poll", keys: [STORAGE_KEYS.SURVEY_RESULTS] },
   { id: "reference", title: "البيانات المرجعية", subtitle: "المحلات والماركات والمناطق", icon: "storage", keys: [STORAGE_KEYS.STORES, STORAGE_KEYS.BRANDS, STORAGE_KEYS.REGIONS] },
 ];
-const DEFAULT_SCOPE_IDS = SCOPE_OPTIONS.map((option) => option.id);
+const DEFAULT_SCOPE_IDS = [AI_DATA_ALL_SCOPE_ID];
 
 const WELCOME: ChatMessage = { id: "welcome", role: "model", text: "مرحباً، أنا مساعدك للتسويق الميداني. اختر نطاق البيانات من اللوحة الجانبية، ثم اطرح سؤالك." };
 
@@ -142,7 +143,10 @@ export default function AIChatModule() {
       if (scopeValue) {
         try {
           const parsed = JSON.parse(scopeValue) as string[];
-          if (Array.isArray(parsed) && parsed.length) setSelectedScopes(parsed.filter((id) => DEFAULT_SCOPE_IDS.includes(id)));
+          if (Array.isArray(parsed) && parsed.length) {
+            const valid = parsed.filter((id) => SCOPE_OPTIONS.some((option) => option.id === id));
+            setSelectedScopes(valid.length ? valid : DEFAULT_SCOPE_IDS);
+          }
         } catch { /* use defaults */ }
       }
       setScopeHydrated(true);
@@ -184,7 +188,12 @@ export default function AIChatModule() {
   }, []);
 
   const toggleScope = useCallback((scopeId: string) => {
-    setSelectedScopes((current) => current.includes(scopeId) ? (current.length === 1 ? current : current.filter((id) => id !== scopeId)) : [...current, scopeId]);
+    setSelectedScopes((current) => {
+      if (scopeId === AI_DATA_ALL_SCOPE_ID) return current.includes(AI_DATA_ALL_SCOPE_ID) ? ["field"] : [AI_DATA_ALL_SCOPE_ID];
+      const withoutAll = current.filter((id) => id !== AI_DATA_ALL_SCOPE_ID);
+      if (withoutAll.includes(scopeId)) return withoutAll.length === 1 ? withoutAll : withoutAll.filter((id) => id !== scopeId);
+      return [...withoutAll, scopeId];
+    });
   }, []);
 
   const pickFiles = useCallback(async () => {
