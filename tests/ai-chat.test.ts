@@ -91,8 +91,10 @@ describe("الحديث مع الذكاء الصناعي", () => {
 
   it("يحافظ على الردود الطويلة ويثبت محرر الإرسال مع لوحة المفاتيح", () => {
     expect(moduleSource).toContain("removeClippedSubviews={false}");
-    expect(moduleSource).toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
-    expect(moduleSource).toContain("composerKeyboard");
+        expect(moduleSource).toContain("composerFloating");
+    expect(moduleSource).toContain("keyboardHeight");
+    expect(moduleSource).toContain("Keyboard.addListener");
+    expect(moduleSource).toContain("translateY: -keyboardHeight");
     expect(moduleSource).toContain('keyboardShouldPersistTaps="always"');
     expect(moduleSource).toContain('keyboardDismissMode="none"');
     expect(moduleSource).toContain("SafeAreaView");
