@@ -52,19 +52,21 @@ describe("AI data map", () => {
     const result = await buildSmartDataContext("حلل آخر استبيان والمنتجات والتعليقات", ["field"]);
     const context = JSON.parse(result.context) as Record<string, any>;
     expect(result.domainIds).toContain("surveys");
-    expect(context.surveys.survey_results).toHaveLength(1);
-    expect(context.surveys.survey_results[0].data[0].comment).toBe("موجود");
-    expect(context.surveys.advancedAnalytics.totalSurveys).toBe(1);
-    expect(context.surveys.advancedAnalytics.averagePresence).toBe(50);
+    expect(context.surveys["نتائج الاستبيانات"]).toHaveLength(1);
+    expect(context.surveys["نتائج الاستبيانات"][0]["نتائج المنتجات"][0]["التعليق"]).toBe("موجود");
+    expect(context.surveys["التحليلات المتقدمة"].totalSurveys).toBe(1);
+    expect(context.surveys["التحليلات المتقدمة"].averagePresence).toBe(50);
     expect(context.freshness).toContain("مباشرة");
   });
 
   it("includes goal tasks and related event details", async () => {
     const result = await buildSmartDataContext("ما تفاصيل هدف رفع التغطية والفعالية المرتبطة به؟", ["all"]);
     const context = JSON.parse(result.context) as Record<string, any>;
-    expect(context.plan.goals[0].tasks[0].title).toBe("زيارة المحلات");
-    expect(context.plan.relatedEvents[0].detailedAddress).toBe("العنوان التفصيلي");
-    expect(context.plan.relatedEvents[0].mediaUris).toEqual(["media://1"]);
+    expect(context.plan["الأهداف التسويقية"][0]["المهام"][0]["العنوان"]).toBe("زيارة المحلات");
+    expect(context.plan["الفعاليات المرتبطة"][0]["العنوان التفصيلي"]).toBe("العنوان التفصيلي");
+    expect(context.plan["الفعاليات المرتبطة"][0]["وسائط الفعالية"]).toEqual(["media://1"]);
+    expect(result.context).not.toContain("\"goalId\"");
+    expect(result.context).not.toContain("\"eventDate\"");
   });
 
   it("uses selected scopes when the question has no matching keyword", async () => {

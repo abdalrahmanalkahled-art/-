@@ -213,7 +213,7 @@ export default function MoreScreen() {
 
       <ConfirmDialog visible={showLogoutConfirmation} title="تسجيل الخروج" message="هل تريد تسجيل الخروج من الحساب الحالي؟" confirmText="تسجيل الخروج" isDangerous icon="logout" onCancel={() => setShowLogoutConfirmation(false)} onConfirm={() => { setShowLogoutConfirmation(false); void handleLogout(); }} />
 
-      <Modal visible={activeModule !== null} transparent animationType="none" statusBarTranslucent onRequestClose={closeModule}>
+      <Modal visible={activeModule !== null} transparent animationType="none" statusBarTranslucent={false} navigationBarTranslucent={false} onRequestClose={closeModule}>
         <View style={styles.transitionCanvas} onLayout={(event) => setCanvasSize(event.nativeEvent.layout)}>
           {activeModuleInfo ? <>
             <Animated.View pointerEvents="none" style={[styles.expandingCard, expandedCardStyle, { backgroundColor: colors.surface, borderColor: colors.border }]} />

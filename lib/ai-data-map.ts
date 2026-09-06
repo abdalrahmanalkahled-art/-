@@ -5,6 +5,21 @@ type DataDomain = { id: string; title: string; keywords: string[]; keys: string[
 
 const COMMON_REFERENCE_KEYS = [STORAGE_KEYS.STORES, STORAGE_KEYS.BRANDS, STORAGE_KEYS.REGIONS, STORAGE_KEYS.PRODUCTS, STORAGE_KEYS.COMPETITORS];
 
+const DISPLAY_FIELD_LABELS: Record<string, string> = {
+  id: "المعرّف", name: "الاسم", title: "العنوان", description: "الوصف", createdAt: "تاريخ الإضافة", updatedAt: "آخر تحديث", isActive: "نشط", brandName: "الماركة", region: "المنطقة", regionName: "اسم المنطقة", storeId: "المحل المرتبط", storeName: "اسم المحل", productId: "المنتج المرتبط", productName: "اسم المنتج", category: "التصنيف", categoryName: "اسم التصنيف", competitorName: "اسم المنافس", eventId: "الفعالية المرتبطة", goalId: "الهدف المرتبط", goalName: "اسم الهدف", cycleId: "الدورة المرتبطة", cycleName: "اسم الدورة", templateId: "القالب المرتبط", templateName: "اسم القالب", eventDate: "تاريخ الفعالية", startDate: "تاريخ البداية", endDate: "تاريخ النهاية", visitDate: "تاريخ الزيارة", observationDate: "تاريخ الرصد", assessmentDate: "تاريخ التقييم", movementDate: "تاريخ الحركة", installDate: "تاريخ التركيب", contractEndDate: "نهاية العقد", dueDate: "موعد الاستحقاق", detailedAddress: "العنوان التفصيلي", address: "العنوان", location: "الموقع", status: "الحالة", period: "الدورية", kpi: "مؤشر الأداء", targetValue: "القيمة المستهدفة", currentValue: "القيمة الحالية", completionPercentage: "نسبة الإنجاز", tasks: "المهام", taskDetails: "تفاصيل المهام", attendeesCount: "عدد الحاضرين", beneficiariesCount: "عدد المستفيدين", giftsDistributed: "الهدايا الموزعة", rating: "التقييم", notes: "الملاحظات", note: "الملاحظة", comment: "التعليق", imageUri: "الصورة", imageUris: "الصور", mediaUris: "وسائط الفعالية", data: "نتائج المنتجات", questions: "الأسئلة", items: "العناصر", amount: "المبلغ", spent: "المصروف", remaining: "المتبقي", quantity: "الكمية", currentQuantity: "الكمية الحالية", minimumQuantity: "الحد الأدنى", packageCount: "عدد الطرود", piecesPerPackage: "القطع في الطرد", movementType: "نوع الحركة", movementUnit: "وحدة الحركة", enteredQuantity: "كمية الإدخال", relatedEventId: "الفعالية المرتبطة بالحركة", price: "السعر", present: "متوفر", shelfPercentage: "نسبة الظهور على الرف", shelfOccupied: "الرف مشغول", score: "الدرجة", message: "الرسالة", kind: "نوع الرصد", subjectType: "نوع التقييم", subjectName: "موضوع التقييم", runDate: "تاريخ التنفيذ", periodName: "اسم الفترة", widthCm: "العرض بالسنتيمتر", heightCm: "الارتفاع بالسنتيمتر", boardType: "نوع اللوحة", condition: "الحالة", vehicleNumber: "رقم السيارة", type: "النوع", frontBrand: "ماركة الواجهة الأمامية", backBrand: "ماركة الواجهة الخلفية", sides: "الجهات", brandHistory: "سجل الماركات", maintenanceHistory: "سجل الصيانة", responsibility: "المسؤول", responsible: "المسؤول", ownerName: "اسم المسؤول عن المحل", phone: "رقم التواصل", categoryId: "التصنيف المرتبط", relatedGoalId: "الهدف المرتبط", assignedTo: "المسؤول عن المهمة", archivedAt: "تاريخ الأرشفة"
+};
+
+const STORAGE_KEY_LABELS: Record<string, string> = {
+  [STORAGE_KEYS.MARKETING_GOALS]: "الأهداف التسويقية", [STORAGE_KEYS.MARKETING_TASKS]: "مهام الخطة التسويقية", [STORAGE_KEYS.EVENTS]: "الفعاليات", [STORAGE_KEYS.STORE_VISITS]: "زيارات المحلات", [STORAGE_KEYS.SURVEYS]: "الاستبيانات", [STORAGE_KEYS.SURVEY_TEMPLATES]: "قوالب الاستبيانات", [STORAGE_KEYS.SURVEY_CYCLES]: "دورات الاستبيانات", [STORAGE_KEYS.SURVEY_RESULTS]: "نتائج الاستبيانات", [STORAGE_KEYS.STORES]: "المحلات", [STORAGE_KEYS.STORE_CATEGORIES]: "تصنيفات المحلات", [STORAGE_KEYS.PRODUCTS]: "المنتجات", [STORAGE_KEYS.COMPANY_PRODUCTS]: "منتجات الشركة", [STORAGE_KEYS.COMPETITOR_PRODUCTS]: "منتجات المنافسين", [STORAGE_KEYS.PRODUCT_CATEGORIES]: "تصنيفات المنتجات", [STORAGE_KEYS.BRANDS]: "الماركات", [STORAGE_KEYS.REGIONS]: "المناطق", [STORAGE_KEYS.COMPETITORS]: "المنافسون", [STORAGE_KEYS.REGION_RATINGS]: "تقييمات المناطق", [STORAGE_KEYS.FIELD_COMPETITOR_OBSERVATIONS]: "رصد المنافسين", [STORAGE_KEYS.FIELD_EXECUTION_ASSESSMENTS]: "تقييمات جودة التنفيذ", [STORAGE_KEYS.FIELD_CHECKLIST_RUNS]: "قوائم التحقق الميداني", [STORAGE_KEYS.FIELD_VISIT_DRAFTS]: "مسودات الزيارات", [STORAGE_KEYS.WAREHOUSE_ITEMS]: "مواد المستودع", [STORAGE_KEYS.WAREHOUSE_MOVEMENTS]: "حركات المستودع", [STORAGE_KEYS.WAREHOUSE_CATEGORIES]: "تصنيفات المستودع", [STORAGE_KEYS.WAREHOUSE_TOOLS]: "أدوات التنفيذ", [STORAGE_KEYS.EXPENSES]: "الصرفيات", [STORAGE_KEYS.EXPENSE_CATEGORIES]: "تصنيفات الصرفيات", [STORAGE_KEYS.BUDGETS]: "الميزانيات", [STORAGE_KEYS.SIGNAGE_BOARDS]: "اللوحات الإعلانية", [STORAGE_KEYS.ROAD_SIGNAGE_CONTRACTS]: "عقود اللوحات", [STORAGE_KEYS.ROAD_SIGNAGE_CATALOG]: "كتالوج اللوحات", [STORAGE_KEYS.STANDS]: "الستاندات", [STORAGE_KEYS.SHELVES]: "الأرفف", [STORAGE_KEYS.ADVERTISING_VEHICLES]: "السيارات الإعلانية"
+};
+
+function displayLabel(field: string): string { return DISPLAY_FIELD_LABELS[field] || field; }
+function displayValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(displayValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value as JsonRecord).map(([key, nested]) => [displayLabel(key), displayValue(nested)]));
+}
+
 const DATA_DOMAINS: DataDomain[] = [
   { id: "surveys", title: "الاستبيانات والدورات والتحليلات المتقدمة", keywords: ["استبيان", "استبيانات", "دورة", "نتيجة", "نتائج", "ظهور", "وجود", "نسبة", "تعليق", "ملاحظة", "منتج", "محل", "تحليل", "تحليلات", "سعر", "رف"], keys: [STORAGE_KEYS.SURVEYS, STORAGE_KEYS.SURVEY_TEMPLATES, STORAGE_KEYS.SURVEY_CYCLES, STORAGE_KEYS.SURVEY_RESULTS, STORAGE_KEYS.STORES, STORAGE_KEYS.STORE_CATEGORIES, STORAGE_KEYS.PRODUCTS, STORAGE_KEYS.COMPANY_PRODUCTS, STORAGE_KEYS.COMPETITOR_PRODUCTS, STORAGE_KEYS.PRODUCT_CATEGORIES, STORAGE_KEYS.BRANDS, STORAGE_KEYS.REGIONS], fields: {
     [STORAGE_KEYS.SURVEYS]: ["id", "name", "description", "createdAt", "updatedAt", "isActive"],
@@ -49,11 +64,11 @@ function compactValue(value: unknown, fields: string[]): unknown {
   if (Array.isArray(value)) return value.map((item) => compactValue(item, fields));
   if (!value || typeof value !== "object") return value;
   const record = value as JsonRecord;
-  const selected = Object.fromEntries(fields.filter((field) => record[field] !== undefined && record[field] !== null && record[field] !== "").map((field) => [field, record[field]]));
-  if (Array.isArray(record.data)) selected.data = record.data.map((row) => compactValue(row, ["productId", "productName", "present", "shelfPercentage", "shelfOccupied", "price", "comment", "notes", "note"]));
-  if (Array.isArray(record.questions)) selected.questions = record.questions;
-  if (Array.isArray(record.items)) selected.items = record.items;
-  if (Array.isArray(record.maintenanceHistory)) selected.maintenanceHistory = record.maintenanceHistory;
+  const selected = Object.fromEntries(fields.filter((field) => record[field] !== undefined && record[field] !== null && record[field] !== "").map((field) => [displayLabel(field), displayValue(record[field])]));
+  if (Array.isArray(record.data)) selected[displayLabel("data")] = record.data.map((row) => compactValue(row, ["productId", "productName", "present", "shelfPercentage", "shelfOccupied", "price", "comment", "notes", "note"]));
+  if (Array.isArray(record.questions)) selected[displayLabel("questions")] = displayValue(record.questions);
+  if (Array.isArray(record.items)) selected[displayLabel("items")] = displayValue(record.items);
+  if (Array.isArray(record.maintenanceHistory)) selected[displayLabel("maintenanceHistory")] = displayValue(record.maintenanceHistory);
   return selected;
 }
 
@@ -100,11 +115,11 @@ export async function buildSmartDataContext(question: string, selectedScopeIds: 
   const domains = selectDomains(question, selectedScopeIds);
   const keys = [...new Set(domains.flatMap((domain) => domain.keys))];
   const data = await getItemsForKeys<unknown>(keys);
-  const context: JsonRecord = { generatedAt: new Date().toISOString(), freshness: "تمت القراءة مباشرة من التخزين المحلي قبل هذا السؤال؛ هذه لقطة حديثة وليست ذاكرة قديمة.", retrievalPolicy: "اختيار الوحدات والعلاقات حسب السؤال، وتفضيل السجلات المطابقة للكيان، وترتيب التاريخ الأحدث أولاً.", requestedQuestion: question, selectedDomains: domains.map((domain) => ({ id: domain.id, title: domain.title })), availableDomains: DATA_DOMAINS.map((domain) => ({ id: domain.id, title: domain.title, keys: domain.keys })), counts: Object.fromEntries(keys.map((key) => [key, (data[key] || []).length])) };
+  const context: JsonRecord = { generatedAt: new Date().toISOString(), freshness: "تمت القراءة مباشرة من التخزين المحلي قبل هذا السؤال؛ هذه لقطة حديثة وليست ذاكرة قديمة.", retrievalPolicy: "اختيار الوحدات والعلاقات حسب السؤال، وتفضيل السجلات المطابقة للكيان، وترتيب التاريخ الأحدث أولاً.", requestedQuestion: question, selectedDomains: domains.map((domain) => ({ id: domain.id, title: domain.title })), availableDomains: DATA_DOMAINS.map((domain) => ({ id: domain.id, title: domain.title })), recordCounts: Object.fromEntries(keys.map((key) => [STORAGE_KEY_LABELS[key] || key, (data[key] || []).length])) };
   domains.forEach((domain) => {
     const payload: JsonRecord = {};
-    domain.keys.forEach((key) => { payload[key] = sortFresh(selectRelevantRecords(data[key] || [], question)).map((value) => compactValue(value, domain.fields[key] || [])); });
-    if (domain.id === "surveys") payload.advancedAnalytics = surveyDerived(data[STORAGE_KEYS.SURVEY_RESULTS] || []);
+    domain.keys.forEach((key) => { payload[STORAGE_KEY_LABELS[key] || key] = sortFresh(selectRelevantRecords(data[key] || [], question)).map((value) => compactValue(value, domain.fields[key] || [])); });
+    if (domain.id === "surveys") payload["التحليلات المتقدمة"] = displayValue(surveyDerived(data[STORAGE_KEYS.SURVEY_RESULTS] || []));
     if (domain.id === "plan") {
       const goals = (data[STORAGE_KEYS.MARKETING_GOALS] || []) as JsonRecord[];
       const events = (data[STORAGE_KEYS.EVENTS] || []) as JsonRecord[];
@@ -113,8 +128,8 @@ export async function buildSmartDataContext(question: string, selectedScopeIds: 
       const relatedGoalIds = new Set([...matchedGoals.map((goal) => String(goal.id || "")), ...matchedEvents.map((event) => String(event.goalId || ""))].filter(Boolean));
       const relatedEvents = relatedGoalIds.size ? events.filter((event) => relatedGoalIds.has(String(event.goalId || ""))) : events;
       const relatedGoals = matchedGoals.length ? matchedGoals : relatedGoalIds.size ? goals.filter((goal) => relatedGoalIds.has(String(goal.id || ""))) : goals;
-      payload.relatedEvents = sortFresh(selectRelevantRecords(relatedEvents, question)).map((event) => compactValue(event, ["id", "title", "eventDate", "startDate", "endDate", "region", "detailedAddress", "brandName", "status", "attendeesCount", "beneficiariesCount", "giftsDistributed", "rating", "goalId", "description", "notes", "imageUri", "mediaUris", "createdAt", "updatedAt"]));
-      payload.taskDetails = relatedGoals.flatMap((goal) => Array.isArray(goal.tasks) ? goal.tasks.map((task) => ({ ...task, goalId: goal.id, goalTitle: goal.title })) : []);
+      payload["الفعاليات المرتبطة"] = sortFresh(selectRelevantRecords(relatedEvents, question)).map((event) => compactValue(event, ["id", "title", "eventDate", "startDate", "endDate", "region", "detailedAddress", "brandName", "status", "attendeesCount", "beneficiariesCount", "giftsDistributed", "rating", "goalId", "description", "notes", "imageUri", "mediaUris", "createdAt", "updatedAt"]));
+      payload["تفاصيل المهام"] = relatedGoals.flatMap((goal) => Array.isArray(goal.tasks) ? goal.tasks.map((task) => displayValue({ ...task, goalId: goal.id, goalTitle: goal.title })) : []);
     }
     if (domain.id === "field") {
       const events = (data[STORAGE_KEYS.EVENTS] || []) as JsonRecord[];
@@ -122,7 +137,7 @@ export async function buildSmartDataContext(question: string, selectedScopeIds: 
       const matchedEvents = events.filter((event) => recordMatchesQuestion(event, question));
       const eventGoalIds = new Set(matchedEvents.map((event) => String(event.goalId || "")).filter(Boolean));
       const relatedGoals = eventGoalIds.size ? goals.filter((goal) => eventGoalIds.has(String(goal.id || ""))) : goals;
-      payload.relatedGoals = sortFresh(selectRelevantRecords(relatedGoals, question)).map((goal) => compactValue(goal, ["id", "title", "description", "brandName", "startDate", "endDate", "period", "kpi", "targetValue", "currentValue", "completionPercentage", "status", "tasks", "createdAt", "updatedAt"]));
+      payload["الأهداف المرتبطة"] = sortFresh(selectRelevantRecords(relatedGoals, question)).map((goal) => compactValue(goal, ["id", "title", "description", "brandName", "startDate", "endDate", "period", "kpi", "targetValue", "currentValue", "completionPercentage", "status", "tasks", "createdAt", "updatedAt"]));
     }
     context[domain.id] = payload;
   });

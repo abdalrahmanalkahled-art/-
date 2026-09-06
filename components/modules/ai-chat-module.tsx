@@ -259,7 +259,7 @@ export default function AIChatModule() {
   }, [memoryAction, startNewConversation]);
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}>
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}> 
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="فتح إعدادات الذكاء الصناعي" style={[styles.menuButton, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "22" }]} onPress={() => { setDrawerVisible(false); setSettingsVisible(true); }} activeOpacity={0.75}>
           <MaterialIcons name="settings" size={23} color={colors.primary} />
