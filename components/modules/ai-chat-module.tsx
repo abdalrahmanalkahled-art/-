@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Animated, Easing, FlatList, KeyboardAvoidingView, Modal, Platform, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Animated, Easing, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
@@ -85,6 +85,7 @@ export default function AIChatModule() {
   const [question, setQuestion] = useState("");
   const [context, setContext] = useState("");
   const [contextLoading, setContextLoading] = useState(true);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [aiModel, setAiModel] = useState<AiModelId>(DEFAULT_AI_MODEL);
   const [selectedScopes, setSelectedScopes] = useState<string[]>(DEFAULT_SCOPE_IDS);
   const [scopeHydrated, setScopeHydrated] = useState(false);
@@ -101,6 +102,13 @@ export default function AIChatModule() {
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const messageListRef = useRef<FlatList<ChatMessage>>(null);
   const aiChatMutation = trpc.ai.chat.useMutation();
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    const showSubscription = Keyboard.addListener("keyboardDidShow", (event) => setKeyboardHeight(event.endCoordinates.height));
+    const hideSubscription = Keyboard.addListener("keyboardDidHide", () => setKeyboardHeight(0));
+    return () => { showSubscription.remove(); hideSubscription.remove(); };
+  }, []);
 
   useEffect(() => {
     if (!drawerVisible) return;
@@ -259,7 +267,7 @@ export default function AIChatModule() {
   }, [memoryAction, startNewConversation]);
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? insets.bottom : 0}>
       <View style={[styles.toolbar, { borderBottomColor: colors.border }]}> 
         <TouchableOpacity accessibilityRole="button" accessibilityLabel="فتح إعدادات الذكاء الصناعي" style={[styles.menuButton, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "22" }]} onPress={() => { setDrawerVisible(false); setSettingsVisible(true); }} activeOpacity={0.75}>
           <MaterialIcons name="settings" size={23} color={colors.primary} />
@@ -269,7 +277,7 @@ export default function AIChatModule() {
         </TouchableOpacity>
       </View>
 
-      <FlatList ref={messageListRef} data={messages} keyExtractor={(item) => item.id} style={styles.messages} contentContainerStyle={[styles.messagesContent, { paddingBottom: 12 }]} keyboardShouldPersistTaps="always" keyboardDismissMode="none" nestedScrollEnabled removeClippedSubviews={false} onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: true })} renderItem={({ item }) => (
+      <FlatList ref={messageListRef} data={messages} keyExtractor={(item) => item.id} style={styles.messages} contentContainerStyle={[styles.messagesContent, { paddingBottom: Platform.OS === "android" && keyboardHeight > 0 ? keyboardHeight + 120 : 12 }]} keyboardShouldPersistTaps="always" keyboardDismissMode="none" nestedScrollEnabled removeClippedSubviews={false} onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: true })} renderItem={({ item }) => (
         <View style={[styles.messageRow, item.role === "user" && styles.userRow]}>
           <View style={[styles.messageBubble, { backgroundColor: item.role === "user" ? colors.primary : colors.surface, borderColor: item.role === "user" ? colors.primary : colors.border }]}>
             {item.attachmentNames?.length ? <View style={styles.messageAttachments}>{item.attachmentNames.map((name) => <Text key={name} style={[styles.messageAttachment, { color: item.role === "user" ? "#fff" : colors.primary }]} numberOfLines={1}>📎 {name}</Text>)}</View> : null}
@@ -281,14 +289,14 @@ export default function AIChatModule() {
 
       {messages.length === 1 ? <View style={styles.quickPrompts}><Text style={[styles.quickTitle, { color: colors.muted }]}>أسئلة سريعة</Text><View style={styles.quickWrap}>{QUICK_PROMPTS.map((prompt) => <TouchableOpacity key={prompt} style={[styles.quickChip, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void sendMessage(prompt)} disabled={contextLoading || isStreaming} activeOpacity={0.75}><Text style={[styles.quickText, { color: colors.foreground }]}>{prompt}</Text></TouchableOpacity>)}</View></View> : null}
 
-      <View style={styles.composerFloating}><View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.background }]}>
+      <Animated.View style={[styles.composerFloating, Platform.OS === "android" && keyboardHeight > 0 ? { transform: [{ translateY: -keyboardHeight }] } : null]}><View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.background }]}>
         {selectedFiles.length > 0 ? <View style={styles.fileStrip}>{selectedFiles.map((file) => <View key={`${file.uri}-${file.name}`} style={[styles.fileChip, { backgroundColor: colors.surface, borderColor: colors.border }]}><MaterialIcons name="insert-drive-file" size={16} color={colors.primary} /><Text style={[styles.fileName, { color: colors.foreground }]} numberOfLines={1}>{file.name}</Text><TouchableOpacity onPress={() => setSelectedFiles((current) => current.filter((item) => item.uri !== file.uri))} activeOpacity={0.75}><MaterialIcons name="close" size={15} color={colors.muted} /></TouchableOpacity></View>)}</View> : null}
         <View style={styles.composerRow}>
           <TouchableOpacity style={[styles.attachButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void pickFiles()} disabled={contextLoading || isStreaming} activeOpacity={0.75}><MaterialIcons name="attach-file" size={20} color={colors.primary} /></TouchableOpacity>
           <TextInput value={question} onChangeText={setQuestion} placeholder={contextLoading ? "يُجهّز نطاق البيانات…" : "اكتب سؤالك هنا"} placeholderTextColor={colors.muted} multiline maxLength={3000} editable={!contextLoading && !isStreaming} style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.foreground }]} textAlign="right" onSubmitEditing={() => void sendMessage()} />
           <TouchableOpacity accessibilityRole="button" accessibilityLabel="إرسال الرسالة" style={[styles.sendButton, { backgroundColor: colors.primary }, (isStreaming || !question.trim()) && styles.disabled]} onPress={() => void sendMessage()} disabled={contextLoading || isStreaming} activeOpacity={0.8}><MaterialIcons name="send" size={21} color="#fff" /></TouchableOpacity>
         </View>
-      </View></View>
+      </View></Animated.View>
 
       <Modal visible={drawerVisible} transparent animationType="fade" statusBarTranslucent={false} navigationBarTranslucent={false} onRequestClose={() => setDrawerVisible(false)}>
         <SafeAreaView edges={["top", "bottom"]} style={styles.drawerModalSafeArea}>

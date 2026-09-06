@@ -93,10 +93,12 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain("removeClippedSubviews={false}");
         expect(moduleSource).toContain("composerFloating");
     expect(moduleSource).toContain("KeyboardAvoidingView");
-    expect(moduleSource).toContain('behavior={Platform.OS === "ios" ? "padding" : "height"}');
+    expect(moduleSource).toContain('behavior={Platform.OS === "ios" ? "padding" : undefined}');
     expect(moduleSource).toContain("scrollToEnd({ animated: true })");
-    expect(moduleSource).not.toContain("translateY: -keyboardHeight");
-    expect(moduleSource).not.toContain("Keyboard.addListener");
+    expect(moduleSource).toContain("translateY: -keyboardHeight");
+    expect(moduleSource).toContain("Keyboard.addListener");
+    expect(moduleSource).toContain("keyboardDidShow");
+    expect(moduleSource).toContain("keyboardDidHide");
     expect(moduleSource).toContain('keyboardShouldPersistTaps="always"');
     expect(moduleSource).toContain('keyboardDismissMode="none"');
     expect(moduleSource).toContain("SafeAreaView");

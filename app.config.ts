@@ -56,7 +56,7 @@ const config: ExpoConfig = {
       foregroundImage: "./assets/images/android-icon-foreground.png",
     },
     predictiveBackGestureEnabled: false,
-    softwareKeyboardLayoutMode: "resize",
+    softwareKeyboardLayoutMode: "pan",
     package: env.androidPackage,
     permissions: ["POST_NOTIFICATIONS", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES", "CAMERA"],
     intentFilters: [
