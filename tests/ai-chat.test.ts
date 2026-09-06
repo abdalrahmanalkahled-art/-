@@ -39,7 +39,7 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(serverSource).toContain("models/${input.model}:generateContent");
     expect(serverSource).toContain('model: z.enum(["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"])');
     expect(serverSource).toContain("max(3000)");
-    expect(serverSource).toContain("max(30000)");
+    expect(serverSource).toContain("max(60000)");
     expect(serverSource).toContain("maxOutputTokens: 3000");
     expect(moduleSource).not.toContain("GEMINI_API_KEY");
     expect(moduleSource).toContain("loadAiModel");
@@ -94,7 +94,9 @@ describe("الحديث مع الذكاء الصناعي", () => {
         expect(moduleSource).toContain("composerFloating");
     expect(moduleSource).toContain("keyboardHeight");
     expect(moduleSource).toContain("Keyboard.addListener");
-    expect(moduleSource).toContain("translateY: -keyboardHeight");
+    expect(moduleSource).toContain('const composerKeyboardLift = Platform.OS === "ios" ? keyboardHeight : 0;');
+    expect(moduleSource).toContain("translateY: -composerKeyboardLift");
+    expect(moduleSource).toContain("softwareKeyboardLayoutMode=resize");
     expect(moduleSource).toContain('keyboardShouldPersistTaps="always"');
     expect(moduleSource).toContain('keyboardDismissMode="none"');
     expect(moduleSource).toContain("SafeAreaView");

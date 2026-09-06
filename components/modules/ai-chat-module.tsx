@@ -100,6 +100,9 @@ export default function AIChatModule() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  // Android يستخدم softwareKeyboardLayoutMode=resize، لذلك تكون مساحة التطبيق
+  // قد تقلصت بالفعل ولا يجوز رفع النافذة مرة ثانية بارتفاع لوحة المفاتيح.
+  const composerKeyboardLift = Platform.OS === "ios" ? keyboardHeight : 0;
   const messageListRef = useRef<FlatList<ChatMessage>>(null);
   const aiChatMutation = trpc.ai.chat.useMutation();
 
@@ -272,7 +275,7 @@ export default function AIChatModule() {
         </TouchableOpacity>
       </View>
 
-      <FlatList ref={messageListRef} data={messages} keyExtractor={(item) => item.id} style={styles.messages} contentContainerStyle={[styles.messagesContent, { paddingBottom: 8 + keyboardHeight + 92 }]} keyboardShouldPersistTaps="always" keyboardDismissMode="none" nestedScrollEnabled removeClippedSubviews={false} onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: true })} renderItem={({ item }) => (
+      <FlatList ref={messageListRef} data={messages} keyExtractor={(item) => item.id} style={styles.messages} contentContainerStyle={[styles.messagesContent, { paddingBottom: 8 + composerKeyboardLift + 92 }]} keyboardShouldPersistTaps="always" keyboardDismissMode="none" nestedScrollEnabled removeClippedSubviews={false} onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: true })} renderItem={({ item }) => (
         <View style={[styles.messageRow, item.role === "user" && styles.userRow]}>
           <View style={[styles.messageBubble, { backgroundColor: item.role === "user" ? colors.primary : colors.surface, borderColor: item.role === "user" ? colors.primary : colors.border }]}>
             {item.attachmentNames?.length ? <View style={styles.messageAttachments}>{item.attachmentNames.map((name) => <Text key={name} style={[styles.messageAttachment, { color: item.role === "user" ? "#fff" : colors.primary }]} numberOfLines={1}>📎 {name}</Text>)}</View> : null}
@@ -284,7 +287,7 @@ export default function AIChatModule() {
 
       {messages.length === 1 ? <View style={styles.quickPrompts}><Text style={[styles.quickTitle, { color: colors.muted }]}>أسئلة سريعة</Text><View style={styles.quickWrap}>{QUICK_PROMPTS.map((prompt) => <TouchableOpacity key={prompt} style={[styles.quickChip, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void sendMessage(prompt)} disabled={contextLoading || isStreaming} activeOpacity={0.75}><Text style={[styles.quickText, { color: colors.foreground }]}>{prompt}</Text></TouchableOpacity>)}</View></View> : null}
 
-      <Animated.View style={[styles.composerFloating, { transform: [{ translateY: -keyboardHeight }] }]}><View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.background }]}>
+      <Animated.View style={[styles.composerFloating, { transform: [{ translateY: -composerKeyboardLift }] }]}><View style={[styles.composer, { borderColor: colors.border, backgroundColor: colors.background }]}>
         {selectedFiles.length > 0 ? <View style={styles.fileStrip}>{selectedFiles.map((file) => <View key={`${file.uri}-${file.name}`} style={[styles.fileChip, { backgroundColor: colors.surface, borderColor: colors.border }]}><MaterialIcons name="insert-drive-file" size={16} color={colors.primary} /><Text style={[styles.fileName, { color: colors.foreground }]} numberOfLines={1}>{file.name}</Text><TouchableOpacity onPress={() => setSelectedFiles((current) => current.filter((item) => item.uri !== file.uri))} activeOpacity={0.75}><MaterialIcons name="close" size={15} color={colors.muted} /></TouchableOpacity></View>)}</View> : null}
         <View style={styles.composerRow}>
           <TouchableOpacity style={[styles.attachButton, { borderColor: colors.border, backgroundColor: colors.surface }]} onPress={() => void pickFiles()} disabled={contextLoading || isStreaming} activeOpacity={0.75}><MaterialIcons name="attach-file" size={20} color={colors.primary} /></TouchableOpacity>
