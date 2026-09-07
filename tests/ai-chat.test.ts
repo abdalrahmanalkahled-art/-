@@ -109,7 +109,7 @@ describe("الحديث مع الذكاء الصناعي", () => {
     expect(moduleSource).toContain("Share.share");
     expect(moduleSource).toContain("messageListRef.current?.scrollToEnd");
     expect(moduleSource).toContain("marginHorizontal: 12");
-    expect(moduleSource).toContain("maxHeight: 110");
+    expect(moduleSource).toContain("maxHeight: 120");
     expect(moduleSource).not.toContain("new AbortController()");
     expect(moduleSource).not.toContain("abortControllerRef");
     expect(moduleSource).not.toContain("إيقاف توليد الإجابة");
