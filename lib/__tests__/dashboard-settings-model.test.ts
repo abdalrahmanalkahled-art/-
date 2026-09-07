@@ -7,13 +7,13 @@ describe("تخصيص الشاشة الرئيسية", () => {
     expect(normalizeDashboardSettings({
       enabledSections: ["metrics", "charts", "metrics", "غير معروف"],
       enabledCharts: ["activity", "نشاط"],
-    })).toEqual({ enabledSections: ["metrics", "charts"], enabledCharts: ["activity"], enabledQuickActions: ["survey", "event", "store", "dailyReport"], presenceProductId: undefined });
+    })).toEqual({ enabledSections: ["metrics", "charts"], enabledCharts: ["activity"], enabledQuickActions: ["survey", "event", "store"], presenceProductId: undefined });
   });
 
   it("يعيد التخطيط الافتراضي عند فتح إعدادات قديمة لا تحوي تخصيص الرئيسية", () => {
     const settings = normalizeDashboardSettings({});
     expect(settings.enabledSections).toContain("dailyFocus");
     expect(settings.enabledCharts).toEqual(["presence", "activity"]);
-    expect(settings.enabledQuickActions).toEqual(["survey", "event", "store", "dailyReport"]);
+    expect(settings.enabledQuickActions).toEqual(["survey", "event", "store"]);
   });
 });

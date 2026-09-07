@@ -1,6 +1,6 @@
 export const DASHBOARD_SECTION_IDS = ["dailyFocus", "metrics", "charts", "alerts", "fieldPriority", "coverage", "quickActions", "goals", "activity"] as const;
 export const DASHBOARD_CHART_IDS = ["presence", "activity"] as const;
-export const DASHBOARD_QUICK_ACTION_IDS = ["survey", "event", "store", "dailyReport"] as const;
+export const DASHBOARD_QUICK_ACTION_IDS = ["survey", "event", "store"] as const;
 
 export type DashboardSectionId = (typeof DASHBOARD_SECTION_IDS)[number];
 export type DashboardChartId = (typeof DASHBOARD_CHART_IDS)[number];
@@ -16,7 +16,7 @@ export interface DashboardSettings {
 export const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
   enabledSections: ["dailyFocus", "metrics", "charts", "alerts", "fieldPriority", "coverage", "quickActions", "goals", "activity"],
   enabledCharts: ["presence", "activity"],
-  enabledQuickActions: ["survey", "event", "store", "dailyReport"],
+  enabledQuickActions: ["survey", "event", "store"],
 };
 
 function allowedValues<T extends readonly string[]>(values: unknown, allowed: T): T[number][] {

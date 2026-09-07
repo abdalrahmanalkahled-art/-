@@ -41,7 +41,6 @@ const QUICK_ACTION_OPTIONS: Option<DashboardQuickActionId>[] = [
   { id: "survey", title: "استبيان", subtitle: "بدء استبيان ميداني جديد", icon: "assignment-add", color: "#0E9F6E" },
   { id: "event", title: "فعالية", subtitle: "إضافة فعالية ميدانية", icon: "add-circle", color: "#2563EB" },
   { id: "store", title: "محل", subtitle: "إضافة محل جديد", icon: "storefront", color: "#7C3AED" },
-  { id: "dailyReport", title: "تقرير يومي", subtitle: "إنشاء تقرير نشاط اليوم", icon: "summarize", color: "#D97706" },
 ];
 
 interface DashboardCustomizationSheetProps {
